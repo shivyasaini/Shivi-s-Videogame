@@ -21,6 +21,7 @@ const world = {
   npcs: [],       // {x, y, name, kind}
   lores: [],      // {x, y, text} readable standing stones
   gateTiles: [],
+  dungeons: [],   // {x, y, id, name} first-person dungeon entrances
   playerSpawn: { x: 0, y: 0 },
   bossSpawn: { x: 0, y: 0 },
   village: { tx: 48, ty: 62 },
@@ -46,6 +47,7 @@ function genWorld() {
   world.npcs.length = 0;
   world.lores.length = 0;
   world.gateTiles.length = 0;
+  world.dungeons.length = 0;
   world.map.fill(T.GRASS);
 
   // --- mountains ring the edge of the world ---
@@ -147,6 +149,20 @@ function genWorld() {
   carvePath(V.tx + 3, V.ty, ruins[1].tx, ruins[1].ty + 5); // east ruin
   carvePath(V.tx, V.ty + 3, ruins[2].tx, ruins[2].ty + 5); // south ruin
 
+  // --- dungeon entrances: sunken stairways into the dark ---
+  const dungeonSpots = [
+    { tx: 22, ty: 38, id: 'barrow', name: 'the Barrow of the Pale Count' },
+    { tx: 58, ty: 80, id: 'ossuary', name: 'the Ossuary' },
+  ];
+  for (const ds of dungeonSpots) {
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++)
+        setT(ds.tx + dx, ds.ty + dy, T.GRASS);
+    setT(ds.tx, ds.ty, T.FLOOR);
+    world.decors.push({ x: px(ds.tx), y: px(ds.ty), kind: 'stairs' });
+    world.dungeons.push({ x: px(ds.tx), y: px(ds.ty), id: ds.id, name: ds.name });
+  }
+
   // --- lore stones ---
   addLore(34, 56, 'Here fell Ser Adric, who rode north and did not return. "The crown is cursed," they told him. He laughed.');
   addLore(62, 72, 'When the sun guttered out, King Maldrich swore he would buy it back with blood. The blood he spent was ours.');
@@ -193,6 +209,16 @@ function genWorld() {
     const ty = 30 + Math.floor(rng() * (MH - 36));
     if (getT(tx, ty) === T.GRASS && Math.hypot(tx - V.tx, ty - V.ty) > 10) {
       world.pickups.push({ x: px(tx), y: px(ty), type: 'gold', val: 4 + Math.floor(rng() * 6) });
+      placed++;
+    }
+  }
+  // quivers of arrows left by less fortunate travelers
+  placed = 0; guard = 0;
+  while (placed < 8 && guard++ < 4000) {
+    const tx = 6 + Math.floor(rng() * (MW - 12));
+    const ty = 28 + Math.floor(rng() * (MH - 34));
+    if (getT(tx, ty) === T.GRASS && Math.hypot(tx - V.tx, ty - V.ty) > 8) {
+      world.pickups.push({ x: px(tx), y: px(ty), type: 'arrows', val: 5 });
       placed++;
     }
   }

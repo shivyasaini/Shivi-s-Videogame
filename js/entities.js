@@ -8,6 +8,7 @@ function makePlayer(x, y) {
     face: -Math.PI / 2,        // facing angle (starts looking north)
     level: 1, xp: 0, xpNext: 40,
     gold: 0, potions: 1, sigils: 0,
+    arrows: 15, bowCd: 0,
     atkCd: 0, swing: 0, swingDir: 0,
     dodgeCd: 0, dodging: 0, dodgeDirX: 0, dodgeDirY: 0,
     inv: 0,                     // invulnerability time after a hit / dodge
@@ -32,6 +33,8 @@ function makeEnemy(x, y, type) {
     homeX: x, homeY: y,
     wanderT: 0, wx: 0, wy: 0,   // wander timer + direction
     touchCd: 0,                  // cooldown between contact hits
+    fireT: 1 + Math.random(),    // wraith shadow-bolt timer
+    volleyT: 2,                  // boss volley timer
     kx: 0, ky: 0,                // knockback velocity
     hurtT: 0,                    // hit-flash timer
     aggroed: false,
