@@ -30,6 +30,7 @@ Click **ENTER THE HOUSE**, and the game grabs your mouse.
 | `E` | Interact — doors, items, notes, hide in wardrobes |
 | `F` | Flashlight (light helps you see, but helps *him* see you) |
 | `Q` | Use a first aid kit |
+| `Tab` / `X` | Map of the house |
 | `P` / `Esc` | Pause |
 | `−` / `+` | Volume down / up |
 | `M` | Mute |

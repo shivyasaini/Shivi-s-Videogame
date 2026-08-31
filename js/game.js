@@ -213,6 +213,11 @@ const AU = {
     this.noise(0.7, 2400, 0.3, 0.5, 'highpass');
     this.tone(60, 0.9, 'sine', 0.5, 0, 38);
   },
+  slash() {
+    this.noise(0.22, 3400, 0.4, 0.7, 'highpass');
+    this.tone(950, 0.28, 'sawtooth', 0.16, rand(-0.4, 0.4), 180);
+    this.noise(0.3, 280, 0.4, 0.8, 'lowpass');
+  },
   heal() { this.tone(392, 0.3, 'sine', 0.12); this.tone(523, 0.45, 'sine', 0.1); },
   breath(vol) { this.noise(0.5, 700, vol, 0.6, 'bandpass'); },
   paper() { this.noise(0.25, 2000, 0.1, 0.7); },
@@ -580,15 +585,51 @@ function buildHouse() {
   wallBlood(cw(8) - 0.03 - 2, 1.1, cw(11), Math.PI / 2, 1.5);
 
   // scrawled warnings, written in something dark
-  const scrawlTex = (text) => canvasTex(256, 96, (g, w, h) => {
+  const scrawlTex = (text) => canvasTex(1024, 384, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.fillStyle = 'rgba(96,10,8,0.92)';
-    g.font = 'bold 34px Georgia';
+    const bloods = ['#6e0d08', '#7d1009', '#570a06', '#8a1a0c'];
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.save(); g.translate(w / 2, h / 2 - 8); g.rotate(rand(-0.05, 0.05));
-    g.fillText(text, 0, 0);
-    g.restore();
-    for (let i = 0; i < 14; i++) g.fillRect(rand(20, w - 20), h / 2 + rand(4, 14), 2, rand(6, 28));
+    const step = Math.min(72, (w - 120) / Math.max(1, text.length - 1));
+    // each letter dragged on by hand — uneven, layered, smeared
+    for (let i = 0; i < text.length; i++) {
+      const chx = w / 2 + (i - (text.length - 1) / 2) * step;
+      const chy = h * 0.4 + rand(-14, 14);
+      g.save();
+      g.translate(chx, chy);
+      g.rotate(rand(-0.16, 0.16));
+      g.scale(rand(0.85, 1.2), rand(0.9, 1.35));
+      g.font = 'bold 88px Georgia, serif';
+      for (let p = 0; p < 4; p++) {
+        g.fillStyle = bloods[(i + p) % 4];
+        g.globalAlpha = p === 0 ? 0.92 : rand(0.25, 0.5);
+        g.fillText(text[i], rand(-3.5, 3.5), rand(-3.5, 3.5));
+      }
+      g.globalAlpha = 1;
+      g.restore();
+      // finger-pull smear below some letters
+      if (Math.random() < 0.55) {
+        const gr = g.createLinearGradient(0, chy, 0, chy + 130);
+        gr.addColorStop(0, 'rgba(110,13,8,0.5)'); gr.addColorStop(1, 'rgba(110,13,8,0)');
+        g.fillStyle = gr;
+        g.fillRect(chx + rand(-18, 10), chy, rand(5, 15), rand(50, 130));
+      }
+    }
+    // heavy runs of blood with pooled ends
+    for (let i = 0; i < 16; i++) {
+      const x = rand(w * 0.08, w * 0.92), y = h * 0.4 + rand(20, 55);
+      const len = rand(35, 160), dw = rand(3, 8);
+      const gr = g.createLinearGradient(0, y, 0, y + len);
+      gr.addColorStop(0, 'rgba(110,12,8,0.85)'); gr.addColorStop(1, 'rgba(80,8,6,0.55)');
+      g.fillStyle = gr;
+      g.fillRect(x, y, dw, len);
+      g.fillStyle = 'rgba(90,10,7,0.8)';
+      g.beginPath(); g.arc(x + dw / 2, y + len, dw * 0.85, 0, 7); g.fill();
+    }
+    // spatter thrown around the words
+    for (let i = 0; i < 70; i++) {
+      g.fillStyle = 'rgba(' + (90 + rand(40) | 0) + ',12,8,' + rand(0.2, 0.7).toFixed(2) + ')';
+      g.beginPath(); g.arc(rand(w), h * 0.4 + rand(-80, 100), rand(1, 5), 0, 7); g.fill();
+    }
   });
   const scrawl = (text, x, y, z, ry, sw = 2.4) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(sw, sw * 0.375),
@@ -952,6 +993,7 @@ function buildItems() {
   mk(cw(1) + 0.1, 1.02, cw(9.4));
   mk(cw(11.5) + 0.9, 0.84, cw(2.5));
   mk(cw(24.5), 0.98, 9 * CELL + 0.42);
+  mk(cw(16.3), 1.0, cw(12.8));
   // the note that explains the way out
   const n = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), MAT.paper);
   n.rotation.x = -Math.PI / 2; n.rotation.z = rand(7);
@@ -1110,7 +1152,7 @@ function killerUpdate(dt) {
   // detection meter (forgiving: he needs a moment to be sure)
   if (K.state !== 'chase') {
     if (sees) {
-      let rate = 0.55 + (1 - clamp(d / 16, 0, 1)) * 1.5;
+      let rate = 0.45 + (1 - clamp(d / 16, 0, 1)) * 1.35;
       if (player.crouch) rate *= 0.55;
       if (!player.moving) rate *= 0.7;
       if (d < 3.2) rate = 4;
@@ -1162,7 +1204,7 @@ function killerUpdate(dt) {
       setPath(Math.floor(K.x / CELL) + Math.round(rand(-3, 3)), Math.floor(K.z / CELL) + Math.round(rand(-3, 3)));
     if (K.searchT <= 0) { K.state = 'patrol'; K.path = null; K.detect = 0.3; caption('The footsteps fade. He has moved on — for now.', 3.5); }
   } else if (K.state === 'chase') {
-    speed = 3.55;
+    speed = 3.4;
     if (sees || d < 3) { K.lastSeen = { x: player.x, z: player.z }; K.loseT = 0; } else K.loseT += dt;
     if (K.bust) {
       const bd = dist2(K.x, K.z, K.bust.frontX, K.bust.frontZ);
@@ -1183,7 +1225,7 @@ function killerUpdate(dt) {
       if (!K.path || K.repathT <= 0) { setPath(Math.floor(K.lastSeen.x / CELL), Math.floor(K.lastSeen.z / CELL)); K.repathT = 0.7; }
       if (killerMove(dt, speed) && !sees) { K.state = 'search'; K.searchT = 7; K.path = null; K.detect = 0.4; }
     }
-    if (K.loseT > 6 && d > 9) { K.state = 'search'; K.searchT = 7; K.path = null; K.bust = null; K.detect = 0.4; }
+    if (K.loseT > 5 && d > 8) { K.state = 'search'; K.searchT = 6; K.path = null; K.bust = null; K.detect = 0.4; }
     if (!player.dead && !player.hidden && d < 1.5 && K.attackCd <= 0 && K.attackT < 0) { K.attackT = 0; K.attackCd = 1.7; }
     K.tauntT -= dt;
     if (K.tauntT <= 0) { K.tauntT = rand(5, 9); AU.growl(panTo(K), 0.3); caption(TAUNTS[Math.floor(rand(TAUNTS.length))], 3); }
@@ -1305,7 +1347,7 @@ function playerUpdate(dt) {
   const mag = Math.hypot(ix, iz) || 1; ix /= mag; iz /= mag;
   const wantSprint = (keys.ShiftLeft || keys.ShiftRight) && (ix !== 0 || iz !== 0) && player.stamina > 1 && !player.crouch;
   const speed = player.crouch ? 1.5 : wantSprint ? 4.9 : 2.75;
-  if (wantSprint) { player.stamina = Math.max(0, player.stamina - 15 * dt); player.sinceSprint = 0; }
+  if (wantSprint) { player.stamina = Math.max(0, player.stamina - 13 * dt); player.sinceSprint = 0; }
   else { player.sinceSprint += dt; if (player.sinceSprint > 0.7) player.stamina = Math.min(100, player.stamina + 13 * dt); }
   const k = clamp(dt * 10, 0, 1);
   player.vx = lerp(player.vx, (f[0] * iz + r[0] * ix) * speed, k);
@@ -1321,7 +1363,7 @@ function playerUpdate(dt) {
     AU.step(player.crouch ? 0.05 : wantSprint ? 0.22 : 0.12, rand(0.9, 1.1));
     noiseEvent(player.x, player.z, player.crouch ? 2.2 : wantSprint ? 11 : 5.5);
   }
-  if (player.sinceDmg > 7 && player.health < 50) { player.health = Math.min(50, player.health + 3.5 * dt); updateHud(); }
+  if (player.sinceDmg > 6 && player.health < 60) { player.health = Math.min(60, player.health + 4 * dt); updateHud(); }
   player.bobT += spd * dt * 1.6;
   player.eye = lerp(player.eye, player.crouch ? 1.02 : 1.62, clamp(dt * 8, 0, 1));
   const bobAmp = clamp(spd / 3, 0, 1);
@@ -1395,10 +1437,12 @@ function damagePlayer(dmg, from) {
   updateHud();
   if (player.health <= 0) die();
 }
-let dieT = 0;
+let dieT = 0, dieSl = 0;
 function die() {
-  player.dead = true; state = 'dying'; deaths++; dieT = 0;
-  showScare(0.75);
+  player.dead = true; state = 'dying'; deaths++; dieT = 0; dieSl = 0;
+  clearKillFx();
+  if (mapOpen) toggleMap();
+  showScare(0.45);
   AU.sting(); AU.growl(0, 0.5);
   if (document.exitPointerLock) document.exitPointerLock();
 }
@@ -1412,6 +1456,8 @@ function respawn() {
   camera.rotation.z = 0;
   killer.x = cw(17); killer.z = cw(2); killer.state = 'patrol'; killer.path = null;
   killer.detect = 0; killer.grace = 6; killer.bust = null; killer.attackT = -1; killer.struck = false;
+  clearKillFx();
+  $('damageFlash').style.opacity = 0;
   hideOverlays(); state = 'play'; lockPointer();
   caption('You wake on the bedroom floor again. He carried you back. He wants to play.', 4.5);
   updateHud();
@@ -1519,7 +1565,7 @@ function showOverlay(id) {
 function hideOverlays() { for (const o of OVERLAYS) $(o).classList.remove('show'); }
 
 /* --------------------------------------------------------------- ambience */
-let L = 0, lightningT = 5, hbT = 0;
+let L = 0, lightningT = 5, hbT = 0, ambT = 18, brT = 0;
 function ambience(dt) {
   lightningT -= dt;
   if (lightningT <= 0) {
@@ -1539,6 +1585,28 @@ function ambience(dt) {
   const d = dist2(killer.x, killer.z, player.x, player.z);
   const chase = killer.state === 'chase';
   const near = clamp(1 - d / 13, 0, 1);
+  // the house is never quiet
+  ambT -= dt;
+  if (ambT <= 0 && state === 'play') {
+    ambT = rand(16, 34);
+    const roll = Math.random();
+    if (roll < 0.4) {
+      AU.noise(0.15, 120, 0.22, 1, 'lowpass', rand(-1, 1));
+      setTimeout(() => AU.noise(0.15, 95, 0.18, 1, 'lowpass', rand(-1, 1)), rand(300, 700));
+    } else if (roll < 0.7) {
+      AU.creak(rand(-1, 1));
+    } else {
+      // somewhere far away, a door drifts open on its own
+      const cands = doors.filter((dd) => !dd.locked && dd.open < 0.3 && dist2(player.x, player.z, dd.cx, dd.cz) > 10);
+      if (cands.length) { const dd = cands[(Math.random() * cands.length) | 0]; dd.target = 1; AU.creak(panTo(dd)); }
+      else AU.creak(rand(-1, 1));
+    }
+  }
+  // his breathing, when he is close and you are not yet caught
+  if (d < 8 && !chase) {
+    brT -= dt;
+    if (brT <= 0) { brT = 1.7; AU.breath(0.05 + (1 - d / 8) * 0.06); }
+  }
   $('dangerVig').style.opacity = ((chase ? 0.55 : 0.35) * near + (chase ? 0.15 : 0)).toFixed(3);
   hbT -= dt;
   if ((near > 0.12 || chase) && hbT <= 0) {
@@ -1553,6 +1621,128 @@ function ambience(dt) {
     it.mesh.rotation.y += dt * 1.4;
     it.mesh.position.y = it.y + Math.sin(perfT * 2 + it.x) * 0.03;
   }
+}
+
+/* ---------------------------------------------------- kill animation (fx) */
+const KFX = { slashes: [], drips: [] };
+function killSlash() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const a = rand(-0.9, 0.9);
+  const cx = W / 2 + rand(-W * 0.15, W * 0.15), cy = H / 2 + rand(-H * 0.12, H * 0.12);
+  const len = Math.max(W, H) * 0.8;
+  let dx = Math.cos(a), dy = Math.sin(a) + rand(0.45, 0.95);
+  const n = Math.hypot(dx, dy); dx /= n; dy /= n;
+  const s = { x1: cx - dx * len / 2, y1: cy - dy * len / 2, x2: cx + dx * len / 2, y2: cy + dy * len / 2, born: perfT, jags: [] };
+  for (let i = 0; i <= 14; i++) s.jags.push(rand(-9, 9));
+  KFX.slashes.push(s);
+  for (let i = 0; i < 16; i++) {
+    const t = rand();
+    KFX.drips.push({ x: lerp(s.x1, s.x2, t) + rand(-14, 14), y: lerp(s.y1, s.y2, t) + rand(12), len: 0, speed: rand(30, 170), w: rand(1.5, 4.5) });
+  }
+  AU.slash();
+}
+function drawKillFx(dt) {
+  const c = $('killfx');
+  if (c.width !== window.innerWidth || c.height !== window.innerHeight) { c.width = window.innerWidth; c.height = window.innerHeight; }
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, c.width, c.height);
+  for (const s of KFX.slashes) {
+    const wCore = 10 * Math.min(1, (perfT - s.born) * 8) + 2;
+    for (const layer of [['#3d0202', wCore + 9], ['#8e0e08', wCore], ['#c2372a', wCore * 0.35]]) {
+      g.strokeStyle = layer[0]; g.lineWidth = layer[1]; g.lineCap = 'round';
+      g.beginPath();
+      for (let i = 0; i <= 14; i++) {
+        const t = i / 14;
+        const x = lerp(s.x1, s.x2, t) + s.jags[i], y = lerp(s.y1, s.y2, t) + s.jags[i] * 0.6;
+        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+  }
+  g.fillStyle = '#7d0b06';
+  for (const d of KFX.drips) {
+    d.len += d.speed * dt;
+    g.fillRect(d.x, d.y, d.w, d.len);
+    g.beginPath(); g.arc(d.x + d.w / 2, d.y + d.len, d.w * 0.9, 0, 7); g.fill();
+  }
+}
+function clearKillFx() {
+  KFX.slashes.length = 0; KFX.drips.length = 0;
+  const c = $('killfx');
+  c.getContext('2d').clearRect(0, 0, c.width, c.height);
+}
+
+/* -------------------------------------------------------------- house map */
+let mapOpen = false;
+const MAPICONS = { wolf: '🐺', owl: '🦉', serpent: '🐍', rusty: '🗝️' };
+function toggleMap() {
+  mapOpen = !mapOpen;
+  $('mapOv').classList.toggle('show', mapOpen);
+  AU.paper();
+}
+function drawMap() {
+  const c = $('mapCanvas');
+  const S = 30;
+  if (c.width !== GW * S) { c.width = GW * S; c.height = GH * S; }
+  const g = c.getContext('2d');
+  g.fillStyle = '#141008'; g.fillRect(0, 0, c.width, c.height);
+  for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++) {
+    const ch = cellAt(x, z);
+    if (ch === '#') g.fillStyle = '#3d2e1c';
+    else if (ch === 'F') g.fillStyle = '#5a1410';
+    else if (ch === '+') g.fillStyle = '#33271a';
+    else g.fillStyle = '#221a10';
+    g.fillRect(x * S, z * S, S, S);
+  }
+  g.textAlign = 'center';
+  g.fillStyle = 'rgba(158,64,44,0.8)';
+  g.font = "12px 'Special Elite', Georgia, serif";
+  for (const k in ROOMS) {
+    const r = ROOMS[k];
+    g.fillText(r.name.toUpperCase(), (r.x0 + r.x1 + 1) / 2 * S, (r.z0 + r.z1 + 1) / 2 * S - 10);
+  }
+  const MX = (wx) => wx / CELL * S, MZ = (wz) => wz / CELL * S;
+  // hiding places
+  for (const h of hideSpots) {
+    g.fillStyle = '#6b4a26';
+    g.fillRect(MX(h.x) - 8, MZ(h.z) - 8, 16, 16);
+    g.strokeStyle = '#c8a76a'; g.lineWidth = 1.5;
+    g.strokeRect(MX(h.x) - 8, MZ(h.z) - 8, 16, 16);
+    g.fillStyle = '#e8d9b0'; g.font = 'bold 9px Georgia';
+    g.fillText('HIDE', MX(h.x), MZ(h.z) + 20);
+  }
+  // items still out there
+  for (const it of itemMeshes) {
+    if (it.taken) continue;
+    if (it.id && it.id.indexOf('med') === 0) {
+      g.fillStyle = '#c04030'; g.font = 'bold 17px Georgia';
+      g.fillText('✚', MX(it.x), MZ(it.z) + 6);
+    } else if (MAPICONS[it.id]) {
+      g.font = '19px serif';
+      g.fillText(MAPICONS[it.id], MX(it.x), MZ(it.z) + 7);
+    }
+  }
+  if (!noteRead) { g.font = '16px serif'; g.fillText('📜', MX(cw(3.6)), MZ(cw(9.4)) + 6); }
+  // the way out
+  g.fillStyle = '#d84a35'; g.font = "bold 13px 'Special Elite', Georgia, serif";
+  g.fillText('EXIT ⇩', 14 * S, 14.7 * S);
+  // him — only when he is close enough to hear
+  const kd = dist2(killer.x, killer.z, player.x, player.z);
+  if (kd < 16) {
+    const pulse = 4.5 + Math.sin(perfT * 6) * 1.5;
+    g.fillStyle = '#e0281a';
+    g.beginPath(); g.arc(MX(killer.x), MZ(killer.z), pulse, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(224,40,26,0.4)'; g.lineWidth = 2;
+    g.beginPath(); g.arc(MX(killer.x), MZ(killer.z), pulse + 5, 0, 7); g.stroke();
+  }
+  // you
+  g.save();
+  g.translate(MX(player.x), MZ(player.z));
+  g.rotate(-player.yaw);
+  g.fillStyle = '#efe6d2'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(0, -9); g.lineTo(6.5, 7); g.lineTo(-6.5, 7); g.closePath();
+  g.fill(); g.stroke();
+  g.restore();
 }
 
 /* ------------------------------------------------------------- jumpscares */
@@ -1665,6 +1855,8 @@ function applyVolume() {
 }
 addEventListener('keydown', (e) => {
   keys[e.code] = true;
+  if (e.code === 'Tab') e.preventDefault();
+  if (state === 'play' && (e.code === 'Tab' || e.code === 'KeyX')) { toggleMap(); return; }
   if (e.code === 'Minus' || e.code === 'NumpadSubtract') { volume = Math.max(0, Math.round((volume - 0.1) * 10) / 10); muted = false; applyVolume(); return; }
   if (e.code === 'Equal' || e.code === 'NumpadAdd') { volume = Math.min(1, Math.round((volume + 0.1) * 10) / 10); muted = false; applyVolume(); return; }
   if (e.code === 'KeyM') { muted = !muted; applyVolume(); return; }
@@ -1686,7 +1878,7 @@ addEventListener('keydown', (e) => {
     player.crouch = !player.crouch;
   } else if (e.code === 'KeyQ' || e.code === 'KeyH') {
     if (INV.medkits > 0 && player.health < 99) {
-      INV.medkits--; player.health = Math.min(100, player.health + 65);
+      INV.medkits--; player.health = Math.min(100, player.health + 75);
       AU.heal(); toast('You patch yourself up.'); updateHud();
     }
   } else if (e.code === 'KeyP') {
@@ -1725,8 +1917,25 @@ function loop(t) {
       killerUpdate(dt);
       scareChecks();
       currentInteract = scanInteract();
+      if (mapOpen) drawMap();
     } else {
       dieT += dt;
+      // he looms in over you, hacking
+      const kd = dist2(killer.x, killer.z, player.x, player.z);
+      if (kd > 1.0) {
+        killer.x += (player.x - killer.x) / kd * 1.7 * dt;
+        killer.z += (player.z - killer.z) / kd * 1.7 * dt;
+        killer.walkPhase += 3 * dt;
+      }
+      killer.yaw = Math.atan2(player.x - killer.x, player.z - killer.z);
+      killer.grp.position.set(killer.x, 0, killer.z);
+      killer.grp.rotation.y = killer.yaw;
+      killer.rArm.rotation.x = -1.3 + Math.sin(perfT * 9) * 1.0;
+      // the cleaver comes down, again and again
+      if (dieT > 0.25 && dieSl < 1) { dieSl = 1; killSlash(); }
+      if (dieT > 0.65 && dieSl < 2) { dieSl = 2; killSlash(); }
+      if (dieT > 1.05 && dieSl < 3) { dieSl = 3; killSlash(); }
+      if (dieT > 1.6) $('damageFlash').style.opacity = Math.min(1, (dieT - 1.6) * 1.3);
       player.eye = lerp(player.eye, 0.4, clamp(dt * 3, 0, 1));
       const dx = killer.x - player.x, dz = killer.z - player.z;
       player.yaw = angLerp(player.yaw, Math.atan2(-dx, -dz), clamp(dt * 4, 0, 1));
@@ -1735,7 +1944,12 @@ function loop(t) {
       camera.rotation.y = player.yaw;
       camera.rotation.x = lerp(camera.rotation.x, 0.15, clamp(dt * 3, 0, 1));
       camera.rotation.z = lerp(camera.rotation.z, 0.55, clamp(dt * 3, 0, 1));
-      if (dieT > 1.7) { state = 'dead'; showOverlay('deathOv'); }
+      drawKillFx(dt);
+      if (dieT > 2.7) {
+        state = 'dead'; showOverlay('deathOv');
+        $('damageFlash').style.opacity = 0;
+        clearKillFx();
+      }
     }
     ambience(dt);
     $('stamFill').style.width = player.stamina + '%';

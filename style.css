@@ -49,6 +49,31 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
   .shake, #scare.shake #scareCanvas { animation: none; }
 }
 
+#killfx { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
+
+#mapOv {
+  position: fixed; inset: 0; z-index: 15; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(2, 1, 1, 0.84); pointer-events: none;
+}
+#mapOv.show { display: flex; }
+#mapCard {
+  background: #151009; border: 2px solid #5a2018;
+  box-shadow: 0 0 60px rgba(120, 20, 10, 0.35);
+  padding: 14px 20px 12px;
+}
+#mapTitle {
+  font-family: 'Special Elite', Georgia, serif;
+  color: #a4392c; letter-spacing: 2px; font-size: 14px;
+  text-align: center; margin-bottom: 10px;
+}
+#mapCanvas { display: block; width: min(80vw, 1000px, 140vh); }
+#mapLegend {
+  margin-top: 9px; text-align: center; font-size: 12px;
+  color: #9a8a74; max-width: min(80vw, 1000px); line-height: 1.6;
+}
+#mapLegend .redDot { color: #e0281a; }
+
 /* HUD */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 8; }
 #objBox {
