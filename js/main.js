@@ -148,11 +148,11 @@ function update(dt) {
   shake = Math.max(0, shake - dt * 30);
 
   if (state === 'title') {
-    if (pressed['enter']) { newGame(); state = 'play'; }
+    if (pressed['enter'] || mouseClicked) { newGame(); state = 'play'; }
     return;
   }
   if (state === 'dead') {
-    if (pressed['enter']) {
+    if (pressed['enter'] || mouseClicked) {
       player.hp = player.maxHp;
       player.gold = Math.floor(player.gold * 0.8);
       player.x = world.playerSpawn.x;
