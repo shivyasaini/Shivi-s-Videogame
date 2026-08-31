@@ -23,7 +23,8 @@ Click **ENTER THE HOUSE**, and the game grabs your mouse.
 | Key | Action |
 | --- | --- |
 | `WASD` / arrows | Move |
-| Mouse | Look |
+| Mouse or `←` `→` | Look / turn |
+| `↑` `↓` | Walk |
 | `Shift` | Sprint (drains stamina, makes noise!) |
 | `C` | Crouch (quiet + harder to spot) |
 | `E` | Interact — doors, items, notes, hide in wardrobes |
