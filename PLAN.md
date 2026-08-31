@@ -1,3 +1,7 @@
+> **Note:** the project has since pivoted to **Emberfall**, a dark fantasy
+> knight RPG — see [README.md](README.md). This plan is kept as a reference for
+> the earlier Nebula Drift concept; its build-phase structure still applies.
+
 # Nebula Drift — Game Plan
 
 A browser arcade game about a tiny bioluminescent space jellyfish drifting through
