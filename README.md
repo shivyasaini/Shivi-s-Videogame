@@ -42,6 +42,13 @@ You wake in a guest bedroom. The front door is sealed by three emblems —
 behind a locked bathroom door; the rusty key is on the fireplace mantel.
 Slot all three into the front door in the foyer and escape.
 
+## The other tenants
+
+You are not alone in there with him. An old woman rocks at the dining table,
+humming to plates of rotten food — she is harmless, as long as you don't
+count the way she looks at you. And in a corner of the living room stands a
+woman in a nightgown, whispering to the wall. **Do not go near her.**
+
 ## The Butcher
 
 - He **patrols** the whole house, and periodically sweeps toward wherever you are.

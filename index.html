@@ -23,6 +23,7 @@
       <canvas id="mapCanvas"></canvas>
       <div id="mapLegend">🐺 🦉 🐍 emblems · 🗝️ key · ✚ first aid · 📜 note ·
         brown squares = places to HIDE · ▲ you · <span class="redDot">●</span> him, when he's close ·
+        👵 harmless, probably · <span class="warnMark">⚠</span> do NOT go near her ·
         TAB closes the map</div>
     </div>
   </div>
@@ -31,6 +32,15 @@
     <div id="objBox">
       <div id="objTitle">OBJECTIVE</div>
       <div id="objText">Wake up.</div>
+    </div>
+    <div id="ctrlPanel">
+      <b>CONTROLS</b>
+      <div><span>WASD / ↑↓</span> move</div>
+      <div><span>Mouse / ← →</span> look</div>
+      <div><span>SHIFT</span> run · <span>C</span> crouch</div>
+      <div><span>E</span> use / hide</div>
+      <div><span>F</span> light · <span>Q</span> heal</div>
+      <div><span>TAB</span> map · <span>P</span> pause</div>
     </div>
     <div id="bars">
       <div class="barwrap"><div class="bar"><div id="healthFill"></div></div><span class="barlabel">HEALTH</span></div>
@@ -78,8 +88,8 @@
   </div>
 
   <div id="deathOv" class="overlay red">
-    <h1>HE FOUND YOU</h1>
-    <p class="story">Everything goes dark… but he isn't done playing with you yet.</p>
+    <h1 id="deathTitle">HE FOUND YOU</h1>
+    <p class="story" id="deathText">Everything goes dark… but he isn't done playing with you yet.</p>
     <button id="retryBtn">WAKE UP AGAIN</button>
   </div>
 

@@ -73,6 +73,21 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
   color: #9a8a74; max-width: min(80vw, 1000px); line-height: 1.6;
 }
 #mapLegend .redDot { color: #e0281a; }
+#mapLegend .warnMark { color: #e0a020; }
+
+#ctrlPanel {
+  position: absolute; top: 18px; right: 22px;
+  text-align: right; font-size: 11px; line-height: 1.75;
+  color: rgba(200, 190, 170, 0.55);
+  background: rgba(5, 4, 3, 0.45);
+  padding: 8px 14px; border-right: 3px solid rgba(122, 42, 38, 0.6);
+}
+#ctrlPanel b {
+  display: block; font-family: 'Special Elite', Georgia, serif;
+  font-weight: normal; font-size: 9px; letter-spacing: 3px;
+  color: #9c342c; margin-bottom: 3px;
+}
+#ctrlPanel span { color: rgba(232, 222, 198, 0.85); }
 
 /* HUD */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 8; }

@@ -218,6 +218,23 @@ const AU = {
     this.tone(950, 0.28, 'sawtooth', 0.16, rand(-0.4, 0.4), 180);
     this.noise(0.3, 280, 0.4, 0.8, 'lowpass');
   },
+  hum(f, pan, vol) { this.tone(f, 0.85, 'sine', vol, pan); this.tone(f * 1.007, 0.85, 'sine', vol * 0.6, pan); },
+  whisper(pan = 0) {
+    for (let i = 0; i < 3; i++)
+      setTimeout(() => this.noise(0.18, 1600, 0.06, 0.5, 'bandpass', clamp(pan + rand(-0.2, 0.2), -1, 1)), i * (120 + rand(140)));
+  },
+  screech() {
+    for (const f of [1150, 1190, 1480]) this.tone(f, 0.7, 'sawtooth', 0.13, rand(-0.3, 0.3), f * 1.8);
+    this.noise(0.6, 3000, 0.25, 0.6, 'highpass');
+  },
+  crack() {
+    this.noise(0.06, 1800, 0.5, 2); this.tone(95, 0.18, 'sine', 0.5, 0, 55);
+    setTimeout(() => { this.noise(0.05, 1400, 0.4, 2); this.tone(80, 0.15, 'sine', 0.4, 0, 50); }, 140);
+  },
+  buzz(vol, pan) {
+    this.tone(165 + rand(45), 0.6, 'sawtooth', vol, pan, 210 + rand(60));
+    this.tone(84, 0.5, 'sawtooth', vol * 0.5, pan);
+  },
   heal() { this.tone(392, 0.3, 'sine', 0.12); this.tone(523, 0.45, 'sine', 0.1); },
   breath(vol) { this.noise(0.5, 700, vol, 0.6, 'bandpass'); },
   paper() { this.noise(0.25, 2000, 0.1, 0.7); },
@@ -371,6 +388,14 @@ function buildTextures() {
       g.fillStyle = 'rgba(' + (70 + rand(40) | 0) + ',8,8,' + rand(0.25, 0.7).toFixed(2) + ')';
       g.beginPath(); g.arc(rand(w), rand(h), rand(2, 9), 0, 7); g.fill();
     }
+  });
+  TEX.rot = canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = '#4a4526'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 30; i++) {
+      g.fillStyle = ['rgba(90,90,40,0.5)', 'rgba(50,60,25,0.6)', 'rgba(30,25,12,0.6)', 'rgba(120,110,70,0.35)'][i % 4];
+      g.beginPath(); g.arc(rand(w), rand(h), rand(2, 8), 0, 7); g.fill();
+    }
+    for (let i = 0; i < 12; i++) { g.fillStyle = 'rgba(220,215,190,0.7)'; g.fillRect(rand(w), rand(h), 2, 1); }
   });
   TEX.web = canvasTex(128, 128, (g, w, h) => {
     g.clearRect(0, 0, w, h);
@@ -858,13 +883,40 @@ function buildFurniture() {
   for (let i = 0; i < 4; i++) {
     const kn = box(0.05, 0.4, 0.02, M); put(kn, cw(2) + i * 0.35, 1.7, CELL + 0.05);
   }
+  // a stove left mid-meal, weeks ago
+  const rotK = new THREE.MeshStandardMaterial({ map: TEX.rot, roughness: 1 });
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.16, 12), M);
+  pot.position.set(cw(4.2), 1.04, CELL + 0.42); pot.castShadow = true; scene.add(pot);
+  const goo = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.03, 12), rotK);
+  goo.position.set(cw(4.2), 1.12, CELL + 0.42); scene.add(goo);
+  for (let i = 0; i < 4; i++) {
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 10), W);
+    dish.position.set(cw(5.2) + rand(-0.03, 0.03), 0.97 + i * 0.026, CELL + 0.4 + rand(-0.03, 0.03));
+    scene.add(dish);
+  }
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.2), rotK);
+  slab.position.set(cw(2.6), 0.99, CELL + 0.42); slab.castShadow = true; scene.add(slab);
 
   // --- dining room
   table(cw(11.5), cw(2.5), 3.4, 1.3); blockCell(10, 2); blockCell(11, 2); blockCell(12, 2); blockCell(11, 3);
   chair(cw(10.3), cw(3.5)); chair(cw(11.6), cw(3.5)); chair(cw(12.8), cw(3.5));
   chair(cw(10.3), cw(1.6), Math.PI); chair(cw(12.8), cw(1.6), Math.PI);
-  // place settings for guests who never left
-  for (let i = 0; i < 3; i++) put(box(0.26, 0.03, 0.26, W), cw(10.3) + i * 1.25, 0.85, cw(2.5), rand(0.5), false);
+  // a feast that rotted where it was served
+  const rotM = new THREE.MeshStandardMaterial({ map: TEX.rot, roughness: 1 });
+  for (let i = 0; i < 3; i++) {
+    const px = cw(11.2) + i * 1.1;
+    put(box(0.28, 0.03, 0.28, W), px, 0.85, cw(2.5), rand(0.5), false);
+    const lump = new THREE.Mesh(new THREE.SphereGeometry(rand(0.07, 0.11), 7, 6), rotM);
+    lump.scale.y = 0.55;
+    lump.position.set(px + rand(-0.04, 0.04), 0.89, cw(2.5) + rand(-0.05, 0.05));
+    lump.castShadow = true; scene.add(lump);
+  }
+  put(box(0.55, 0.05, 0.34, M), cw(11.5), 0.85, cw(2.5) - 0.1, 0.2, false);
+  const roast = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 7), rotM);
+  roast.scale.set(1.4, 0.75, 1);
+  roast.position.set(cw(11.5), 0.93, cw(2.5) - 0.1);
+  roast.castShadow = true; scene.add(roast);
+  for (let i = 0; i < 2; i++) put(box(0.03, 0.03, 0.22, W), cw(11.5) + rand(-0.25, 0.25), 0.89, cw(2.5) + rand(-0.18, 0.05), rand(1.5), false);
 
   // --- living room
   sofa(cw(18.5), cw(3.4), Math.PI); blockCell(18, 3); blockCell(19, 3);
@@ -926,6 +978,43 @@ function buildFurniture() {
   const mound = box(1.7, 0.5, 0.7, new THREE.MeshStandardMaterial({ map: TEX.apron, roughness: 1 }));
   put(mound, cw(24), 0.25, cw(13.4), 0.3);
   addCollider(cw(24), cw(13.4), 1.8, 1.0);
+}
+
+/* ------------------------------------------------------------------ flies */
+const flySwarms = [];
+function buildFlies() {
+  const mat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+  const spots = [
+    [cw(11.5), 1.05, cw(2.5)],        // the rotted feast
+    [cw(4.2), 1.25, CELL + 0.45],     // the kitchen pot
+    [cw(24), 0.75, cw(13.4)],         // the sheeted mound
+    [cw(10.4), 0.85, cw(12.7)],       // the bathtub
+  ];
+  for (const [x, y, z] of spots) {
+    const grp = new THREE.Group();
+    const flies = [];
+    for (let i = 0; i < 6; i++) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 0.025), mat);
+      grp.add(f);
+      flies.push({ m: f, p: rand(7), r: rand(0.12, 0.4), h: rand(-0.08, 0.28), s: rand(3, 7), w: rand(2, 5) });
+    }
+    grp.position.set(x, y, z);
+    scene.add(grp);
+    flySwarms.push({ x, y, z, flies });
+  }
+}
+function updateFlies(dt) {
+  for (const sw of flySwarms) {
+    if (dist2(player.x, player.z, sw.x, sw.z) > 14) continue;
+    for (const f of sw.flies) {
+      f.p += dt * f.s;
+      f.m.position.set(
+        Math.cos(f.p) * f.r + Math.sin(f.p * f.w) * 0.05,
+        f.h + Math.sin(f.p * 1.7) * 0.1,
+        Math.sin(f.p * 0.9) * f.r
+      );
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ items */
@@ -1086,6 +1175,103 @@ function buildKiller() {
   scene.add(g);
   killer.grp = g;
 }
+/* ------------------------------------------------------- the other tenants */
+const NPCS = {};
+const npcSeen = { granny: false, grannyStare: false, wife: false };
+// a slow, wandering little tune with no ending
+const HUM = [330, 311, 262, 294, 330, 262, 247, 262, 220, 247, 262, 294];
+function buildNpcs() {
+  // — the old woman, rocking at the dining table —
+  const g = new THREE.Group();
+  const dress = new THREE.MeshStandardMaterial({ color: 0x27242e, roughness: 1 });
+  const oskin = new THREE.MeshStandardMaterial({ color: 0xbfa48c, roughness: 0.9 });
+  const gray = new THREE.MeshStandardMaterial({ color: 0xd8d4cc, roughness: 1 });
+  const lap = box(0.5, 0.36, 0.5, dress); lap.position.set(0, 0.55, 0.12); g.add(lap);
+  const torso = box(0.46, 0.55, 0.3, dress); torso.position.set(0, 1.0, -0.05); torso.rotation.x = 0.18; g.add(torso);
+  const shawl = box(0.52, 0.2, 0.34, new THREE.MeshStandardMaterial({ color: 0x5c4a33, roughness: 1 }));
+  shawl.position.set(0, 1.22, -0.05); g.add(shawl);
+  const gHead = new THREE.Group(); gHead.position.set(0, 1.42, 0.02); g.add(gHead);
+  const ghead = box(0.24, 0.26, 0.24, oskin); gHead.add(ghead);
+  const bun = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), gray); bun.position.set(0, 0.14, -0.12); gHead.add(bun);
+  const cap = box(0.26, 0.1, 0.26, gray); cap.position.y = 0.13; gHead.add(cap);
+  for (const s of [-1, 1]) {
+    const arm = box(0.1, 0.42, 0.1, dress);
+    arm.position.set(s * 0.27, 0.86, 0.14); arm.rotation.x = -0.75; g.add(arm);
+  }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  const gx = cw(10.3), gz = cw(1.6) + 0.15;
+  g.position.set(gx, 0, gz);
+  scene.add(g);
+  addCollider(gx, gz, 0.75, 0.75);
+  NPCS.granny = { g, headG: gHead, x: gx, z: gz, humT: 0, humI: 0 };
+
+  // — the woman in the nightgown, facing the corner —
+  const w = new THREE.Group();
+  const gown = new THREE.MeshStandardMaterial({ color: 0xa89f8e, roughness: 1 });
+  const hairD = new THREE.MeshStandardMaterial({ color: 0x0c0a08, roughness: 1 });
+  const pale = new THREE.MeshStandardMaterial({ color: 0xcabba6, roughness: 0.9 });
+  const column = box(0.46, 1.52, 0.32, gown); column.position.y = 0.76; w.add(column);
+  const shoulders = box(0.52, 0.24, 0.34, gown); shoulders.position.y = 1.54; w.add(shoulders);
+  const wHead = new THREE.Group(); wHead.position.y = 1.8; w.add(wHead);
+  const whead = box(0.24, 0.3, 0.26, pale); wHead.add(whead);
+  const hFront = box(0.28, 0.36, 0.06, hairD); hFront.position.set(0, -0.02, 0.14); wHead.add(hFront);
+  const hBack = box(0.3, 0.56, 0.1, hairD); hBack.position.set(0, -0.1, -0.13); wHead.add(hBack);
+  for (const s of [-1, 1]) { const hs = box(0.06, 0.48, 0.28, hairD); hs.position.set(s * 0.15, -0.08, 0); wHead.add(hs); }
+  const hTop = box(0.3, 0.09, 0.3, hairD); hTop.position.y = 0.18; wHead.add(hTop);
+  for (const s of [-1, 1]) {
+    const arm = box(0.09, 0.6, 0.09, gown); arm.position.set(s * 0.29, 1.06, 0); w.add(arm);
+    const fingers = box(0.06, 0.2, 0.05, pale); fingers.position.set(s * 0.29, 0.68, 0.02); w.add(fingers);
+  }
+  w.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  const wx = 48.3, wz = 3.4, wyaw = 1.9; // facing the corner, back to the room
+  w.position.set(wx, 0, wz);
+  w.rotation.y = wyaw;
+  scene.add(w);
+  addCollider(wx, wz, 0.6, 0.6);
+  NPCS.wife = { g: w, x: wx, z: wz, homeYaw: wyaw, whisT: 0 };
+}
+function npcUpdate(dt) {
+  const G = NPCS.granny;
+  const gd = dist2(player.x, player.z, G.x, G.z);
+  G.g.position.y = Math.sin(perfT * 1.15) * 0.012; // the chair never stops rocking
+  if (gd < 1.9) {
+    // she stops humming — and only her head moves
+    const ang = Math.atan2(player.x - G.x, player.z - G.z) - G.g.rotation.y;
+    G.headG.rotation.y = angLerp(G.headG.rotation.y, ang, clamp(dt * 3, 0, 1));
+    G.headG.rotation.z = 0;
+    if (!npcSeen.grannyStare) {
+      npcSeen.grannyStare = true;
+      caption('The humming stops. Without moving anything else, she is looking at you.', 4.5);
+    }
+  } else {
+    G.headG.rotation.y = angLerp(G.headG.rotation.y, 0, clamp(dt * 2, 0, 1));
+    G.headG.rotation.z = Math.sin(perfT * 0.8) * 0.07;
+    if (gd < 7) {
+      if (!npcSeen.granny) {
+        npcSeen.granny = true;
+        caption('An old woman rocks at the table, humming to plates of rot. She does not look up.', 4.5);
+      }
+      G.humT -= dt;
+      if (G.humT <= 0) {
+        G.humT = 0.92;
+        AU.hum(HUM[G.humI++ % HUM.length], panTo(G), 0.045 + (1 - clamp(gd / 7, 0, 1)) * 0.045);
+      }
+    }
+  }
+  const Wf = NPCS.wife;
+  const wd = dist2(player.x, player.z, Wf.x, Wf.z);
+  Wf.g.rotation.z = Math.sin(perfT * 0.7) * 0.018;
+  if (wd < 4.4) {
+    if (!npcSeen.wife) {
+      npcSeen.wife = true;
+      caption('A woman in a nightgown stands facing the corner, whispering to it. Every nerve says: no closer.', 5);
+    }
+    Wf.whisT -= dt;
+    if (Wf.whisT <= 0) { Wf.whisT = rand(1.8, 3.4); AU.whisper(panTo(Wf)); }
+  }
+  if (wd < 1.8 && !player.dead) wifeKill();
+}
+
 const PATROL_KEYS = ['kitchen', 'dining', 'living', 'hall', 'foyer', 'study', 'garage', 'bedroom'];
 function randomPatrolCell() {
   const r = ROOMS[PATROL_KEYS[Math.floor(rand(PATROL_KEYS.length))]];
@@ -1226,7 +1412,7 @@ function killerUpdate(dt) {
       if (killerMove(dt, speed) && !sees) { K.state = 'search'; K.searchT = 7; K.path = null; K.detect = 0.4; }
     }
     if (K.loseT > 5 && d > 8) { K.state = 'search'; K.searchT = 6; K.path = null; K.bust = null; K.detect = 0.4; }
-    if (!player.dead && !player.hidden && d < 1.5 && K.attackCd <= 0 && K.attackT < 0) { K.attackT = 0; K.attackCd = 1.7; }
+    if (!player.dead && !player.hidden && d < 1.5 && K.attackCd <= 0 && K.attackT < 0) { K.attackT = 0; K.attackCd = 2.6; }
     K.tauntT -= dt;
     if (K.tauntT <= 0) { K.tauntT = rand(5, 9); AU.growl(panTo(K), 0.3); caption(TAUNTS[Math.floor(rand(TAUNTS.length))], 3); }
   }
@@ -1437,13 +1623,29 @@ function damagePlayer(dmg, from) {
   updateHud();
   if (player.health <= 0) die();
 }
-let dieT = 0, dieSl = 0;
+let dieT = 0, dieSl = 0, dieMode = 'butcher';
 function die() {
-  player.dead = true; state = 'dying'; deaths++; dieT = 0; dieSl = 0;
+  player.dead = true; state = 'dying'; deaths++; dieT = 0; dieSl = 0; dieMode = 'butcher';
   clearKillFx();
   if (mapOpen) toggleMap();
+  drawScareFace('butcher');
   showScare(0.45);
+  $('deathTitle').textContent = 'HE FOUND YOU';
+  $('deathText').textContent = 'Everything goes dark… but he isn’t done playing with you yet.';
   AU.sting(); AU.growl(0, 0.5);
+  if (document.exitPointerLock) document.exitPointerLock();
+}
+function wifeKill() {
+  if (player.dead || state !== 'play') return;
+  player.dead = true; state = 'dying'; deaths++; dieT = 0; dieSl = 0; dieMode = 'wife';
+  clearKillFx();
+  if (mapOpen) toggleMap();
+  drawScareFace('wife');
+  showScare(0.5);
+  $('deathTitle').textContent = 'SHE TOOK YOU';
+  $('deathText').textContent = 'You got too close. The Butcher is not the only thing that lives in this house.';
+  NPCS.wife.g.rotation.y = Math.atan2(player.x - NPCS.wife.g.position.x, player.z - NPCS.wife.g.position.z);
+  AU.screech();
   if (document.exitPointerLock) document.exitPointerLock();
 }
 function respawn() {
@@ -1458,6 +1660,9 @@ function respawn() {
   killer.detect = 0; killer.grace = 6; killer.bust = null; killer.attackT = -1; killer.struck = false;
   clearKillFx();
   $('damageFlash').style.opacity = 0;
+  // she returns to her corner
+  NPCS.wife.g.position.set(NPCS.wife.x, 0, NPCS.wife.z);
+  NPCS.wife.g.rotation.y = NPCS.wife.homeYaw;
   hideOverlays(); state = 'play'; lockPointer();
   caption('You wake on the bedroom floor again. He carried you back. He wants to play.', 4.5);
   updateHud();
@@ -1565,7 +1770,7 @@ function showOverlay(id) {
 function hideOverlays() { for (const o of OVERLAYS) $(o).classList.remove('show'); }
 
 /* --------------------------------------------------------------- ambience */
-let L = 0, lightningT = 5, hbT = 0, ambT = 18, brT = 0;
+let L = 0, lightningT = 5, hbT = 0, ambT = 18, brT = 0, buzzT = 0;
 function ambience(dt) {
   lightningT -= dt;
   if (lightningT <= 0) {
@@ -1607,6 +1812,16 @@ function ambience(dt) {
     brT -= dt;
     if (brT <= 0) { brT = 1.7; AU.breath(0.05 + (1 - d / 8) * 0.06); }
   }
+  // flies working at whatever is left out
+  let bfd = 99, bfs = null;
+  for (const sw of flySwarms) {
+    const dd = dist2(player.x, player.z, sw.x, sw.z);
+    if (dd < bfd) { bfd = dd; bfs = sw; }
+  }
+  if (bfd < 5 && bfs) {
+    buzzT -= dt;
+    if (buzzT <= 0) { buzzT = 0.7; AU.buzz(0.02 + (1 - bfd / 5) * 0.05, panTo(bfs)); }
+  }
   $('dangerVig').style.opacity = ((chase ? 0.55 : 0.35) * near + (chase ? 0.15 : 0)).toFixed(3);
   hbT -= dt;
   if ((near > 0.12 || chase) && hbT <= 0) {
@@ -1641,13 +1856,38 @@ function killSlash() {
   }
   AU.slash();
 }
-function drawKillFx(dt) {
+function killClaw() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const a = rand(-0.5, 0.5) + (Math.random() < 0.5 ? 0.9 : -0.9);
+  let dx = Math.cos(a), dy = Math.sin(a) + 0.4;
+  const n = Math.hypot(dx, dy); dx /= n; dy /= n;
+  const px = -dy, py = dx;
+  const cx = W / 2 + rand(-W * 0.12, W * 0.12), cy = H / 2 + rand(-H * 0.1, H * 0.1);
+  const len = Math.max(W, H) * 0.65;
+  for (let k = 0; k < 4; k++) {
+    const off = (k - 1.5) * 30;
+    const s = {
+      x1: cx - dx * len / 2 + px * off, y1: cy - dy * len / 2 + py * off,
+      x2: cx + dx * len / 2 + px * off, y2: cy + dy * len / 2 + py * off,
+      born: perfT, thin: true, jags: [],
+    };
+    for (let i = 0; i <= 14; i++) s.jags.push(rand(-5, 5));
+    KFX.slashes.push(s);
+    for (let i = 0; i < 4; i++) {
+      const t = rand();
+      KFX.drips.push({ x: lerp(s.x1, s.x2, t), y: lerp(s.y1, s.y2, t) + rand(10), len: 0, speed: rand(30, 140), w: rand(1, 2.5) });
+    }
+  }
+  AU.slash();
+}
+function drawKillFx(dt, iris) {
   const c = $('killfx');
   if (c.width !== window.innerWidth || c.height !== window.innerHeight) { c.width = window.innerWidth; c.height = window.innerHeight; }
   const g = c.getContext('2d');
   g.clearRect(0, 0, c.width, c.height);
   for (const s of KFX.slashes) {
-    const wCore = 10 * Math.min(1, (perfT - s.born) * 8) + 2;
+    let wCore = 10 * Math.min(1, (perfT - s.born) * 8) + 2;
+    if (s.thin) wCore *= 0.4;
     for (const layer of [['#3d0202', wCore + 9], ['#8e0e08', wCore], ['#c2372a', wCore * 0.35]]) {
       g.strokeStyle = layer[0]; g.lineWidth = layer[1]; g.lineCap = 'round';
       g.beginPath();
@@ -1664,6 +1904,15 @@ function drawKillFx(dt) {
     d.len += d.speed * dt;
     g.fillRect(d.x, d.y, d.w, d.len);
     g.beginPath(); g.arc(d.x + d.w / 2, d.y + d.len, d.w * 0.9, 0, 7); g.fill();
+  }
+  if (iris > 0) {
+    // the world closes to a point in her hands
+    const maxR = Math.hypot(c.width, c.height) / 2;
+    g.fillStyle = '#000';
+    g.beginPath();
+    g.rect(0, 0, c.width, c.height);
+    g.arc(c.width / 2, c.height / 2, Math.max(maxR * (1 - iris), 1), 0, Math.PI * 2, true);
+    g.fill();
   }
 }
 function clearKillFx() {
@@ -1723,6 +1972,11 @@ function drawMap() {
     }
   }
   if (!noteRead) { g.font = '16px serif'; g.fillText('📜', MX(cw(3.6)), MZ(cw(9.4)) + 6); }
+  // the other tenants
+  g.font = '15px serif';
+  g.fillText('👵', MX(NPCS.granny.x), MZ(NPCS.granny.z) + 5);
+  g.fillStyle = '#e0a020'; g.font = 'bold 17px Georgia';
+  g.fillText('⚠', MX(NPCS.wife.x), MZ(NPCS.wife.z) + 6);
   // the way out
   g.fillStyle = '#d84a35'; g.font = "bold 13px 'Special Elite', Georgia, serif";
   g.fillText('EXIT ⇩', 14 * S, 14.7 * S);
@@ -1747,10 +2001,39 @@ function drawMap() {
 
 /* ------------------------------------------------------------- jumpscares */
 const scares = { hall: false, mirror: false, wardrobe: false };
-function buildScareFace() {
+function drawScareFace(kind) {
   const c = $('scareCanvas'); c.width = 512; c.height = 512;
   const g = c.getContext('2d');
   g.fillStyle = '#000'; g.fillRect(0, 0, 512, 512);
+  if (kind === 'wife') {
+    // a curtain of black hair, one pale sliver of face behind it
+    g.fillStyle = '#0a0806'; g.fillRect(96, 16, 320, 490);
+    const grd2 = g.createLinearGradient(0, 60, 0, 460);
+    grd2.addColorStop(0, '#d9cbb4'); grd2.addColorStop(1, '#8a7c66');
+    g.fillStyle = grd2;
+    g.beginPath(); g.ellipse(256, 252, 62, 182, 0, 0, 7); g.fill();
+    for (let i = 0; i < 28; i++) {
+      g.strokeStyle = 'rgba(8,6,4,' + rand(0.5, 0.95).toFixed(2) + ')';
+      g.lineWidth = rand(2, 7);
+      const x = 200 + rand(112);
+      g.beginPath(); g.moveTo(x, 26);
+      g.bezierCurveTo(x + rand(-30, 30), 200, x + rand(-30, 30), 350, x + rand(-45, 45), 505);
+      g.stroke();
+    }
+    // one eye, wide open, wrong
+    g.fillStyle = '#f2ece0'; g.beginPath(); g.ellipse(240, 216, 23, 13, 0.1, 0, 7); g.fill();
+    g.fillStyle = '#1a0505'; g.beginPath(); g.arc(244, 215, 6, 0, 7); g.fill();
+    g.fillStyle = '#a01208'; g.beginPath(); g.arc(244, 215, 2.5, 0, 7); g.fill();
+    // a mouth open too far
+    g.fillStyle = '#050202'; g.beginPath(); g.ellipse(258, 352, 16, 36, -0.08, 0, 7); g.fill();
+    for (let i = 0; i < 160; i++) {
+      g.strokeStyle = 'rgba(0,0,0,' + rand(0.05, 0.35).toFixed(2) + ')';
+      g.lineWidth = rand(0.5, 2);
+      const x = rand(512);
+      g.beginPath(); g.moveTo(x, rand(512)); g.lineTo(x + rand(-25, 25), rand(512)); g.stroke();
+    }
+    return;
+  }
   const grd = g.createRadialGradient(256, 260, 40, 256, 260, 200);
   grd.addColorStop(0, '#d3c6b1'); grd.addColorStop(0.72, '#8f8272'); grd.addColorStop(1, '#000');
   g.fillStyle = grd;
@@ -1915,36 +2198,60 @@ function loop(t) {
     if (state === 'play') {
       playerUpdate(dt);
       killerUpdate(dt);
+      npcUpdate(dt);
+      updateFlies(dt);
       scareChecks();
       currentInteract = scanInteract();
       if (mapOpen) drawMap();
     } else {
       dieT += dt;
-      // he looms in over you, hacking
-      const kd = dist2(killer.x, killer.z, player.x, player.z);
-      if (kd > 1.0) {
-        killer.x += (player.x - killer.x) / kd * 1.7 * dt;
-        killer.z += (player.z - killer.z) / kd * 1.7 * dt;
-        killer.walkPhase += 3 * dt;
+      let iris = 0;
+      if (dieMode === 'wife') {
+        // she has you — lifted, clawed, and the world closes in
+        const wg = NPCS.wife.g;
+        const wdd = dist2(wg.position.x, wg.position.z, player.x, player.z);
+        if (wdd > 0.55) {
+          wg.position.x += (player.x - wg.position.x) / wdd * 6 * dt;
+          wg.position.z += (player.z - wg.position.z) / wdd * 6 * dt;
+        }
+        wg.rotation.y = Math.atan2(player.x - wg.position.x, player.z - wg.position.z);
+        if (dieT > 0.25 && dieSl < 1) { dieSl = 1; killClaw(); }
+        if (dieT > 0.6 && dieSl < 2) { dieSl = 2; killClaw(); }
+        if (dieT > 0.95 && dieSl < 3) { dieSl = 3; killClaw(); }
+        if (dieT > 1.3 && dieSl < 4) { dieSl = 4; AU.crack(); }
+        iris = clamp((dieT - 1.5) / 1.0, 0, 1);
+        player.eye = lerp(player.eye, 1.5, clamp(dt * 4, 0, 1)); // held off the floor
+        const dxw = wg.position.x - player.x, dzw = wg.position.z - player.z;
+        player.yaw = angLerp(player.yaw, Math.atan2(-dxw, -dzw), clamp(dt * 8, 0, 1));
+        camera.rotation.x = lerp(camera.rotation.x, -0.02, clamp(dt * 4, 0, 1));
+        camera.rotation.z = lerp(camera.rotation.z, 0.12, clamp(dt * 4, 0, 1));
+      } else {
+        // he looms in over you, hacking
+        const kd = dist2(killer.x, killer.z, player.x, player.z);
+        if (kd > 1.0) {
+          killer.x += (player.x - killer.x) / kd * 1.7 * dt;
+          killer.z += (player.z - killer.z) / kd * 1.7 * dt;
+          killer.walkPhase += 3 * dt;
+        }
+        killer.yaw = Math.atan2(player.x - killer.x, player.z - killer.z);
+        killer.grp.position.set(killer.x, 0, killer.z);
+        killer.grp.rotation.y = killer.yaw;
+        killer.rArm.rotation.x = -1.3 + Math.sin(perfT * 9) * 1.0;
+        // the cleaver comes down, again and again
+        if (dieT > 0.25 && dieSl < 1) { dieSl = 1; killSlash(); }
+        if (dieT > 0.65 && dieSl < 2) { dieSl = 2; killSlash(); }
+        if (dieT > 1.05 && dieSl < 3) { dieSl = 3; killSlash(); }
+        if (dieT > 1.6) $('damageFlash').style.opacity = Math.min(1, (dieT - 1.6) * 1.3);
+        player.eye = lerp(player.eye, 0.4, clamp(dt * 3, 0, 1));
+        const dx = killer.x - player.x, dz = killer.z - player.z;
+        player.yaw = angLerp(player.yaw, Math.atan2(-dx, -dz), clamp(dt * 4, 0, 1));
+        camera.rotation.x = lerp(camera.rotation.x, 0.15, clamp(dt * 3, 0, 1));
+        camera.rotation.z = lerp(camera.rotation.z, 0.55, clamp(dt * 3, 0, 1));
       }
-      killer.yaw = Math.atan2(player.x - killer.x, player.z - killer.z);
-      killer.grp.position.set(killer.x, 0, killer.z);
-      killer.grp.rotation.y = killer.yaw;
-      killer.rArm.rotation.x = -1.3 + Math.sin(perfT * 9) * 1.0;
-      // the cleaver comes down, again and again
-      if (dieT > 0.25 && dieSl < 1) { dieSl = 1; killSlash(); }
-      if (dieT > 0.65 && dieSl < 2) { dieSl = 2; killSlash(); }
-      if (dieT > 1.05 && dieSl < 3) { dieSl = 3; killSlash(); }
-      if (dieT > 1.6) $('damageFlash').style.opacity = Math.min(1, (dieT - 1.6) * 1.3);
-      player.eye = lerp(player.eye, 0.4, clamp(dt * 3, 0, 1));
-      const dx = killer.x - player.x, dz = killer.z - player.z;
-      player.yaw = angLerp(player.yaw, Math.atan2(-dx, -dz), clamp(dt * 4, 0, 1));
       camera.position.set(player.x, player.eye, player.z);
       camera.rotation.order = 'YXZ';
       camera.rotation.y = player.yaw;
-      camera.rotation.x = lerp(camera.rotation.x, 0.15, clamp(dt * 3, 0, 1));
-      camera.rotation.z = lerp(camera.rotation.z, 0.55, clamp(dt * 3, 0, 1));
-      drawKillFx(dt);
+      drawKillFx(dt, iris);
       if (dieT > 2.7) {
         state = 'dead'; showOverlay('deathOv');
         $('damageFlash').style.opacity = 0;
@@ -1966,7 +2273,9 @@ buildMaterials();
 buildHouse();
 buildItems();
 buildKiller();
-buildScareFace();
+buildNpcs();
+buildFlies();
+drawScareFace('butcher');
 grainLoop();
 updateHud();
 camera.position.set(player.x, 1.62, player.z);
