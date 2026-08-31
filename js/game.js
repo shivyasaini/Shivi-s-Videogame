@@ -1444,8 +1444,16 @@ addEventListener('mousemove', (e) => {
 });
 addEventListener('mousedown', () => { mouseDown = true; });
 addEventListener('mouseup', () => { mouseDown = false; });
+let volume = 0.85, muted = false;
+function applyVolume() {
+  if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
+  toast(muted ? 'Sound muted (M to unmute)' : 'Volume ' + Math.round(volume * 100) + '%');
+}
 addEventListener('keydown', (e) => {
   keys[e.code] = true;
+  if (e.code === 'Minus' || e.code === 'NumpadSubtract') { volume = Math.max(0, Math.round((volume - 0.1) * 10) / 10); muted = false; applyVolume(); return; }
+  if (e.code === 'Equal' || e.code === 'NumpadAdd') { volume = Math.min(1, Math.round((volume + 0.1) * 10) / 10); muted = false; applyVolume(); return; }
+  if (e.code === 'KeyM') { muted = !muted; applyVolume(); return; }
   if (state === 'note' && (e.code === 'KeyE' || e.code === 'Escape' || e.code === 'Enter')) { closeNote(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyE') {
@@ -1477,6 +1485,7 @@ addEventListener('keyup', (e) => { keys[e.code] = false; });
 /* -------------------------------------------------------------- game flow */
 function startGame() {
   AU.init();
+  if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
   if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
   hideOverlays();
   state = 'play';

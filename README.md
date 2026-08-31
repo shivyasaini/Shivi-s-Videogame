@@ -30,6 +30,8 @@ Click **ENTER THE HOUSE**, and the game grabs your mouse.
 | `F` | Flashlight (light helps you see, but helps *him* see you) |
 | `Q` | Use a first aid kit |
 | `P` / `Esc` | Pause |
+| `−` / `+` | Volume down / up |
+| `M` | Mute |
 
 ## The goal
 
