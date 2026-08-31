@@ -37,7 +37,7 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
   background: rgba(5,4,3,0.55); border-left: 3px solid #7a2a26;
   padding: 8px 14px;
 }
-#objTitle { font-size: 10px; letter-spacing: 3px; color: #9c342c; }
+#objTitle { font-family: 'Special Elite', Georgia, serif; font-size: 10px; letter-spacing: 3px; color: #9c342c; }
 #objText { font-size: 14px; margin-top: 2px; color: #d8d2c4; }
 #bars { position: absolute; left: 20px; bottom: 20px; }
 .barwrap { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
@@ -91,6 +91,7 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
 .overlay.show { display: flex; }
 .overlay.red { background: radial-gradient(ellipse at center, rgba(50,4,4,0.92), rgba(5,0,0,0.98)); }
 .overlay h1 {
+  font-family: 'Special Elite', Georgia, serif;
   font-size: clamp(34px, 7vw, 68px); letter-spacing: 8px; font-weight: normal;
   color: #b8342a; text-shadow: 0 0 24px rgba(150,20,10,0.6), 0 3px 0 #000;
 }
