@@ -21,7 +21,8 @@ const world = {
   npcs: [],       // {x, y, name, kind}
   lores: [],      // {x, y, text} readable standing stones
   gateTiles: [],
-  dungeons: [],   // {x, y, id, name} first-person dungeon entrances
+  dungeons: [],   // {x, y, id, name} first-person dungeon entrances (unused in the simple quest)
+  shrine: { x: 0, y: 0, taken: false }, // the sword in the stone
   playerSpawn: { x: 0, y: 0 },
   bossSpawn: { x: 0, y: 0 },
   village: { tx: 48, ty: 62 },
@@ -113,6 +114,12 @@ function genWorld() {
   world.npcs.push({ x: px(V.tx - 2), y: px(V.ty - 1), name: 'Elder Rowena', kind: 'elder' });
   world.npcs.push({ x: px(V.tx + 2), y: px(V.ty - 1), name: 'Trader Osric', kind: 'trader' });
 
+  // the sword in the stone, on the village's eastern edge
+  setT(V.tx + 6, V.ty, T.GRASS);
+  world.shrine = { x: px(V.tx + 6), y: px(V.ty), taken: false };
+  world.decors.push({ x: px(V.tx + 6), y: px(V.ty), kind: 'shrine' });
+  world.lights.push({ x: px(V.tx + 6), y: px(V.ty), r: 110, warm: false });
+
   // --- three sigil ruins ---
   const ruins = [
     { tx: 16, ty: 48 }, // west woods
@@ -144,61 +151,50 @@ function genWorld() {
   }
 
   // --- paths from the village to every point of interest ---
-  carvePath(V.tx, V.ty - 3, 48, CY1 + 1);        // north to the castle gate
+  carvePath(V.tx, V.ty - 3, 48, CY1 + 1);        // the North Road, to the castle gate
   carvePath(V.tx - 3, V.ty, ruins[0].tx, ruins[0].ty + 5); // west ruin
   carvePath(V.tx + 3, V.ty, ruins[1].tx, ruins[1].ty + 5); // east ruin
   carvePath(V.tx, V.ty + 3, ruins[2].tx, ruins[2].ty + 5); // south ruin
 
-  // --- dungeon entrances: sunken stairways into the dark ---
-  const dungeonSpots = [
-    { tx: 22, ty: 38, id: 'barrow', name: 'the Barrow of the Pale Count' },
-    { tx: 58, ty: 80, id: 'ossuary', name: 'the Ossuary' },
-  ];
-  for (const ds of dungeonSpots) {
-    for (let dx = -1; dx <= 1; dx++)
-      for (let dy = -1; dy <= 1; dy++)
-        setT(ds.tx + dx, ds.ty + dy, T.GRASS);
-    setT(ds.tx, ds.ty, T.FLOOR);
-    world.decors.push({ x: px(ds.tx), y: px(ds.ty), kind: 'stairs' });
-    world.dungeons.push({ x: px(ds.tx), y: px(ds.ty), id: ds.id, name: ds.name });
+  // --- the scenic North Road: lantern posts light the whole way ---
+  for (let ly = 30; ly <= 56; ly += 5) {
+    const side = (ly / 5) % 2 === 0 ? 46 : 51;
+    setT(side, ly, T.GRASS);
+    world.decors.push({ x: px(side), y: px(ly), kind: 'lantern' });
+    world.lights.push({ x: px(side), y: px(ly), r: 125, warm: true });
   }
 
-  // --- lore stones ---
+  // --- lore stones (now pure scenery and story) ---
   addLore(34, 56, 'Here fell Ser Adric, who rode north and did not return. "The crown is cursed," they told him. He laughed.');
   addLore(62, 72, 'When the sun guttered out, King Maldrich swore he would buy it back with blood. The blood he spent was ours.');
-  addLore(46, 32, 'Three sigils sealed the gate — pride, grief, and ash. Gather them, and face what the castle keeps.');
+  addLore(50, 38, 'A traveler’s mark: "From this bend you can see the whole road home. Rest here. The gate will still be there."');
 
-  // --- enemies ---
-  // wolves roam the wilds
+  // --- enemies (a gentle land now — the real fight waits on the throne) ---
+  // a few wolves in the far wilds
   let placed = 0, guard = 0;
-  while (placed < 16 && guard++ < 4000) {
+  while (placed < 8 && guard++ < 4000) {
     const tx = 6 + Math.floor(rng() * (MW - 12));
     const ty = 30 + Math.floor(rng() * (MH - 36));
-    const far = Math.hypot(tx - V.tx, ty - V.ty) > 16;
+    const far = Math.hypot(tx - V.tx, ty - V.ty) > 20;
     if (far && getT(tx, ty) === T.GRASS) {
       world.spawns.push({ x: px(tx), y: px(ty), type: 'wolf' });
       placed++;
     }
   }
-  // skeletons guard each ruin
+  // a couple of skeletons dozing at each ruin
   for (const r of ruins) {
-    for (const [ox, oy] of [[-7, 0], [7, 1], [0, 7], [3, -6]]) {
+    for (const [ox, oy] of [[-7, 0], [0, 7]]) {
       const tx = r.tx + ox, ty = r.ty + oy;
       if (getT(tx, ty) !== T.WALL && getT(tx, ty) !== T.WATER) {
         world.spawns.push({ x: px(tx), y: px(ty), type: 'skeleton' });
       }
     }
   }
-  // wraiths haunt the northern road and the graves
-  for (const [tx, ty] of [[48, 40], [45, 34], [52, 44], [44, 79], [53, 81]]) {
-    world.spawns.push({ x: px(tx), y: px(ty), type: 'wraith' });
-  }
-  // the castle garrison and its king
-  for (const [tx, ty] of [[40, 11], [56, 11], [40, 22], [56, 22]]) {
+  // one lone wraith drifts off the road's edge — a taste of what waits north
+  world.spawns.push({ x: px(44), y: px(36), type: 'wraith' });
+  // a thin honor guard inside the castle
+  for (const [tx, ty] of [[42, 12], [54, 12]]) {
     world.spawns.push({ x: px(tx), y: px(ty), type: 'skeleton' });
-  }
-  for (const [tx, ty] of [[44, 14], [52, 14]]) {
-    world.spawns.push({ x: px(tx), y: px(ty), type: 'wraith' });
   }
   world.spawns.push({ x: world.bossSpawn.x, y: world.bossSpawn.y, type: 'boss' });
 
@@ -240,7 +236,6 @@ function makeRuin(cx, cy, rng) {
     world.decors.push({ x: px(cx + ox), y: px(cy + oy), kind: 'brazier' });
     world.lights.push({ x: px(cx + ox), y: px(cy + oy), r: 110, warm: true });
   }
-  world.pickups.push({ x: px(cx), y: px(cy), type: 'sigil' });
   world.pickups.push({ x: px(cx - 3), y: px(cy - 2), type: 'potion' });
 }
 

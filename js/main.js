@@ -41,8 +41,9 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 
 // --- game state -------------------------------------------------------------
-let state = 'title'; // title | play | dialogue | dead | victory | journal
-let mode = 'overworld'; // overworld | dungeon (first-person)
+let state = 'title'; // title | play | dialogue | dead | victory | journal | ending
+let mode = 'overworld'; // overworld | dungeon
+let viewMode = 'fp';    // fp (first-person) | top (the old view, kept as a map)
 let player = null;
 let enemies = [];
 let pickups = [];
@@ -63,6 +64,7 @@ let interactTarget = null; // {kind, obj, label}
 let quests = [];
 let stonesRead = [];
 let banner = { txt: '', ttl: 0, last: '' };
+let endT = 0; // timer driving the ending cinematic
 
 function newGame() {
   genWorld();
@@ -75,9 +77,9 @@ function newGame() {
   banner = { txt: '', ttl: 0, last: '' };
   mode = 'overworld';
   resetDungeons();
-  gateOpen = false; bossDefeated = false; victoryT = 0; shake = 0;
-  addQuest('sigils', 'The Three Sigils', 'Find the three sigils sealing the northern castle: west woods, eastern mire, southern graves.');
-  msg('The village fire is warm. The north is not.  [J] opens your journal.');
+  gateOpen = false; bossDefeated = false; victoryT = 0; endT = 0; shake = 0;
+  addQuest('sword', 'Take Up the Sword', 'An old blade waits in a stone on the village’s eastern edge. Draw it.');
+  msg('The village fire is warm. An old sword waits in the stone to the east.  [J] opens your journal.');
 }
 
 // --- quest journal ----------------------------------------------------------
@@ -94,7 +96,10 @@ function completeQuest(id) {
   if (q && !q.done) { q.done = true; msg('Quest complete — ' + q.name); }
 }
 
-function msg(txt) { msgs.push({ txt, ttl: 4.5 }); }
+function msg(txt) {
+  msgs.push({ txt, ttl: 4.5 });
+  while (msgs.length > 4) msgs.shift();
+}
 
 function floater(x, y, txt, color) {
   floaters.push({ x, y, txt, ttl: 1.1, color });
@@ -167,6 +172,14 @@ function update(dt) {
     if (pressed['enter']) { state = 'play'; msg('The land is quiet now. Wander as you will.'); }
     return;
   }
+  if (state === 'ending') {
+    endT += dt;
+    if ((pressed['enter'] || mouseClicked) && endT > 3) {
+      state = 'play';
+      msg('Dawn holds. The land is quiet now — wander as you will.');
+    }
+    return;
+  }
   if (state === 'dialogue') {
     if (pressed['e'] || pressed['enter'] || pressed[' ']) {
       dialogue.idx++;
@@ -204,8 +217,15 @@ function update(dt) {
     }
   }
 
+  if (mode === 'overworld' && pressed['m']) {
+    viewMode = viewMode === 'fp' ? 'top' : 'fp';
+    msg(viewMode === 'fp' ? 'Back to your own eyes.' : 'The land from above — press M to return.');
+  }
+
   if (mode === 'dungeon') {
     dungeonUpdate(dt);
+  } else if (viewMode === 'fp') {
+    fpUpdate(dt);
   } else {
     overworldUpdate(dt, p);
   }
@@ -217,7 +237,7 @@ function update(dt) {
 
   if (victoryT > 0) {
     victoryT -= dt;
-    if (victoryT <= 0) state = 'victory';
+    if (victoryT <= 0) { state = 'ending'; endT = 0; }
   }
   if (p.hp <= 0) {
     state = 'dead';
@@ -249,16 +269,20 @@ function overworldUpdate(dt, p) {
     moveEntity(p, mx * p.speed * dt, my * p.speed * dt, false);
   }
 
-  // sword swing
+  // sword swing (only once the blade is drawn from the stone)
   if (pressed[' '] && p.atkCd <= 0) {
-    p.atkCd = 0.42;
-    p.swing = 0.16;
-    p.swingDir = p.face;
-    for (const e of enemies) {
-      if (e.dead) continue;
-      const d = dist(p.x, p.y, e.x, e.y);
-      if (d < 46 + e.r && Math.abs(angDiff(p.swingDir, angTo(p.x, p.y, e.x, e.y))) < 1.15) {
-        hitEnemy(e, p.dmg, angTo(p.x, p.y, e.x, e.y));
+    if (!p.hasSword) {
+      msg('Your hands are empty. The sword waits in the stone, east of the fire.');
+    } else {
+      p.atkCd = 0.42;
+      p.swing = 0.16;
+      p.swingDir = p.face;
+      for (const e of enemies) {
+        if (e.dead) continue;
+        const d = dist(p.x, p.y, e.x, e.y);
+        if (d < 46 + e.r && Math.abs(angDiff(p.swingDir, angTo(p.x, p.y, e.x, e.y))) < 1.15) {
+          hitEnemy(e, p.dmg, angTo(p.x, p.y, e.x, e.y));
+        }
       }
     }
   }
@@ -281,6 +305,23 @@ function overworldUpdate(dt, p) {
     }
   }
 
+  overworldSystems(dt, p);
+
+  // ambient dust only matters in the top-down view
+  while (dust.length < 45) {
+    dust.push({
+      x: cam.x + Math.random() * canvas.width,
+      y: cam.y + Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 12, vy: -5 - Math.random() * 9,
+      ttl: 3 + Math.random() * 4,
+    });
+  }
+  for (const d0 of dust) { d0.ttl -= dt; d0.x += d0.vx * dt; d0.y += d0.vy * dt; }
+  dust = dust.filter((d0) => d0.ttl > 0);
+}
+
+// The living world: shared by the first-person and top-down views.
+function overworldSystems(dt, p) {
   updateProjectiles(dt, p);
   updateInteract();
   if (pressed['e'] && interactTarget) triggerInteract(interactTarget);
@@ -296,8 +337,15 @@ function overworldUpdate(dt, p) {
     banner.txt = rn;
     banner.ttl = 3.2;
   }
+  // arriving at the castle completes the journey
+  if (rn === 'Castle Maldrich') {
+    const jq = getQuest('journey');
+    if (jq && !jq.done) {
+      completeQuest('journey');
+      addQuest('king', 'The Fallen King', 'Maldrich waits on his throne at the castle’s heart. End this.');
+    }
+  }
 
-  // particles / floaters / ambient dust
   for (const f of floaters) { f.ttl -= dt; f.y -= 30 * dt; }
   floaters = floaters.filter((f) => f.ttl > 0);
   for (const q of particles) {
@@ -305,18 +353,8 @@ function overworldUpdate(dt, p) {
     q.vx *= 0.92; q.vy *= 0.92;
   }
   particles = particles.filter((q) => q.ttl > 0);
-  while (dust.length < 45) {
-    dust.push({
-      x: cam.x + Math.random() * canvas.width,
-      y: cam.y + Math.random() * canvas.height,
-      vx: (Math.random() - 0.5) * 12, vy: -5 - Math.random() * 9,
-      ttl: 3 + Math.random() * 4,
-    });
-  }
-  for (const d0 of dust) { d0.ttl -= dt; d0.x += d0.vx * dt; d0.y += d0.vy * dt; }
-  dust = dust.filter((d0) => d0.ttl > 0);
 
-  // camera follows the knight
+  // camera stays pinned to the knight for the map view
   cam.x = clamp(p.x - canvas.width / 2, 0, MW * TILE - canvas.width);
   cam.y = clamp(p.y - canvas.height / 2, 0, MH * TILE - canvas.height);
 }
@@ -381,6 +419,7 @@ function hitEnemy(e, dmg, ang) {
   e.aggroed = true;
   burst(e.x, e.y, e.type === 'wraith' ? '#8fd6e8' : '#d8d0c0', 6);
   floater(e.x, e.y - e.r - 6, String(dmg), '#f0e6c8');
+  if (mode === 'overworld' && viewMode === 'fp') dgFloat(String(dmg), '#f0e6c8');
   if (e.hp <= 0) killEnemy(e);
 }
 
@@ -389,6 +428,7 @@ function killEnemy(e) {
   burst(e.x, e.y, '#5a5a6a', 14);
   gainXp(e.xp);
   floater(e.x, e.y - 16, '+' + e.xp + ' xp', '#b48ce8');
+  if (mode === 'overworld' && viewMode === 'fp') dgFloat('+' + e.xp + ' xp', '#b48ce8');
   const g = 3 + Math.floor(Math.random() * 6);
   pickups.push({ x: e.x, y: e.y, type: 'gold', val: g });
   if (Math.random() < 0.22) {
@@ -397,25 +437,10 @@ function killEnemy(e) {
   if (Math.random() < 0.35) {
     pickups.push({ x: e.x - 12, y: e.y - 8, type: 'arrows', val: 3 });
   }
-  // side quest: Wolfsbane
-  if (e.type === 'wolf') {
-    const q = getQuest('wolfsbane');
-    if (q && !q.done) {
-      q.count++;
-      if (q.count >= q.goal) {
-        completeQuest('wolfsbane');
-        player.gold += 40;
-        player.potions++;
-        msg('Osric’s bounty: 40 gold and a potion.');
-      } else {
-        msg('Wolves culled: ' + q.count + ' of ' + q.goal);
-      }
-    }
-  }
   if (e.boss) {
     bossDefeated = true;
     completeQuest('king');
-    victoryT = 2;
+    victoryT = 2.2; // a breath before the ending scene begins
     msg('The Fallen King is no more.');
     shake = 12;
   }
@@ -597,34 +622,39 @@ function updateInteract() {
     const d = dist(p.x, p.y, dg.x, dg.y);
     if (d < best + 12) { best = d; interactTarget = { kind: 'dungeon', obj: dg, label: 'Descend into ' + dg.name }; }
   }
+  if (!world.shrine.taken) {
+    const d = dist(p.x, p.y, world.shrine.x, world.shrine.y);
+    if (d < best + 8) { interactTarget = { kind: 'shrine', obj: world.shrine, label: 'Draw the sword from the stone' }; }
+  }
 }
 
 function triggerInteract(t) {
-  if (t.kind === 'elder') {
-    const lines = player.sigils >= 3 ? [
-      'You carry all three sigils. I can feel them from here, like a held breath.',
-      'The gate is open. Maldrich waits on his throne, as he has for a hundred years.',
-      'End him, knight. Or at least make him remember what fear was.',
-    ] : bossDefeated ? [
+  if (t.kind === 'shrine') {
+    world.shrine.taken = true;
+    player.hasSword = true;
+    gateOpen = true;
+    completeQuest('sword');
+    addQuest('journey', 'The North Road', 'Follow the lantern-lit road north, all the way to Castle Maldrich.');
+    burst(world.shrine.x, world.shrine.y, '#c8ccd8', 24);
+    shake = 3;
+    msg('The blade slides free, humming. Far north, the castle gate groans open.');
+    banner.txt = 'The Sword is Yours'; banner.ttl = 3.2;
+  } else if (t.kind === 'elder') {
+    const lines = bossDefeated ? [
       'It is done, then. The air tastes different — thinner. Cleaner.',
       'Whatever you go on to be, this land will remember you were here.',
+    ] : player.hasSword ? [
+      'That hum on your back — so the old blade chose you. Good.',
+      'Take the North Road. The lanterns will hold the dark off your shoulders.',
+      'At the road’s end sits Maldrich, the Fallen King. End him, knight.',
     ] : [
       'Cold roads, traveler. You are the first living soul I have seen in a season.',
-      'This land was bright once — before King Maldrich bargained with the dark for a crown that would not rust.',
-      'Three ancient sigils seal his castle: west in the deep woods, east past the water, south among the graves.',
-      'Bring all three to the northern gate. End him... or join the others who tried.',
+      'An old sword sleeps in the stone just east of this fire. It has waited a long time for a hand.',
+      'Draw it. Then follow the lanterns north, and finish what this land could not.',
     ];
     startDialogue('Elder Rowena', lines);
   } else if (t.kind === 'trader') {
-    if (!getQuest('wolfsbane')) {
-      addQuest('wolfsbane', 'Wolfsbane', 'Cull 6 wolves for Trader Osric. He pays in gold and potions.');
-      getQuest('wolfsbane').goal = 6;
-      startDialogue('Trader Osric', [
-        'Before we talk wares — the wolves. They took my mule, my cart, and very nearly my legs.',
-        'Cull six of them and I will pay you forty gold and a potion. Consider it my whole armed forces budget.',
-        'And when you have coin: fifteen gold buys a potion and five arrows. Best supplies in the village. Only supplies in the village.',
-      ]);
-    } else if (player.gold >= 15) {
+    if (player.gold >= 15) {
       player.gold -= 15;
       player.potions++;
       player.arrows += 5;
@@ -639,20 +669,6 @@ function triggerInteract(t) {
       ]);
     }
   } else if (t.kind === 'lore') {
-    if (!getQuest('stones')) {
-      addQuest('stones', 'Voices in Stone', 'Read the three weathered stones scattered across Emberfall.');
-      getQuest('stones').goal = 3;
-    }
-    if (!stonesRead.includes(t.obj.x)) {
-      stonesRead.push(t.obj.x);
-      const q = getQuest('stones');
-      q.count = stonesRead.length;
-      if (q.count >= 3 && !q.done) {
-        completeQuest('stones');
-        gainXp(30);
-        msg('The stones fall silent. You feel older, and wiser. (+30 xp)');
-      }
-    }
     startDialogue('Weathered Stone', [t.obj.text]);
   } else if (t.kind === 'dungeon') {
     enterDungeon(t.obj);
@@ -673,9 +689,12 @@ function draw() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   if (state === 'title') { drawTitle(); return; }
+  if (state === 'ending') { drawEnding(); return; }
 
   if (mode === 'dungeon') {
     dungeonDraw();
+  } else if (viewMode === 'fp') {
+    fpDraw();
   } else {
     const sx = (Math.random() - 0.5) * shake;
     const sy = (Math.random() - 0.5) * shake;
@@ -876,20 +895,22 @@ function drawPlayer(p) {
   ctx.fillRect(x - 1, y - 14, 2, 5);
 
   // sword: swings through an arc while attacking, else rests at the side
-  const prog = p.swing > 0 ? 1 - p.swing / 0.16 : 0;
-  const ang = p.swing > 0 ? p.swingDir - 1.2 + prog * 2.4 : p.face + 2.4;
-  ctx.strokeStyle = '#c8ccd8';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(x + Math.cos(ang) * 6, y + Math.sin(ang) * 6);
-  ctx.lineTo(x + Math.cos(ang) * 24, y + Math.sin(ang) * 24);
-  ctx.stroke();
-  if (p.swing > 0) { // swipe trail
-    ctx.strokeStyle = 'rgba(220,225,240,' + (0.5 * (1 - prog)) + ')';
-    ctx.lineWidth = 8;
+  if (p.hasSword) {
+    const prog = p.swing > 0 ? 1 - p.swing / 0.16 : 0;
+    const ang = p.swing > 0 ? p.swingDir - 1.2 + prog * 2.4 : p.face + 2.4;
+    ctx.strokeStyle = '#c8ccd8';
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(x, y, 26, p.swingDir - 1.2, p.swingDir - 1.2 + prog * 2.4);
+    ctx.moveTo(x + Math.cos(ang) * 6, y + Math.sin(ang) * 6);
+    ctx.lineTo(x + Math.cos(ang) * 24, y + Math.sin(ang) * 24);
     ctx.stroke();
+    if (p.swing > 0) { // swipe trail
+      ctx.strokeStyle = 'rgba(220,225,240,' + (0.5 * (1 - prog)) + ')';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(x, y, 26, p.swingDir - 1.2, p.swingDir - 1.2 + prog * 2.4);
+      ctx.stroke();
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -1006,6 +1027,36 @@ function drawDecor(d) {
     ctx.moveTo(x - 2, y - 2);
     ctx.quadraticCurveTo(x, y - 9 - fl, x + 2, y - 2);
     ctx.closePath(); ctx.fill();
+  } else if (d.kind === 'lantern') {
+    // a road lantern: post, crossarm, hanging lamp
+    ctx.strokeStyle = '#3a3228';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x, y + 10); ctx.lineTo(x, y - 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y - 22); ctx.lineTo(x + 9, y - 19); ctx.stroke();
+    const fl = 0.75 + Math.sin(time * 7 + d.x) * 0.15;
+    ctx.fillStyle = 'rgba(248,200,64,' + fl + ')';
+    ctx.fillRect(x + 6, y - 17, 6, 8);
+    ctx.strokeStyle = '#2a241c';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 6, y - 17, 6, 8);
+  } else if (d.kind === 'shrine') {
+    // the sword in the stone (the blade vanishes once claimed)
+    ctx.fillStyle = '#3e424e';
+    ctx.beginPath();
+    ctx.moveTo(x - 12, y + 8);
+    ctx.quadraticCurveTo(x - 10, y - 6, x, y - 7);
+    ctx.quadraticCurveTo(x + 10, y - 6, x + 12, y + 8);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#23262e'; ctx.lineWidth = 1.5; ctx.stroke();
+    if (!world.shrine.taken) {
+      const shimmer = 0.7 + Math.sin(time * 3) * 0.3;
+      ctx.strokeStyle = 'rgba(200,204,216,' + shimmer + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y - 30); ctx.stroke();
+      ctx.strokeStyle = '#c8a850';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(x - 6, y - 26); ctx.lineTo(x + 6, y - 26); ctx.stroke();
+    }
   } else if (d.kind === 'stairs') {
     // a sunken stairway breathing cold air
     ctx.fillStyle = '#0a0a10';
@@ -1287,8 +1338,11 @@ function drawHud() {
   ctx.fillText('▲ ' + p.potions + ' potions (Q)', 100, 66);
   ctx.fillStyle = '#d8cfa8';
   ctx.fillText('➳ ' + p.arrows + ' arrows', 235, 66);
-  ctx.fillStyle = '#8fd6e8';
-  ctx.fillText('◆ ' + p.sigils + ' / 3 sigils', 340, 66);
+  const cq = quests.find((q) => !q.done);
+  if (cq) {
+    ctx.fillStyle = '#8fd6e8';
+    ctx.fillText('► ' + cq.name, 340, 66);
+  }
   ctx.fillStyle = '#8a8272';
   ctx.fillText('[J] journal', 16, 88);
 
@@ -1401,6 +1455,104 @@ function drawOverlay(title, sub, color) {
   ctx.fillText(sub, canvas.width / 2, canvas.height / 2 + 26);
 }
 
+// The end scene: the first dawn in a hundred years, and a knight walking home.
+function drawEnding() {
+  const w = canvas.width, h = canvas.height;
+  const t = endT;
+  const dawn = clamp(t / 10, 0, 1); // the sky slowly warms
+
+  // sky
+  const sky = ctx.createLinearGradient(0, 0, 0, h * 0.72);
+  sky.addColorStop(0, '#0a0c1e');
+  sky.addColorStop(0.6, '#1a1c34');
+  sky.addColorStop(1, 'rgb(' + Math.round(60 + 140 * dawn) + ',' + Math.round(40 + 70 * dawn) + ',' + Math.round(50 + 20 * dawn) + ')');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h * 0.72);
+
+  // the rising sun
+  const sunY = h * 0.72 - dawn * h * 0.1;
+  const sunR = 40 + dawn * 26;
+  let g = ctx.createRadialGradient(w * 0.5, sunY, 0, w * 0.5, sunY, sunR * 4);
+  g.addColorStop(0, 'rgba(255,190,90,' + (0.5 + dawn * 0.4) + ')');
+  g.addColorStop(0.25, 'rgba(240,140,60,' + (0.25 + dawn * 0.2) + ')');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(255,215,140,' + (0.7 + dawn * 0.3) + ')';
+  ctx.beginPath(); ctx.arc(w * 0.5, sunY, sunR, 0, Math.PI * 2); ctx.fill();
+
+  // dark rolling ground with the castle far off
+  ctx.fillStyle = '#0a0a10';
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.72);
+  ctx.quadraticCurveTo(w * 0.3, h * 0.68, w * 0.55, h * 0.72);
+  ctx.quadraticCurveTo(w * 0.8, h * 0.76, w, h * 0.7);
+  ctx.lineTo(w, h); ctx.lineTo(0, h);
+  ctx.closePath(); ctx.fill();
+  // broken castle silhouette on the horizon
+  ctx.fillStyle = '#0e0e16';
+  ctx.fillRect(w * 0.78, h * 0.52, 60, h * 0.2);
+  ctx.fillRect(w * 0.78 - 18, h * 0.58, 20, h * 0.14);
+  ctx.fillRect(w * 0.78 + 58, h * 0.6, 16, h * 0.12);
+
+  // the knight, walking home (leftward) across the ridge
+  const kx = w * 0.62 - t * 14;
+  const ky = h * 0.705;
+  const step = Math.sin(t * 6) * 2;
+  ctx.fillStyle = '#08080c';
+  ctx.beginPath(); ctx.arc(kx, ky - 26, 6, 0, Math.PI * 2); ctx.fill(); // head
+  ctx.fillRect(kx - 5, ky - 22, 10, 16); // body
+  ctx.strokeStyle = '#08080c';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(kx - 2, ky - 6); ctx.lineTo(kx - 5 - step, ky); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(kx + 2, ky - 6); ctx.lineTo(kx + 5 + step, ky); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(kx + 4, ky - 18); ctx.lineTo(kx + 12, ky - 30); ctx.stroke(); // sword on the shoulder
+
+  // drifting embers riding the morning wind
+  for (let i = 0; i < 26; i++) {
+    const ex = ((i * 131 + t * (16 + (i % 5) * 7)) % (w + 40)) - 20;
+    const ey = h * 0.7 - ((i * 71 + t * (10 + (i % 3) * 6)) % (h * 0.6));
+    ctx.globalAlpha = 0.3 + (i % 3) * 0.15;
+    ctx.fillStyle = i % 3 ? '#e8a848' : '#f8d878';
+    ctx.fillRect(ex, ey, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  // letterbox bars
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, w, h * 0.11);
+  ctx.fillRect(0, h * 0.89, w, h * 0.11);
+
+  // the story, one line at a time
+  const lines = [
+    [1.5, 'The crown shattered like old ice.'],
+    [4.5, 'And for the first time in a hundred years — dawn.'],
+    [7.5, 'The knight turned south, toward woodsmoke and morning.'],
+    [10.5, 'T H E   E N D'],
+  ];
+  ctx.textAlign = 'center';
+  for (const [start, text] of lines) {
+    const a = clamp((t - start) / 1.5, 0, 1);
+    if (a <= 0) continue;
+    ctx.globalAlpha = a;
+    if (text === 'T H E   E N D') {
+      ctx.fillStyle = '#e8c860';
+      ctx.font = 'bold 40px Georgia, serif';
+      ctx.fillText(text, w / 2, h * 0.46);
+    } else {
+      ctx.fillStyle = '#e8dfc8';
+      ctx.font = 'italic 20px Georgia, serif';
+      ctx.fillText(text, w / 2, h * 0.24 + lines.findIndex((l) => l[1] === text) * 30);
+    }
+  }
+  ctx.globalAlpha = 1;
+  if (t > 12 && Math.sin(t * 3) > -0.3) {
+    ctx.fillStyle = '#cfc8b8';
+    ctx.font = '15px Georgia, serif';
+    ctx.fillText('Press Enter to wander the quiet land', w / 2, h * 0.84);
+  }
+}
+
 function drawTitle() {
   const cx = canvas.width / 2;
   // drifting embers
@@ -1426,10 +1578,10 @@ function drawTitle() {
   ctx.fillStyle = '#cfc8b8';
   ctx.font = '16px Georgia, serif';
   const lines = [
-    'WASD / Arrows — move        Space — sword        Mouse — shoot arrows        Shift — dodge',
-    'E — talk / read / descend        Q — potion        J — quest journal',
+    'W / S — walk        A / D — turn        Click — strike or shoot        Shift — dash',
+    'E — talk / take        Q — potion        J — journal        M — map view',
     '',
-    'Find the three sigils.  Brave the dungeons below.  Face the Fallen King.',
+    'Draw the sword.  Follow the lanterns north, under the moon.  Face the Fallen King.',
   ];
   let ly = canvas.height * 0.55;
   for (const l of lines) { ctx.fillText(l, cx, ly); ly += 28; }
