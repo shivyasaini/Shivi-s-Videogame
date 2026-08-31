@@ -3,7 +3,7 @@
 function makePlayer(x, y) {
   return {
     x, y, r: 10,
-    hp: 120, maxHp: 120,
+    hp: 200, maxHp: 200,
     dmg: 15, speed: 165,
     face: -Math.PI / 2,        // facing angle (starts looking north)
     hasSword: false,           // the old blade waits in the stone

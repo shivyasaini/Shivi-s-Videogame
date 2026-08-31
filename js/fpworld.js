@@ -100,8 +100,8 @@ function fpDraw() {
 
   // night sky
   let g = ctx.createLinearGradient(0, 0, 0, horizon);
-  g.addColorStop(0, '#04050c');
-  g.addColorStop(1, '#10142a');
+  g.addColorStop(0, '#070a16');
+  g.addColorStop(1, '#171d3c');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, horizon);
 
@@ -136,8 +136,8 @@ function fpDraw() {
 
   // ground
   g = ctx.createLinearGradient(0, horizon, 0, h);
-  g.addColorStop(0, '#050705');
-  g.addColorStop(1, '#131a12');
+  g.addColorStop(0, '#0a0e0a');
+  g.addColorStop(1, '#1e2a1c');
   ctx.fillStyle = g;
   ctx.fillRect(0, horizon, w, h - horizon);
 
@@ -170,7 +170,7 @@ function fpDraw() {
     } else if (hit === T.WALL) { cr = 60; cg = 60; cb = 74; }
     else if (hit === T.WATER) { cr = 22; cg = 40; cb = 66; }
     else { cr = 96; cg = 76; cb = 42; } // the gate
-    let shade = clamp(1.3 / (1 + d0 * 0.34), 0.02, 1) * flicker * (side ? 0.7 : 1);
+    let shade = clamp(1.65 / (1 + d0 * 0.26), 0.05, 1) * flicker * (side ? 0.72 : 1);
     const wallX = side === 0 ? py2 + d0 * ry : px2 + d0 * rx;
     const frac = wallX - Math.floor(wallX);
     if (frac < 0.06 || frac > 0.94) shade *= 0.6;
@@ -209,7 +209,7 @@ function fpDraw() {
     if (col >= 0 && col < zbuf.length && zbuf[col] < tY - 0.2) continue;
     const size = h / tY;
     const floorY = h / 2 + size / 2;
-    const shade = clamp(1.35 / (1 + tY * 0.3), 0.08, 1) * flicker;
+    const shade = clamp(1.6 / (1 + tY * 0.24), 0.14, 1) * flicker;
     fpPaint(s, screenX, floorY, size, shade);
   }
 
@@ -284,15 +284,15 @@ function fpPaint(s, x, floorY, size, shade) {
     ctx.strokeStyle = '#3a3228'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -62); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, -62); ctx.lineTo(16, -56); ctx.stroke();
-    const fl = 0.7 + Math.sin(time * 7 + o.x) * 0.2;
+    const fl = 0.8 + Math.sin(time * 7 + o.x) * 0.2;
     ctx.fillStyle = 'rgba(248,200,64,' + fl + ')';
-    ctx.fillRect(11, -54, 10, 13);
-    ctx.globalAlpha = shade * 0.4;
-    const g = ctx.createRadialGradient(16, -48, 0, 16, -48, 46);
+    ctx.fillRect(10, -56, 12, 15);
+    ctx.globalAlpha = Math.min(1, shade * 0.75 + 0.2);
+    const g = ctx.createRadialGradient(16, -48, 0, 16, -48, 64);
     g.addColorStop(0, 'rgba(248,200,64,0.9)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
-    ctx.fillRect(-30, -94, 92, 92);
+    ctx.fillRect(-48, -112, 128, 128);
   } else if (s.kind === 'shrine') {
     ctx.fillStyle = '#3e424e';
     ctx.beginPath();
@@ -423,24 +423,61 @@ function fpPaintEnemy(e) {
     ctx.fillRect(-9, -52 + bob, 5, 7);
     ctx.fillRect(4, -52 + bob, 5, 7);
   } else if (e.type === 'boss') {
-    ctx.scale(1.7, 1.7);
-    ctx.fillStyle = flash ? '#e8d8d8' : '#1e1a24';
-    ctx.beginPath(); ctx.arc(0, -22, 20, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#4a3a52'; ctx.lineWidth = 3; ctx.stroke();
-    ctx.fillStyle = flash ? '#e8d8d8' : '#2a2432';
-    ctx.beginPath(); ctx.arc(0, -44, 12, 0, Math.PI * 2); ctx.fill();
+    // Maldrich: a tall human silhouette in kingly armor, sword point-down
+    ctx.scale(1.6, 1.6);
+    const body = flash ? '#e8d8d8' : '#16141e';
+    // tattered royal cape behind him
+    ctx.fillStyle = flash ? '#e8d8d8' : '#3a141c';
+    ctx.beginPath();
+    ctx.moveTo(-15, -52);
+    ctx.quadraticCurveTo(-26, -24, -20, 0);
+    ctx.lineTo(20, 0);
+    ctx.quadraticCurveTo(26, -24, 15, -52);
+    ctx.closePath(); ctx.fill();
+    // legs
+    ctx.fillStyle = body;
+    ctx.fillRect(-10, -26, 8, 26);
+    ctx.fillRect(2, -26, 8, 26);
+    // armored torso, tapering to the waist
+    ctx.beginPath();
+    ctx.moveTo(-15, -52); ctx.lineTo(15, -52);
+    ctx.lineTo(10, -24); ctx.lineTo(-10, -24);
+    ctx.closePath(); ctx.fill();
+    // pauldrons and arms
+    ctx.fillRect(-21, -55, 10, 9);
+    ctx.fillRect(11, -55, 10, 9);
+    ctx.fillRect(-19, -48, 6, 22);
+    ctx.fillRect(13, -48, 6, 22);
+    // faint armor edge-light so he reads as a figure, not a blob
+    ctx.strokeStyle = flash ? '#ffffff' : 'rgba(122,110,140,0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-15, -52); ctx.lineTo(-10, -24); ctx.moveTo(15, -52); ctx.lineTo(10, -24);
+    ctx.moveTo(-13, -44); ctx.lineTo(13, -44);
+    ctx.stroke();
+    // head
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(0, -61, 8, 0, Math.PI * 2); ctx.fill();
+    // the crown that would not rust
     ctx.fillStyle = '#e8c860';
     ctx.beginPath();
-    ctx.moveTo(-10, -52); ctx.lineTo(-10, -62); ctx.lineTo(-5, -54);
-    ctx.lineTo(0, -64); ctx.lineTo(5, -54); ctx.lineTo(10, -62);
-    ctx.lineTo(10, -52); ctx.closePath(); ctx.fill();
+    ctx.moveTo(-8, -67); ctx.lineTo(-8, -77); ctx.lineTo(-4, -69);
+    ctx.lineTo(0, -79); ctx.lineTo(4, -69); ctx.lineTo(8, -77);
+    ctx.lineTo(8, -67); ctx.closePath(); ctx.fill();
+    // burning eyes
     ctx.fillStyle = '#e83030';
-    ctx.fillRect(-6, -46, 4, 5); ctx.fillRect(3, -46, 4, 5);
-    ctx.strokeStyle = '#8a8a96'; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(16, -14); ctx.lineTo(36, -40); ctx.stroke();
+    ctx.fillRect(-5, -63, 4, 4);
+    ctx.fillRect(2, -63, 4, 4);
+    // greatsword, point resting at his feet
+    ctx.strokeStyle = flash ? '#ffffff' : '#9aa0ae';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(19, -30); ctx.lineTo(19, -2); ctx.stroke();
+    ctx.fillStyle = '#c8a850';
+    ctx.fillRect(13, -33, 12, 4);
+    ctx.fillRect(17, -38, 4, 5);
     if (e.charging > 0) {
       ctx.strokeStyle = 'rgba(232,48,48,0.5)'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(0, -26, 30 + Math.sin(time * 25) * 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, -34, 34 + Math.sin(time * 25) * 4, 0, Math.PI * 2); ctx.stroke();
     }
   }
   if (e.hp < e.hpMax) {

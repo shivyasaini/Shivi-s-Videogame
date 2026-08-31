@@ -210,8 +210,8 @@ function update(dt) {
   if (pressed['q']) {
     if (p.potions > 0 && p.hp < p.maxHp) {
       p.potions--;
-      p.hp = Math.min(p.maxHp, p.hp + 40);
-      floater(p.x, p.y - 20, '+40', '#7dd87d');
+      p.hp = Math.min(p.maxHp, p.hp + 60);
+      floater(p.x, p.y - 20, '+60', '#7dd87d');
     } else if (p.potions <= 0) {
       msg('No potions left. Osric in the village sells them.');
     }
@@ -1201,7 +1201,7 @@ function buildLights() {
 function drawLighting(lights) {
   lctx.setTransform(1, 0, 0, 1, 0, 0);
   lctx.globalCompositeOperation = 'source-over';
-  lctx.fillStyle = 'rgba(4,5,14,0.90)';
+  lctx.fillStyle = 'rgba(4,5,14,0.84)';
   lctx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
   lctx.globalCompositeOperation = 'destination-out';
 

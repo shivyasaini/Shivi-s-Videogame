@@ -156,12 +156,13 @@ function genWorld() {
   carvePath(V.tx + 3, V.ty, ruins[1].tx, ruins[1].ty + 5); // east ruin
   carvePath(V.tx, V.ty + 3, ruins[2].tx, ruins[2].ty + 5); // south ruin
 
-  // --- the scenic North Road: lantern posts light the whole way ---
-  for (let ly = 30; ly <= 56; ly += 5) {
-    const side = (ly / 5) % 2 === 0 ? 46 : 51;
-    setT(side, ly, T.GRASS);
-    world.decors.push({ x: px(side), y: px(ly), kind: 'lantern' });
-    world.lights.push({ x: px(side), y: px(ly), r: 125, warm: true });
+  // --- the scenic North Road: paired lantern posts make a corridor of light ---
+  for (let ly = 28; ly <= 58; ly += 3) {
+    for (const side of [46, 51]) {
+      setT(side, ly, T.GRASS);
+      world.decors.push({ x: px(side), y: px(ly), kind: 'lantern' });
+      world.lights.push({ x: px(side), y: px(ly), r: 135, warm: true });
+    }
   }
 
   // --- lore stones (now pure scenery and story) ---
