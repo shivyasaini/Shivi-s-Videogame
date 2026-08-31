@@ -1,81 +1,61 @@
-# ⚔️ Emberfall
+# THE HOLLOW HOUSE 🔪
 
-*A knight errant, a dying land, a crown that would not rust.*
+A first-person 3D survival horror game that runs in your browser. You are
+trapped inside the farmhouse of **Silas Crane** — the Butcher of Marrow
+County — and he is *always* hunting you. Inspired by classic
+stalked-in-a-house survival horror, tuned to be a little more forgiving.
 
-A dark fantasy action-RPG that runs entirely in your browser — no installs, no
-dependencies — and plays **entirely in first person**, rendered with a
-raycasting engine: starlit forests, a lantern-lit road, and the moon hanging
-over the north to guide you. Press **M** any time for a top-down map view.
+## How to play
 
-**The quest is simple:** draw the sword from the stone, walk the scenic North
-Road, defeat the Fallen King, and watch the dawn come back.
+Open `index.html` in a modern browser (Chrome, Edge, Firefox). For best
+results serve the folder locally:
 
-## ▶️ How to Play
+```
+python3 -m http.server
+# then visit http://localhost:8000
+```
 
-Open `index.html` in any browser. That's it.
+Click **ENTER THE HOUSE**, and the game grabs your mouse.
+🎧 Headphones strongly recommended — every sound is procedural and spatial.
 
-(Or serve it locally: `python3 -m http.server` in this folder, then visit
-http://localhost:8000)
-
-## 🎮 Controls
+## Controls
 
 | Key | Action |
-|---|---|
-| W / S | Walk forward / back |
-| A / D | Turn |
-| Click or Space | Strike with the sword up close, shoot an arrow at range |
-| Shift | Dash (brief invincibility) |
-| E | Talk · read stones · draw the sword |
-| Q | Drink a health potion |
-| J | Quest journal |
-| M | Toggle the top-down map view |
+| --- | --- |
+| `WASD` / arrows | Move |
+| Mouse | Look |
+| `Shift` | Sprint (drains stamina, makes noise!) |
+| `C` | Crouch (quiet + harder to spot) |
+| `E` | Interact — doors, items, notes, hide in wardrobes |
+| `F` | Flashlight (light helps you see, but helps *him* see you) |
+| `Q` | Use a first aid kit |
+| `P` / `Esc` | Pause |
 
-## 🗺️ The World
+## The goal
 
-Seven regions, each with its own look — **Emberside Village**, the **Weeping
-Woods**, the **Mirefen** marshes, the **Gravehills**, the **Old Road**, the
-**Ashen Approach**, and **Castle Maldrich**. Region banners announce each land
-as you cross into it, and the compass ribbon at the top keeps you pointed north.
+You wake in a guest bedroom. The front door is sealed by three emblems —
+**Wolf**, **Owl**, and **Serpent** — scattered through the house. One is
+behind a locked bathroom door; the rusty key is on the fireplace mantel.
+Slot all three into the front door in the foyer and escape.
 
-## 📜 The Quest
+## The Butcher
 
-1. **Take Up the Sword** — draw the old blade from the stone east of the
-   village fire. The castle gate opens the moment it slides free.
-2. **The North Road** — follow the lantern-lit road north under the moon.
-   A scenic walk with a lone wraith to keep you honest.
-3. **The Fallen King** — Maldrich waits on his throne. Charges, shadow-bolt
-   volleys, and a crown that needs breaking.
-4. **The End** — the first dawn in a hundred years, and a knight walking home.
+- He **patrols** the whole house, and periodically sweeps toward wherever you are.
+- He **hears** sprinting, doors, and the emblem mechanism. Crouch-walk to stay quiet.
+- He **sees** you if you're in his view cone with a clear line of sight — a
+  detection meter gives you a moment to break away before it becomes a chase.
+- If he chases you: **run**, break line of sight, and **hide in a wardrobe** —
+  but if he watches you climb in, hiding won't save you.
+- If he catches you, you don't lose your items — he just puts you back in the
+  bedroom. He wants to play.
 
-Track progress with **J**; the current step also shows in the top bar.
+## Tech
 
-## 🧭 Tips
-
-- The **moon hangs over the north** — walk toward it and you'll find the castle.
-- One button fights: enemies in reach get the sword, everything else gets an arrow.
-- Standing still out of combat slowly regenerates health.
-- Dying returns you to the campfire — minus a fifth of your gold.
-- Trader Osric sells a potion + five arrows for 15 gold.
-
-## 🛠️ Code Tour (for learning)
-
-Plain HTML5 canvas + vanilla JavaScript, no engine, no build step:
-
-```
-index.html      — page shell and script loading order
-style.css       — fullscreen canvas styling
-js/util.js      — seeded RNG, angles, math helpers
-js/world.js     — deterministic world generation (regions, road, castle, shrine)
-js/entities.js  — player and enemy stat definitions
-js/fpworld.js   — the first-person view: DDA raycaster over the world map,
-                  night sky and moon, billboard sprites, FP combat, viewmodel
-js/dungeon.js   — a spare raycast dungeon system (unused by the simple quest)
-js/main.js      — game loop, input, quests, enemy AI, ending scene, map view, UI
-```
-
-Good places to start tinkering:
-- **Enemy stats** — `ENEMY_TYPES` in `js/entities.js`
-- **World layout** — structure positions and the lantern road in `js/world.js`
-- **Combat feel** — reach, cooldowns, dash speed in `js/fpworld.js`
-- **The mood** — fog falloff and sky colors in `fpDraw()`
-- **The ending** — every beat of the cinematic lives in `drawEnding()` in `js/main.js`
+- Pure JavaScript + [Three.js](https://threejs.org) (vendored in `js/lib/`, MIT license).
+- Every texture is generated procedurally on canvas — no image assets.
+- Every sound (rain, thunder, heartbeat, footsteps, the chase drone, his
+  whistling) is synthesized with the Web Audio API — no audio assets.
+- Dynamic shadow-casting flashlight, flickering room lights, lightning through
+  the windows, film grain, and fear vignettes.
+- Grid-based A* pathfinding and a sight/sound/detection AI state machine
+  (patrol → investigate → chase → search).

@@ -1,14 +1,120 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
-  background: #05060a;
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
+
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+/* post effects */
+#grain {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; opacity: 0.5; z-index: 5;
+}
+#vignette {
+  position: fixed; inset: 0; pointer-events: none; z-index: 4;
+  background: radial-gradient(ellipse at center, transparent 46%, rgba(0,0,0,0.55) 88%, rgba(0,0,0,0.85) 100%);
+}
+#dangerVig {
+  position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0;
+  transition: opacity .35s;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(120,5,5,0.5) 100%);
+}
+#damageFlash {
+  position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(160,10,10,0.35), rgba(90,0,0,0.7));
+  transition: opacity .5s;
+}
+#hideSlats {
+  position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0;
+  transition: opacity .25s;
+  background: repeating-linear-gradient(180deg,
+    rgba(0,0,0,0.96) 0 7vh, rgba(0,0,0,0.25) 7vh 10vh);
 }
 
-#game {
-  display: block;
-  width: 100vw;
-  height: 100vh;
-  image-rendering: pixelated;
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 8; }
+#objBox {
+  position: absolute; top: 18px; left: 20px; max-width: 340px;
+  background: rgba(5,4,3,0.55); border-left: 3px solid #7a2a26;
+  padding: 8px 14px;
 }
+#objTitle { font-size: 10px; letter-spacing: 3px; color: #9c342c; }
+#objText { font-size: 14px; margin-top: 2px; color: #d8d2c4; }
+#bars { position: absolute; left: 20px; bottom: 20px; }
+.barwrap { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.bar {
+  width: 190px; height: 10px; background: rgba(10,8,6,0.7);
+  border: 1px solid rgba(160,140,110,0.3);
+}
+.bar.stam { width: 150px; height: 7px; }
+#healthFill { height: 100%; width: 100%; background: #7a2a26; transition: width .25s; }
+#stamFill { height: 100%; width: 100%; background: #6b6f4a; }
+.barlabel { font-size: 9px; letter-spacing: 2px; color: rgba(200,190,170,0.55); }
+#inv {
+  position: absolute; right: 22px; bottom: 20px; display: flex; gap: 12px;
+  align-items: center; font-size: 22px;
+  background: rgba(5,4,3,0.45); padding: 6px 14px; border-radius: 4px;
+}
+.emblem { filter: grayscale(1) brightness(0.4); transition: filter .4s; }
+.emblem.got { filter: none; text-shadow: 0 0 8px rgba(255,200,80,0.8); }
+#emKey { opacity: 0.18; transition: opacity .4s; }
+#medCount { font-size: 15px; color: #c46a5a; }
+#crosshair {
+  position: absolute; left: 50%; top: 50%; width: 4px; height: 4px;
+  margin: -2px 0 0 -2px; border-radius: 50%;
+  background: rgba(220,210,190,0.55);
+}
+#prompt {
+  position: absolute; left: 50%; top: 58%; transform: translateX(-50%);
+  font-size: 16px; color: #e8e0cc; text-shadow: 0 1px 4px #000;
+  background: rgba(5,4,3,0.55); padding: 5px 16px; border-radius: 3px;
+  opacity: 0; transition: opacity .15s; white-space: nowrap;
+}
+#toast {
+  position: absolute; left: 50%; top: 12%; transform: translateX(-50%);
+  font-size: 15px; color: #e3d9a8; text-shadow: 0 1px 4px #000;
+  opacity: 0; transition: opacity .4s; white-space: nowrap;
+}
+#caption {
+  position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
+  max-width: 70vw; text-align: center;
+  font-size: 18px; font-style: italic; color: #d8cfc0; text-shadow: 0 2px 6px #000;
+  opacity: 0; transition: opacity .4s;
+}
+
+/* overlays */
+.overlay {
+  position: fixed; inset: 0; z-index: 20; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 4vh 6vw;
+  background: radial-gradient(ellipse at center, rgba(12,9,8,0.9), rgba(0,0,0,0.97));
+}
+.overlay.show { display: flex; }
+.overlay.red { background: radial-gradient(ellipse at center, rgba(50,4,4,0.92), rgba(5,0,0,0.98)); }
+.overlay h1 {
+  font-size: clamp(34px, 7vw, 68px); letter-spacing: 8px; font-weight: normal;
+  color: #b8342a; text-shadow: 0 0 24px rgba(150,20,10,0.6), 0 3px 0 #000;
+}
+.overlay .sub { margin-top: 6px; letter-spacing: 5px; font-size: 13px; color: #8b8375; }
+.overlay .story {
+  max-width: 640px; margin-top: 3vh; font-size: 15px; line-height: 1.65; color: #b9b1a2;
+}
+.controls {
+  margin-top: 3vh; display: flex; flex-wrap: wrap; gap: 10px 22px; justify-content: center;
+  font-size: 13px; color: #9a9284; max-width: 620px;
+}
+.controls b { color: #ded5c2; }
+.overlay button {
+  margin-top: 4vh; padding: 14px 42px; font-family: inherit; font-size: 17px;
+  letter-spacing: 3px; color: #e3d9c4; background: rgba(90,20,16,0.35);
+  border: 1px solid #7a2a26; cursor: pointer; transition: background .2s, box-shadow .2s;
+}
+.overlay button:hover { background: rgba(140,30,22,0.55); box-shadow: 0 0 18px rgba(150,30,20,0.5); }
+.tip { margin-top: 2vh; font-size: 12px; color: #6d675c; }
+.note {
+  max-width: 560px; background: #d9cda6; color: #2c2417;
+  padding: 34px 38px; font-size: 16px; line-height: 1.6; text-align: left;
+  box-shadow: 0 10px 60px rgba(0,0,0,0.9);
+  transform: rotate(-1deg);
+}
+.note p { margin-bottom: 14px; }
+.note p:last-child { margin-bottom: 0; }

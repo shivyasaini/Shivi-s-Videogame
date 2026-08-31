@@ -3,16 +3,96 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Emberfall — A Dark Fantasy Tale</title>
+  <title>The Hollow House</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <canvas id="game"></canvas>
-  <script src="js/util.js"></script>
-  <script src="js/world.js"></script>
-  <script src="js/entities.js"></script>
-  <script src="js/dungeon.js"></script>
-  <script src="js/fpworld.js"></script>
-  <script src="js/main.js"></script>
+  <canvas id="grain"></canvas>
+  <div id="vignette"></div>
+  <div id="dangerVig"></div>
+  <div id="damageFlash"></div>
+  <div id="hideSlats"></div>
+
+  <div id="hud">
+    <div id="objBox">
+      <div id="objTitle">OBJECTIVE</div>
+      <div id="objText">Wake up.</div>
+    </div>
+    <div id="bars">
+      <div class="barwrap"><div class="bar"><div id="healthFill"></div></div><span class="barlabel">HEALTH</span></div>
+      <div class="barwrap"><div class="bar stam"><div id="stamFill"></div></div><span class="barlabel">STAMINA</span></div>
+    </div>
+    <div id="inv">
+      <span class="emblem" id="emWolf" title="Wolf emblem">🐺</span>
+      <span class="emblem" id="emOwl" title="Owl emblem">🦉</span>
+      <span class="emblem" id="emSerpent" title="Serpent emblem">🐍</span>
+      <span id="emKey" title="Rusty key">🗝️</span>
+      <span id="medCount">✚ 0</span>
+    </div>
+    <div id="crosshair"></div>
+    <div id="prompt"></div>
+    <div id="toast"></div>
+    <div id="caption"></div>
+  </div>
+
+  <div id="title" class="overlay show">
+    <h1>THE HOLLOW HOUSE</h1>
+    <p class="sub">a survival horror</p>
+    <p class="story">
+      October 3rd. Your car died on Route 9, and the only light for miles came
+      from an old farmhouse. You remember knocking. You remember his smile.<br><br>
+      You wake in a guest bedroom that locks from the outside. The man who lives
+      here — the one the papers call the Butcher of Marrow County — is somewhere
+      below, and he is always, <em>always</em> hunting.<br><br>
+      Find the three emblems that seal his front door. Stay quiet. Hide when you
+      must. And whatever you hear in the dark… keep moving.
+    </p>
+    <div class="controls">
+      <span><b>WASD</b> move</span><span><b>Mouse</b> look</span><span><b>Shift</b> sprint</span>
+      <span><b>C</b> crouch</span><span><b>E</b> interact / hide</span><span><b>F</b> flashlight</span>
+      <span><b>Q</b> use first aid</span><span><b>P</b> pause</span>
+    </div>
+    <button id="startBtn">ENTER THE HOUSE</button>
+    <p class="tip">🎧 headphones recommended · click the button, then keep the mouse in the window</p>
+  </div>
+
+  <div id="pauseOv" class="overlay">
+    <h1>PAUSED</h1>
+    <p class="story">The house waits for you.</p>
+    <button id="resumeBtn">RESUME</button>
+  </div>
+
+  <div id="deathOv" class="overlay red">
+    <h1>HE FOUND YOU</h1>
+    <p class="story">Everything goes dark… but he isn't done playing with you yet.</p>
+    <button id="retryBtn">WAKE UP AGAIN</button>
+  </div>
+
+  <div id="winOv" class="overlay">
+    <h1>YOU ESCAPED</h1>
+    <p class="story">Cold rain has never felt so good. Behind you, a scream of rage
+      shakes the windows of the Hollow House.</p>
+    <p id="winStats" class="sub"></p>
+    <button id="restartBtn">PLAY AGAIN</button>
+  </div>
+
+  <div id="noteOv" class="overlay">
+    <div class="note">
+      <p><em>To whoever wakes up in this room —</em></p>
+      <p>He sealed the front door with a lock of his own making. Three emblems:
+        a <b>WOLF</b>, an <b>OWL</b>, a <b>SERPENT</b>. Slot all three into the
+        front door in the foyer and it will open.</p>
+      <p>I found the wolf in the <b>kitchen</b>. I saw the owl on his desk in the
+        <b>study</b>. The serpent is in the <b>bathroom</b> — he keeps it locked;
+        look for a rusty key on the <b>fireplace mantel</b>.</p>
+      <p>He hears running. He sees light. The wardrobes are deep enough to hide in.</p>
+      <p><em>Don't end up like me.</em></p>
+    </div>
+    <button id="noteClose">PUT THE NOTE DOWN&nbsp;&nbsp;(E)</button>
+  </div>
+
+  <script src="js/lib/three.min.js"></script>
+  <script src="js/game.js"></script>
 </body>
 </html>
