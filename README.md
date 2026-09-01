@@ -51,12 +51,16 @@ knows your name, and terrible news: your best friend Ash was caught by Crane
 and is turning. The antidote takes two vials — **VENIN** and **REMEDY** —
 brewed by Crane's wife in her crooked, rotting house across the river.
 
-- **The Widow** hunts her halls exactly like her husband — except she carries
-  a lantern everywhere, and she *loves light*. Turn your **flashlight OFF (F)**
-  when she's near: with your light off she can barely see you; with it on,
-  she'll come straight for it.
+- **The Widow** — Crane's wife — hunts her halls like her husband, but slower,
+  and she carries a burning lantern everywhere; you can track her by its warm
+  glow. She *loves light*: turn your **flashlight OFF (F)** when she's near.
+  With your light off she can barely see you — and if she's chasing you, seven
+  full seconds in the dark and she loses you completely.
 - Her house is worse than his: hoarded junk, collapsing beams, moss, glowing
   fungus, roaches scuttling across the floor.
+- The campervan is a real safe room you walk into — string lights, a warm
+  stove, posters, a rumpled bed, and the telephone on the desk. A fallen pine
+  blocks the river bridge until you've answered the first call.
 - Between the houses lies a misty dawn forest — pines, a river with a wooden
   bridge, birdsong, lantern-posts marking the trail. Nothing hunts you out
   here. Breathe.
