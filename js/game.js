@@ -3165,6 +3165,7 @@ function lockPointer() {
 document.addEventListener('pointerlockchange', () => {
   if (!document.pointerLockElement && state === 'play' && !fallbackLook) {
     state = 'pause'; showOverlay('pauseOv');
+    $('skipHold2').style.display = chapter === 1 ? '' : 'none';
   }
 });
 addEventListener('mousemove', (e) => {
@@ -3213,12 +3214,59 @@ addEventListener('keydown', (e) => {
     }
   } else if (e.code === 'KeyP') {
     state = 'pause'; showOverlay('pauseOv');
+    $('skipHold2').style.display = chapter === 1 ? '' : 'none';
     if (document.exitPointerLock) document.exitPointerLock();
   }
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 
 /* -------------------------------------------------------------- game flow */
+function bindHold(btnId, fillId, seconds, cb) {
+  const btn = $(btnId), fill = $(fillId);
+  let t0 = null, raf = null, lastSec = -1;
+  const cancel = () => {
+    t0 = null; lastSec = -1;
+    if (raf) cancelAnimationFrame(raf);
+    fill.style.width = '0%';
+  };
+  const step = () => {
+    if (t0 === null) return;
+    const p = Math.min(1, (performance.now() - t0) / (seconds * 1000));
+    fill.style.width = (p * 100) + '%';
+    const sec = Math.floor(p * seconds);
+    if (sec !== lastSec) { lastSec = sec; if (AU.ok) AU.tone(500 + sec * 120, 0.06, 'square', 0.06); }
+    if (p >= 1) { cancel(); cb(); return; }
+    raf = requestAnimationFrame(step);
+  };
+  const start = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    AU.init();
+    t0 = performance.now();
+    step();
+  };
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('touchstart', start);
+  for (const ev of ['mouseup', 'mouseleave', 'touchend', 'touchcancel']) btn.addEventListener(ev, cancel);
+}
+function skipToChapter2() {
+  if (chapter !== 1) return;
+  AU.init();
+  if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
+  if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
+  hideOverlays();
+  if (!startTime) startTime = performance.now();
+  // chapter one is behind you — take its spoils with you
+  INV.wolf = INV.owl = INV.serpent = true; INV.emblems = 3;
+  INV.rustyKey = true; noteRead = true;
+  INV.medkits = Math.max(INV.medkits, 2);
+  player.health = 100; player.stamina = 100;
+  player.dead = false;
+  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
+  flashlight.intensity = player.flash ? 2.6 : 0;
+  updateHud();
+  state = 'play';
+  startChapter2();
+}
 function startGame() {
   AU.init();
   if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
@@ -3348,6 +3396,8 @@ $('resumeBtn').addEventListener('click', () => { hideOverlays(); state = 'play';
 $('restartBtn').addEventListener('click', () => location.reload());
 $('noteClose').addEventListener('click', closeNote);
 $('cutOv').addEventListener('click', cutAdvance);
+bindHold('skipHold1', 'skipFill1', 5, skipToChapter2);
+bindHold('skipHold2', 'skipFill2', 5, skipToChapter2);
 showOverlay('title');
 // debug/testing handle
 window.HH = {

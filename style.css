@@ -217,6 +217,18 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
 }
 .overlay button:hover { background: rgba(140,30,22,0.55); box-shadow: 0 0 18px rgba(150,30,20,0.5); }
 .tip { margin-top: 2vh; font-size: 12px; color: #6d675c; }
+.skipHold {
+  position: relative; margin-top: 2.2vh; padding: 10px 28px;
+  border: 1px solid #55504a; color: #8b8375;
+  font-size: 12px; letter-spacing: 2px; cursor: pointer;
+  overflow: hidden; user-select: none; -webkit-user-select: none;
+}
+.skipHold .fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: rgba(140, 30, 22, 0.5); pointer-events: none;
+}
+.skipHold span { position: relative; }
+.skipHold:hover { border-color: #7a2a26; color: #b8af9e; }
 .note {
   max-width: 560px; background: #d9cda6; color: #2c2417;
   padding: 34px 38px; font-size: 16px; line-height: 1.6; text-align: left;
