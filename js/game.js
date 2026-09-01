@@ -497,11 +497,35 @@ function buildRenderer() {
   });
 }
 
+// A hand-built environment map: every surface picks up faint ambient
+// reflections from a dim imaginary room, instead of pure spotlight-on-plastic.
+function buildEnvMap() {
+  const envScene = new THREE.Scene();
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10),
+    new THREE.MeshBasicMaterial({ color: 0x0c0e12, side: THREE.BackSide }));
+  envScene.add(shell);
+  const panel = (color, intensity, x, y, z, w, h, rx, ry) => {
+    const m = new THREE.MeshBasicMaterial({ color });
+    m.color.multiplyScalar(intensity);
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+    p.position.set(x, y, z);
+    p.rotation.x = rx || 0; p.rotation.y = ry || 0;
+    envScene.add(p);
+  };
+  panel(0x8fb0d8, 1.1, 0, 4.9, 0, 6, 6, Math.PI / 2, 0);   // cold skylight overhead
+  panel(0xffb060, 0.75, -4.9, 2, 0, 4, 3, 0, Math.PI / 2); // a warm lamp somewhere
+  panel(0x40507a, 0.5, 4.9, 2, 2, 5, 3, 0, -Math.PI / 2);  // moonlit window
+  panel(0x2a2018, 0.35, 0, -4.9, 0, 8, 8, -Math.PI / 2, 0);// dim floor bounce
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(envScene, 0.06).texture;
+  pmrem.dispose();
+}
+
 function buildMaterials() {
-  MAT.wall = new THREE.MeshStandardMaterial({ map: TEX.wall, roughness: 0.94 });
-  MAT.floor = new THREE.MeshStandardMaterial({ map: TEX.floor, roughness: 0.72 });
+  MAT.wall = new THREE.MeshStandardMaterial({ map: TEX.wall, roughness: 0.94, bumpMap: TEX.wall, bumpScale: 0.02 });
+  MAT.floor = new THREE.MeshStandardMaterial({ map: TEX.floor, roughness: 0.72, bumpMap: TEX.floor, bumpScale: 0.02, roughnessMap: TEX.floor });
   MAT.ceil = new THREE.MeshStandardMaterial({ map: TEX.ceil, roughness: 0.96 });
-  MAT.wood = new THREE.MeshStandardMaterial({ map: TEX.wood, roughness: 0.85 });
+  MAT.wood = new THREE.MeshStandardMaterial({ map: TEX.wood, roughness: 0.85, bumpMap: TEX.wood, bumpScale: 0.015 });
   MAT.woodDark = new THREE.MeshStandardMaterial({ map: TEX.wood, color: 0x8a6a4a, roughness: 0.85 });
   MAT.metal = new THREE.MeshStandardMaterial({ map: TEX.metal, roughness: 0.5, metalness: 0.65 });
   MAT.cloth = new THREE.MeshStandardMaterial({ map: TEX.cloth, roughness: 1 });
@@ -2580,9 +2604,37 @@ function buildForest() {
 
   // ground and paths
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 80),
-    new THREE.MeshStandardMaterial({ map: TEX.grass, roughness: 1 }));
+    new THREE.MeshStandardMaterial({ map: TEX.grass, roughness: 1, bumpMap: TEX.grass, bumpScale: 0.03, envMapIntensity: 0.5 }));
   ground.rotation.x = -Math.PI / 2; ground.position.set(50, 0, 40);
   ground.receiveShadow = true; worldRoot.add(ground);
+  // a real dawn sky, not a flat color: gradient dome plus a low sun glow
+  const skyTex = canvasTex(16, 256, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h);
+    gr.addColorStop(0, '#0d1524');
+    gr.addColorStop(0.42, '#2b3a4c');
+    gr.addColorStop(0.58, '#4a5566');
+    gr.addColorStop(0.72, '#8a6a4e');
+    gr.addColorStop(0.8, '#c08050');
+    gr.addColorStop(1, '#3a3430');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(220,225,240,' + rand(0.15, 0.5).toFixed(2) + ')'; g.fillRect(rand(w), rand(h * 0.3), 1, 1); }
+  });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(88, 20, 14),
+    new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false }));
+  dome.position.set(50, 0, 40);
+  worldRoot.add(dome);
+  const glowTex = canvasTex(128, 128, (g, w, h) => {
+    const gr = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    gr.addColorStop(0, 'rgba(255,190,120,0.85)');
+    gr.addColorStop(0.5, 'rgba(230,140,70,0.3)');
+    gr.addColorStop(1, 'rgba(230,140,70,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  });
+  const sunGlow = new THREE.Mesh(new THREE.PlaneGeometry(36, 26),
+    new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, fog: false }));
+  sunGlow.position.set(120, 12, 12);
+  sunGlow.lookAt(50, 4, 40);
+  worldRoot.add(sunGlow);
   const dirtMat = new THREE.MeshStandardMaterial({ map: TEX.dirt, roughness: 1 });
   const pathSegs = [
     [14, 12, 16, 30], [16, 30, 30, 46], [30, 46, 56, 40], [56, 40, 67, 40], [67, 40, 82, 40],
@@ -2660,9 +2712,9 @@ function buildForest() {
     const x = rand(4, 96), z = rand(4, 76);
     if (clearOf(x, z)) treePts.push([x, z, rand(0.8, 1.35), rand(Math.PI * 2)]);
   }
-  const barkMat = new THREE.MeshStandardMaterial({ color: 0x4a3626, roughness: 1 });
-  const needleA = new THREE.MeshStandardMaterial({ color: 0x1e3320, roughness: 1, flatShading: true });
-  const needleB = new THREE.MeshStandardMaterial({ color: 0x2a4429, roughness: 1, flatShading: true });
+  const barkMat = new THREE.MeshStandardMaterial({ color: 0x4a3626, roughness: 1, envMapIntensity: 0.35 });
+  const needleA = new THREE.MeshStandardMaterial({ color: 0x1e3320, roughness: 1, flatShading: true, envMapIntensity: 0.3 });
+  const needleB = new THREE.MeshStandardMaterial({ color: 0x2a4429, roughness: 1, flatShading: true, envMapIntensity: 0.3 });
   // two tones of pine, three tiers of boughs each — a proper stand of trees
   const evens = treePts.filter((p, i) => i % 2 === 0);
   const odds = treePts.filter((p, i) => i % 2 === 1);
@@ -3014,8 +3066,8 @@ function buildWidowHouse() {
     storm: true, rain: 0.7, wind: 0, birds: false,
   };
   WH2.exitMark = { x: cw(11), z: 16 * CELL + 1, label: 'OUT ⇩' };
-  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.floor2, roughness: 0.85 });
-  const wallMat = new THREE.MeshStandardMaterial({ map: TEX.wall2, roughness: 0.96 });
+  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.floor2, roughness: 0.85, bumpMap: TEX.floor2, bumpScale: 0.022 });
+  const wallMat = new THREE.MeshStandardMaterial({ map: TEX.wall2, roughness: 0.96, bumpMap: TEX.wall2, bumpScale: 0.02 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(GW * CELL / 2, 0, GH * CELL / 2);
@@ -3662,6 +3714,7 @@ function loop(t) {
 /* ------------------------------------------------------------------- boot */
 buildTextures();
 buildRenderer();
+buildEnvMap();
 buildMaterials();
 W1 = { group: new THREE.Group() };
 beginWorld(W1, MAP1, ROOMS1);
