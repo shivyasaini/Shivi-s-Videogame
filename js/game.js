@@ -18,9 +18,10 @@ const dist2 = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
 const angLerp = (a, b, t) => { let d = (b - a + Math.PI * 3) % (Math.PI * 2) - Math.PI; return a + d * t; };
 
 /* ------------------------------------------------------------------- map */
-const CELL = 2, WALLH = 3.3, GW = 27, GH = 15;
+const CELL = 2, WALLH = 3.3;
+let GW = 27, GH = 15;
 // '#' wall · '.' floor · '+' doorway · 'F' front door
-const MAP = [
+let MAP = [
   '###########################',
   '#.......#......#..........#',
   '#.......#......#..........#',
@@ -38,8 +39,9 @@ const MAP = [
   '#############FF############',
 ];
 const cw = (c) => c * CELL + CELL / 2; // cell -> world center
+const MAP1 = MAP;
 
-const ROOMS = {
+let ROOMS = {
   kitchen: { x0: 1, x1: 7,  z0: 1, z1: 4,  name: 'Kitchen' },
   dining:  { x0: 9, x1: 14, z0: 1, z1: 4,  name: 'Dining Room' },
   living:  { x0: 16, x1: 25, z0: 1, z1: 4, name: 'Living Room' },
@@ -56,9 +58,10 @@ function roomOf(wx, wz) {
   return null;
 }
 
-const doorAt = new Map();      // "x,z" -> door
-const blockedCells = new Set(); // furniture-occupied cells (killer pathing)
-const colliders = [];           // {x0,x1,z0,z1} furniture AABBs
+const ROOMS1 = ROOMS;
+let doorAt = new Map();      // "x,z" -> door
+let blockedCells = new Set(); // furniture-occupied cells (killer pathing)
+let colliders = [];           // {x0,x1,z0,z1} furniture AABBs
 
 const cellAt = (x, z) => (x < 0 || z < 0 || x >= GW || z >= GH ? '#' : MAP[z][x]);
 function isSolidForMove(x, z) {
@@ -147,6 +150,17 @@ const AU = {
     const rf = this.ctx.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 750;
     const rg = this.ctx.createGain(); rg.gain.value = 0.045;
     rain.connect(rf); rf.connect(rg); rg.connect(this.master); rain.start();
+    this.rainGain = rg;
+    // wind through pines
+    const wind = this.ctx.createBufferSource(); wind.buffer = this.noiseBuf; wind.loop = true; wind.playbackRate.value = 0.5;
+    const wf = this.ctx.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 300;
+    this.windGain = this.ctx.createGain(); this.windGain.gain.value = 0;
+    wind.connect(wf); wf.connect(this.windGain); this.windGain.connect(this.master); wind.start();
+    // running water
+    const riv = this.ctx.createBufferSource(); riv.buffer = this.noiseBuf; riv.loop = true; riv.playbackRate.value = 1.4;
+    const rvf = this.ctx.createBiquadFilter(); rvf.type = 'bandpass'; rvf.frequency.value = 1100; rvf.Q.value = 0.5;
+    this.riverGain = this.ctx.createGain(); this.riverGain.gain.value = 0;
+    riv.connect(rvf); rvf.connect(this.riverGain); this.riverGain.connect(this.master); riv.start();
     // dread drone (chase music), silent by default
     this.droneGain = this.ctx.createGain(); this.droneGain.gain.value = 0;
     const dl = this.ctx.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 420;
@@ -234,6 +248,15 @@ const AU = {
   buzz(vol, pan) {
     this.tone(165 + rand(45), 0.6, 'sawtooth', vol, pan, 210 + rand(60));
     this.tone(84, 0.5, 'sawtooth', vol * 0.5, pan);
+  },
+  phone(pan = 0) {
+    const trill = () => { for (let i = 0; i < 14; i++) setTimeout(() => { this.tone(1420, 0.045, 'sine', 0.11, pan); this.tone(1180, 0.045, 'sine', 0.09, pan); }, i * 52); };
+    trill(); setTimeout(trill, 900);
+  },
+  bird(pan = 0) {
+    const base = rand(2600, 4200), n = 3 + (rand(3) | 0);
+    for (let i = 0; i < n; i++)
+      setTimeout(() => this.tone(base * rand(0.9, 1.15), 0.09, 'sine', 0.035, pan, base * rand(0.7, 0.9)), i * (90 + rand(70)));
   },
   heal() { this.tone(392, 0.3, 'sine', 0.12); this.tone(523, 0.45, 'sine', 0.1); },
   breath(vol) { this.noise(0.5, 700, vol, 0.6, 'bandpass'); },
@@ -424,7 +447,10 @@ function buildTextures() {
 }
 
 /* ------------------------------------------------------------- three setup */
-let renderer, scene, camera, flashlight, flashTarget, lightning, windowMats = [], flickerLights = [];
+let renderer, scene, camera, flashlight, flashTarget, lightning, hemiLight, sunLight;
+let windowMats = [], flickerLights = [];
+let worldRoot = null, curWorld = null;
+let W1 = null, WF = null, WH2 = null; // house one, the forest, the widow's house
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 let MAT = {};
 
@@ -443,7 +469,7 @@ function buildRenderer() {
   scene.background = new THREE.Color(0x030407);
   scene.fog = new THREE.FogExp2(0x04050a, 0.062);
 
-  camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.08, 80);
+  camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.08, 120);
   scene.add(camera);
 
   flashlight = new THREE.SpotLight(0xfff2d8, 2.6, 26, 0.52, 0.45, 1.8);
@@ -455,9 +481,10 @@ function buildRenderer() {
   camera.add(flashlight); camera.add(flashTarget);
   flashlight.target = flashTarget;
 
-  scene.add(new THREE.HemisphereLight(0x1c2740, 0x0a0806, 0.26));
-  const moon = new THREE.DirectionalLight(0x30405e, 0.1);
-  moon.position.set(-8, 14, -12); scene.add(moon);
+  hemiLight = new THREE.HemisphereLight(0x1c2740, 0x0a0806, 0.26);
+  scene.add(hemiLight);
+  sunLight = new THREE.DirectionalLight(0x30405e, 0.1);
+  sunLight.position.set(-8, 14, -12); scene.add(sunLight);
 
   lightning = new THREE.DirectionalLight(0xcfe0ff, 0);
   lightning.position.set(4, 16, -20);
@@ -489,7 +516,7 @@ function put(mesh, x, y, z, ry = 0, shadow = true) {
   mesh.position.set(x, y, z);
   mesh.rotation.y = ry;
   if (shadow) { mesh.castShadow = true; mesh.receiveShadow = true; }
-  scene.add(mesh);
+  worldRoot.add(mesh);
   return mesh;
 }
 function addCollider(cx, cz, w, d) { colliders.push({ x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2, z1: cz + d / 2 }); }
@@ -502,11 +529,11 @@ function buildHouse() {
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(GW * CELL / 2, 0, GH * CELL / 2);
   floor.receiveShadow = true;
-  scene.add(floor);
+  worldRoot.add(floor);
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), MAT.ceil);
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(GW * CELL / 2, WALLH, GH * CELL / 2);
-  scene.add(ceil);
+  worldRoot.add(ceil);
 
   // walls (only cells that touch open space)
   const wallGeo = new THREE.BoxGeometry(CELL, WALLH, CELL);
@@ -519,7 +546,7 @@ function buildHouse() {
     const m = new THREE.Mesh(wallGeo, MAT.wall);
     m.position.set(cw(x), WALLH / 2, cw(z));
     m.castShadow = true; m.receiveShadow = true;
-    scene.add(m);
+    worldRoot.add(m);
   }
 
   // doors
@@ -533,12 +560,12 @@ function buildHouse() {
   const lamp = (x, z, color, inten, flicker) => {
     const l = new THREE.PointLight(color, inten, 13, 1.8);
     l.position.set(x, WALLH - 0.55, z);
-    scene.add(l);
+    worldRoot.add(l);
     const fixture = box(0.22, 0.14, 0.22, MAT.metal);
     put(fixture, x, WALLH - 0.1, z, 0, false);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8),
       new THREE.MeshBasicMaterial({ color }));
-    bulb.position.set(x, WALLH - 0.24, z); scene.add(bulb);
+    bulb.position.set(x, WALLH - 0.24, z); worldRoot.add(bulb);
     const rec = { light: l, bulb: bulb.material, base: inten, flicker, t: rand(10) };
     flickerLights.push(rec);
     return rec;
@@ -561,13 +588,13 @@ function buildHouse() {
     const m = new THREE.MeshStandardMaterial({ map: TEX.window, emissive: 0x223652, emissiveIntensity: 0.5, emissiveMap: TEX.window, roughness: 0.4 });
     const w = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.8), m);
     w.position.set(cw(x), 1.85, CELL + 0.02);
-    scene.add(w);
+    worldRoot.add(w);
     windowMats.push(m);
     for (let p = 0; p < 3; p++) {
       const plank = box(1.75, 0.22, 0.05, MAT.wood);
       plank.position.set(cw(x) + rand(-0.08, 0.08), 1.3 + p * 0.52 + rand(-0.05, 0.05), CELL + 0.09);
       plank.rotation.z = rand(-0.13, 0.13);
-      scene.add(plank);
+      worldRoot.add(plank);
     }
   }
 
@@ -576,7 +603,7 @@ function buildHouse() {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 1.2), new THREE.MeshStandardMaterial({ map: TEX.painting, roughness: 0.8 }));
     p.position.set(x, 1.9, z); p.rotation.y = ry;
     p.rotation.z = rand(-0.06, 0.06);
-    scene.add(p);
+    worldRoot.add(p);
   };
   paint(cw(3), 5 * CELL + CELL + 0.02, 0);
   paint(cw(9), 5 * CELL + CELL + 0.02, 0);
@@ -590,7 +617,7 @@ function buildHouse() {
     const b = new THREE.Mesh(new THREE.PlaneGeometry(s, s), MAT.blood);
     b.rotation.x = -Math.PI / 2; b.rotation.z = ry;
     b.position.set(x, 0.012 + rand(0.004), z);
-    scene.add(b);
+    worldRoot.add(b);
   };
   bloodAt(cw(9), cw(11), 1.8); bloodAt(cw(9.7), cw(12), 1.1);
   bloodAt(cw(24), cw(12.5), 2.0); bloodAt(cw(24.6), cw(11.5), 1.2);
@@ -602,7 +629,7 @@ function buildHouse() {
   const wallBlood = (x, y, z, ry, s) => {
     const b = new THREE.Mesh(new THREE.PlaneGeometry(s, s), MAT.blood);
     b.position.set(x, y, z); b.rotation.y = ry; b.rotation.z = rand(7);
-    scene.add(b);
+    worldRoot.add(b);
   };
   wallBlood(cw(12), 1.1, 8 * CELL - 0.03, Math.PI, 1.7);
   wallBlood(cw(5), 1.3, CELL + 0.04, 0, 1.4);
@@ -660,7 +687,7 @@ function buildHouse() {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(sw, sw * 0.375),
       new THREE.MeshStandardMaterial({ map: scrawlTex(text), transparent: true, roughness: 1, depthWrite: false }));
     m.position.set(x, y, z); m.rotation.y = ry;
-    scene.add(m);
+    worldRoot.add(m);
   };
   scrawl('NOBODY LEAVES', cw(13.5), 2.1, 5 * CELL + CELL + 0.03, 0, 3.4);
   scrawl('HE HEARS YOU', 4.6, 2.0, 8 * CELL + CELL + 0.03, 0, 2.4);
@@ -671,7 +698,7 @@ function buildHouse() {
   const web = (x, z, ry) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), webMat);
     m.position.set(x, WALLH - 0.6, z); m.rotation.y = ry;
-    scene.add(m);
+    worldRoot.add(m);
   };
   web(2.6, 12.5, Math.PI / 4);
   web(51.4, 12.5, -Math.PI / 4);
@@ -682,7 +709,7 @@ function buildHouse() {
   const rug = (x, z, w, d) => {
     const r = new THREE.Mesh(new THREE.PlaneGeometry(w, d), MAT.carpet);
     r.rotation.x = -Math.PI / 2; r.position.set(x, 0.008, z);
-    r.receiveShadow = true; scene.add(r);
+    r.receiveShadow = true; worldRoot.add(r);
   };
   rug(cw(13.5), cw(6.5), 10, 2.6);
   rug(cw(3), cw(11.5), 3.4, 3.4);
@@ -692,7 +719,7 @@ function buildHouse() {
 }
 
 /* ------------------------------------------------------------------ doors */
-const doors = [];
+let doors = [];
 function makeDoor(x, z, opt) {
   const alongX = cellAt(x - 1, z) === '#' && cellAt(x + 1, z) === '#'; // wall runs along X
   const cx = cw(x), cz = cw(z);
@@ -725,7 +752,7 @@ function makeDoor(x, z, opt) {
   hinge.position.set(alongX ? -(CELL / 2 - postW) : 0, 0, alongX ? 0 : -(CELL / 2 - postW));
   g.add(hinge);
   g.position.set(cx, 0, cz);
-  scene.add(g);
+  worldRoot.add(g);
   const d = {
     x, z, cx, cz, alongX, hinge,
     open: 0, target: 0, locked: !!opt.locked, keyId: opt.keyId || null,
@@ -765,11 +792,11 @@ function makeFrontDoor() {
   lin.position.set(0, 2.6 + (WALLH - 2.6) / 2, 0);
   g.add(lin);
   g.position.set(cx, 0, cz);
-  scene.add(g);
+  worldRoot.add(g);
   // porch glimpse behind the door
   const porch = new THREE.Mesh(new THREE.PlaneGeometry(8, WALLH), new THREE.MeshStandardMaterial({ color: 0x0a1220, emissive: 0x0a1626, emissiveIntensity: 0.8 }));
   porch.position.set(cx, WALLH / 2, cz + 3.4); porch.rotation.y = Math.PI;
-  scene.add(porch);
+  worldRoot.add(porch);
   frontDoor = {
     cx, cz, left, right, slots,
     open: 0, target: 0, locked: true, front: true,
@@ -792,7 +819,7 @@ function updateDoors(dt) {
 }
 
 /* -------------------------------------------------------------- furniture */
-const hideSpots = []; // wardrobes/lockers
+let hideSpots = []; // wardrobes/lockers
 function buildFurniture() {
   const T = MAT.wood, TD = MAT.woodDark, M = MAT.metal, C = MAT.cloth, W = MAT.white;
 
@@ -810,7 +837,7 @@ function buildFurniture() {
       const leg = box(0.06, 0.45, 0.06, T); leg.position.set(ox * 0.18, 0.22, oz * 0.18); g.add(leg);
     }
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
+    g.position.set(x, 0, z); g.rotation.y = ry; worldRoot.add(g);
     addCollider(x, z, 0.5, 0.5);
   };
   const shelf = (x, z, w, ry = 0) => {
@@ -828,7 +855,7 @@ function buildFurniture() {
       }
     }
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
+    g.position.set(x, 0, z); g.rotation.y = ry; worldRoot.add(g);
     const cs = Math.abs(Math.sin(ry)) > 0.5 ? [0.4, w] : [w, 0.4];
     addCollider(x, z, cs[0], cs[1]);
   };
@@ -840,7 +867,7 @@ function buildFurniture() {
     const k1 = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), M); k1.position.set(-0.06, 1.15, 0.44); g.add(k1);
     const k2 = k1.clone(); k2.position.x = 0.06; g.add(k2);
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
+    g.position.set(x, 0, z); g.rotation.y = ry; worldRoot.add(g);
     const cs = Math.abs(Math.sin(ry)) > 0.5 ? [0.75, 1.3] : [1.3, 0.75];
     addCollider(x, z, cs[0], cs[1]);
     const fx = Math.sin(ry), fz = Math.cos(ry);
@@ -864,7 +891,7 @@ function buildFurniture() {
     const back = box(2.1, 0.6, 0.22, C); back.position.set(0, 0.75, -0.36); g.add(back);
     for (const s of [-1, 1]) { const arm = box(0.22, 0.35, 0.9, C); arm.position.set(s * 0.96, 0.62, 0); g.add(arm); }
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    g.position.set(x, 0, z); g.rotation.y = ry || 0; scene.add(g);
+    g.position.set(x, 0, z); g.rotation.y = ry || 0; worldRoot.add(g);
     addCollider(x, z, Math.abs(Math.sin(ry || 0)) > 0.5 ? 1.0 : 2.2, Math.abs(Math.sin(ry || 0)) > 0.5 ? 2.2 : 1.0);
   };
 
@@ -886,16 +913,16 @@ function buildFurniture() {
   // a stove left mid-meal, weeks ago
   const rotK = new THREE.MeshStandardMaterial({ map: TEX.rot, roughness: 1 });
   const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.16, 12), M);
-  pot.position.set(cw(4.2), 1.04, CELL + 0.42); pot.castShadow = true; scene.add(pot);
+  pot.position.set(cw(4.2), 1.04, CELL + 0.42); pot.castShadow = true; worldRoot.add(pot);
   const goo = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.03, 12), rotK);
-  goo.position.set(cw(4.2), 1.12, CELL + 0.42); scene.add(goo);
+  goo.position.set(cw(4.2), 1.12, CELL + 0.42); worldRoot.add(goo);
   for (let i = 0; i < 4; i++) {
     const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 10), W);
     dish.position.set(cw(5.2) + rand(-0.03, 0.03), 0.97 + i * 0.026, CELL + 0.4 + rand(-0.03, 0.03));
-    scene.add(dish);
+    worldRoot.add(dish);
   }
   const slab = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.2), rotK);
-  slab.position.set(cw(2.6), 0.99, CELL + 0.42); slab.castShadow = true; scene.add(slab);
+  slab.position.set(cw(2.6), 0.99, CELL + 0.42); slab.castShadow = true; worldRoot.add(slab);
 
   // --- dining room
   table(cw(11.5), cw(2.5), 3.4, 1.3); blockCell(10, 2); blockCell(11, 2); blockCell(12, 2); blockCell(11, 3);
@@ -909,13 +936,13 @@ function buildFurniture() {
     const lump = new THREE.Mesh(new THREE.SphereGeometry(rand(0.07, 0.11), 7, 6), rotM);
     lump.scale.y = 0.55;
     lump.position.set(px + rand(-0.04, 0.04), 0.89, cw(2.5) + rand(-0.05, 0.05));
-    lump.castShadow = true; scene.add(lump);
+    lump.castShadow = true; worldRoot.add(lump);
   }
   put(box(0.55, 0.05, 0.34, M), cw(11.5), 0.85, cw(2.5) - 0.1, 0.2, false);
   const roast = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 7), rotM);
   roast.scale.set(1.4, 0.75, 1);
   roast.position.set(cw(11.5), 0.93, cw(2.5) - 0.1);
-  roast.castShadow = true; scene.add(roast);
+  roast.castShadow = true; worldRoot.add(roast);
   for (let i = 0; i < 2; i++) put(box(0.03, 0.03, 0.22, W), cw(11.5) + rand(-0.25, 0.25), 0.89, cw(2.5) + rand(-0.18, 0.05), rand(1.5), false);
 
   // --- living room
@@ -927,7 +954,7 @@ function buildFurniture() {
   put(box(2.2, 0.12, 0.6, TD), cw(21), 1.78, CELL + 0.35);
   addCollider(cw(21), CELL + 0.35, 2.1, 0.8); blockCell(20, 1); blockCell(21, 1);
   const ember = new THREE.PointLight(0xff5a1e, 0.7, 6, 2);
-  ember.position.set(cw(21), 0.6, CELL + 0.7); scene.add(ember);
+  ember.position.set(cw(21), 0.6, CELL + 0.7); worldRoot.add(ember);
   flickerLights.push({ light: ember, base: 0.7, flicker: 0.5, t: rand(10), bulb: null });
   shelf(cw(25) - 0.25, cw(2.5), 2.4, Math.PI / 2); blockCell(25, 2);
   chair(cw(17), cw(2), 0.7);
@@ -955,7 +982,7 @@ function buildFurniture() {
   wardrobe(43.2, 18.55, 0, 'closet'); blockCell(21, 9);
   // desk lamp
   const dl = new THREE.PointLight(0x9fe8b0, 0.5, 5, 2);
-  dl.position.set(cw(20.2), 1.1, cw(12.3)); scene.add(dl);
+  dl.position.set(cw(20.2), 1.1, cw(12.3)); worldRoot.add(dl);
   put(box(0.1, 0.34, 0.1, M), cw(20.2), 0.98, cw(12.3));
 
   // --- workshop
@@ -981,7 +1008,7 @@ function buildFurniture() {
 }
 
 /* ------------------------------------------------------------------ flies */
-const flySwarms = [];
+let flySwarms = [];
 function buildFlies() {
   const mat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
   const spots = [
@@ -999,7 +1026,7 @@ function buildFlies() {
       flies.push({ m: f, p: rand(7), r: rand(0.12, 0.4), h: rand(-0.08, 0.28), s: rand(3, 7), w: rand(2, 5) });
     }
     grp.position.set(x, y, z);
-    scene.add(grp);
+    worldRoot.add(grp);
     flySwarms.push({ x, y, z, flies });
   }
 }
@@ -1018,8 +1045,8 @@ function updateFlies(dt) {
 }
 
 /* ------------------------------------------------------------------ items */
-const interactables = [];
-const INV = { emblems: 0, owl: false, wolf: false, serpent: false, rustyKey: false, medkits: 0 };
+let interactables = [];
+const INV = { emblems: 0, owl: false, wolf: false, serpent: false, rustyKey: false, medkits: 0, venin: false, remedy: false };
 let itemMeshes = [];
 
 function emblemMesh(color) {
@@ -1033,12 +1060,12 @@ function emblemMesh(color) {
 function addItem(id, mesh, x, y, z, prompt, onTake) {
   mesh.position.set(x, y, z);
   mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-  scene.add(mesh);
+  worldRoot.add(mesh);
   const it = { id, mesh, x, z, y, prompt, spin: true, taken: false,
     action() {
       if (it.taken) return;
       it.taken = true;
-      scene.remove(mesh);
+      if (mesh.parent) mesh.parent.remove(mesh);
       AU.pickup();
       onTake();
       const i = interactables.indexOf(it); if (i >= 0) interactables.splice(i, 1);
@@ -1087,7 +1114,7 @@ function buildItems() {
   const n = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), MAT.paper);
   n.rotation.x = -Math.PI / 2; n.rotation.z = rand(7);
   n.position.set(cw(3.6), 0.02, cw(9.4));
-  scene.add(n);
+  worldRoot.add(n);
   interactables.push({ x: cw(3.6), z: cw(9.4), y: 0.2, prompt: 'Read the note', mesh: n, spin: false, action() { openNote(); } });
   // lock the bathroom (rusty key)
   const bd = doorAt.get('9,8');
@@ -1119,8 +1146,29 @@ const TAUNTS = [
   '“Run. I like it when they run.”',
   '“Stay for dinner!”',
 ];
+const WIDOW_TAUNTS = [
+  '“Come into the light, little moth.”',
+  '“My lantern never lies to me.”',
+  '“He sent you. He always sends me the pretty ones.”',
+  '“Shhh. It only hurts in the dark.”',
+];
+const BUTCHER_P = {
+  name: 'butcher', patrol: 1.5, invest: 2.3, search: 1.9, chase: 3.4,
+  attackCd: 2.6, dmg: 22, sight: 14, flashBonus: 3, lightLover: false,
+  taunts: TAUNTS, whistles: true,
+  deathTitle: 'HE FOUND YOU',
+  deathText: 'Everything goes dark… but he isn’t done playing with you yet.',
+};
+const WIDOW_P = {
+  name: 'widow', patrol: 1.4, invest: 2.2, search: 1.8, chase: 3.3,
+  attackCd: 2.7, dmg: 20, sight: 8.5, flashBonus: 9.5, lightLover: true,
+  taunts: WIDOW_TAUNTS, whistles: false, armBase: -0.95,
+  deathTitle: 'SHE CAUGHT YOU',
+  deathText: 'The last thing you ever see is warm, gentle lantern light.',
+};
+let butcherRig = null, widowRig = null;
 const killer = {
-  grp: null, x: cw(17), z: cw(2), yaw: 0,
+  grp: null, active: true, P: BUTCHER_P, x: cw(17), z: cw(2), yaw: 0,
   state: 'patrol', path: null, pathI: 1, repathT: 0,
   lastSeen: null, loseT: 0, searchT: 0, investT: 0, detect: 0,
   attackCd: 0, attackT: -1, struck: false, walkPhase: 0, lastPh: 0,
@@ -1172,8 +1220,9 @@ function buildKiller() {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   g.scale.setScalar(1.14);
   g.position.set(killer.x, 0, killer.z);
-  scene.add(g);
+  worldRoot.add(g);
   killer.grp = g;
+  butcherRig = { grp: g, lArm: killer.lArm, rArm: killer.rArm, lLeg: killer.lLeg, rLeg: killer.rLeg, headG: killer.headG, homeX: cw(17), homeZ: cw(2) };
 }
 /* ------------------------------------------------------- the other tenants */
 const NPCS = {};
@@ -1201,7 +1250,7 @@ function buildNpcs() {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   const gx = cw(10.3), gz = cw(1.6) + 0.15;
   g.position.set(gx, 0, gz);
-  scene.add(g);
+  worldRoot.add(g);
   addCollider(gx, gz, 0.75, 0.75);
   NPCS.granny = { g, headG: gHead, x: gx, z: gz, humT: 0, humI: 0 };
 
@@ -1226,11 +1275,12 @@ function buildNpcs() {
   const wx = 48.3, wz = 3.4, wyaw = 1.9; // facing the corner, back to the room
   w.position.set(wx, 0, wz);
   w.rotation.y = wyaw;
-  scene.add(w);
+  worldRoot.add(w);
   addCollider(wx, wz, 0.6, 0.6);
   NPCS.wife = { g: w, x: wx, z: wz, homeYaw: wyaw, whisT: 0 };
 }
 function npcUpdate(dt) {
+  if (curWorld !== W1) return;
   const G = NPCS.granny;
   const gd = dist2(player.x, player.z, G.x, G.z);
   G.g.position.y = Math.sin(perfT * 1.15) * 0.012; // the chair never stops rocking
@@ -1274,12 +1324,13 @@ function npcUpdate(dt) {
 
 const PATROL_KEYS = ['kitchen', 'dining', 'living', 'hall', 'foyer', 'study', 'garage', 'bedroom'];
 function randomPatrolCell() {
-  const r = ROOMS[PATROL_KEYS[Math.floor(rand(PATROL_KEYS.length))]];
+  const keys = (curWorld && curWorld.patrolKeys) || PATROL_KEYS;
+  const r = ROOMS[keys[Math.floor(rand(keys.length))]];
   for (let i = 0; i < 24; i++) {
     const x = Math.floor(rand(r.x0, r.x1 + 1)), z = Math.floor(rand(r.z0, r.z1 + 1));
     if (walkableForKiller(x, z)) return [x, z];
   }
-  return [Math.floor(rand(2, 24)), 6];
+  return nearestWalkable(Math.floor(GW / 2), Math.floor(GH / 2));
 }
 function setPath(tx, tz) {
   const [sx, sz] = nearestWalkable(Math.floor(killer.x / CELL), Math.floor(killer.z / CELL));
@@ -1298,7 +1349,7 @@ function panTo(o) {
 function killerCanSee() {
   if (player.hidden || player.dead) return false;
   const d = dist2(killer.x, killer.z, player.x, player.z);
-  let range = 14 + (player.flash ? 3 : 0);
+  let range = killer.P.sight + (player.flash ? killer.P.flashBonus : 0);
   if (player.crouch) range *= 0.8;
   if (d > range) return false;
   if (d > 2.2) {
@@ -1330,6 +1381,7 @@ function startChase() {
 }
 function killerUpdate(dt) {
   const K = killer;
+  if (!K.active) { noiseEvents.length = 0; return; }
   K.attackCd = Math.max(0, K.attackCd - dt);
   K.grace = Math.max(0, K.grace - dt);
   const d = dist2(K.x, K.z, player.x, player.z);
@@ -1341,6 +1393,7 @@ function killerUpdate(dt) {
       let rate = 0.45 + (1 - clamp(d / 16, 0, 1)) * 1.35;
       if (player.crouch) rate *= 0.55;
       if (!player.moving) rate *= 0.7;
+      if (K.P.lightLover) rate *= player.flash ? 1.7 : 0.45;
       if (d < 3.2) rate = 4;
       K.detect = clamp(K.detect + rate * dt, 0, 1);
       if (K.detect >= 1) startChase();
@@ -1372,25 +1425,39 @@ function killerUpdate(dt) {
     }
   }
 
+  // she is drawn to any light she can see
+  if (K.P.lightLover && player.flash && !player.hidden && K.state !== 'chase') {
+    K.lightT = (K.lightT || 0) - dt;
+    if (K.lightT <= 0 && d < 17 && losClear(K.x, K.z, player.x, player.z)) {
+      K.lightT = 4;
+      K.state = 'investigate'; K.investT = 12;
+      setPath(Math.floor(player.x / CELL), Math.floor(player.z / CELL));
+      caption('The lantern swings toward your light.', 2.5);
+    }
+  }
+
   let speed = 0;
   if (K.state === 'patrol') {
-    speed = 1.5;
+    speed = K.P.patrol;
     if (!K.path || killerMove(dt, speed)) { const [tx, tz] = randomPatrolCell(); setPath(tx, tz); }
     K.whistleT -= dt;
-    if (K.whistleT <= 0) { K.whistleT = rand(16, 30); if (d < 26) AU.whistle(); }
+    if (K.whistleT <= 0) {
+      K.whistleT = rand(16, 30);
+      if (d < 26) { if (K.P.whistles) AU.whistle(); else AU.whisper(panTo(K)); }
+    }
   } else if (K.state === 'investigate') {
-    speed = 2.3;
+    speed = K.P.invest;
     K.investT -= dt;
     const done = !K.path || killerMove(dt, speed);
     if (done || K.investT <= 0) { K.state = 'patrol'; K.path = null; }
   } else if (K.state === 'search') {
-    speed = 1.9;
+    speed = K.P.search;
     K.searchT -= dt;
     if (!K.path || killerMove(dt, speed))
       setPath(Math.floor(K.x / CELL) + Math.round(rand(-3, 3)), Math.floor(K.z / CELL) + Math.round(rand(-3, 3)));
     if (K.searchT <= 0) { K.state = 'patrol'; K.path = null; K.detect = 0.3; caption('The footsteps fade. He has moved on — for now.', 3.5); }
   } else if (K.state === 'chase') {
-    speed = 3.4;
+    speed = K.P.chase;
     if (sees || d < 3) { K.lastSeen = { x: player.x, z: player.z }; K.loseT = 0; } else K.loseT += dt;
     if (K.bust) {
       const bd = dist2(K.x, K.z, K.bust.frontX, K.bust.frontZ);
@@ -1412,9 +1479,9 @@ function killerUpdate(dt) {
       if (killerMove(dt, speed) && !sees) { K.state = 'search'; K.searchT = 7; K.path = null; K.detect = 0.4; }
     }
     if (K.loseT > 5 && d > 8) { K.state = 'search'; K.searchT = 6; K.path = null; K.bust = null; K.detect = 0.4; }
-    if (!player.dead && !player.hidden && d < 1.5 && K.attackCd <= 0 && K.attackT < 0) { K.attackT = 0; K.attackCd = 2.6; }
+    if (!player.dead && !player.hidden && d < 1.5 && K.attackCd <= 0 && K.attackT < 0) { K.attackT = 0; K.attackCd = K.P.attackCd; }
     K.tauntT -= dt;
-    if (K.tauntT <= 0) { K.tauntT = rand(5, 9); AU.growl(panTo(K), 0.3); caption(TAUNTS[Math.floor(rand(TAUNTS.length))], 3); }
+    if (K.tauntT <= 0) { K.tauntT = rand(5, 9); AU.growl(panTo(K), K.P.name === 'widow' ? 0.15 : 0.3); caption(K.P.taunts[Math.floor(rand(K.P.taunts.length))], 3); }
   }
 
   // swing attack animation + hit application
@@ -1427,7 +1494,7 @@ function killerUpdate(dt) {
       if (!K.struck && t > 0.3) {
         K.struck = true;
         AU.noise(0.2, 900, 0.25, 2);
-        if (!player.dead && !player.hidden && dist2(K.x, K.z, player.x, player.z) < 2.1) damagePlayer(22, K);
+        if (!player.dead && !player.hidden && dist2(K.x, K.z, player.x, player.z) < 2.1) damagePlayer(K.P.dmg, K);
       }
     } else if (t > 0.8) { K.attackT = -1; K.struck = false; }
   }
@@ -1449,7 +1516,7 @@ function killerUpdate(dt) {
   K.headG.rotation.z = Math.sin(perfT * 0.9) * 0.14 + (jit ? rand(-0.07, 0.07) : 0);
   K.headG.rotation.x = 0.1 + (jit ? rand(-0.05, 0.05) : Math.sin(perfT * 0.53) * 0.06);
   K.lLeg.rotation.x = sw; K.rLeg.rotation.x = -sw;
-  K.lArm.rotation.x = -sw * 0.8;
+  K.lArm.rotation.x = (K.P.armBase || 0) - sw * 0.8;
   if (K.attackT < 0) K.rArm.rotation.x = sw * 0.8;
   const ph = Math.floor(K.walkPhase / Math.PI);
   if (ph !== K.lastPh) {
@@ -1561,7 +1628,7 @@ function playerUpdate(dt) {
   camera.fov = lerp(camera.fov, wantSprint && player.moving ? 79 : 72, clamp(dt * 5, 0, 1));
   camera.updateProjectionMatrix();
   if (player.stamina < 20 && Math.random() < dt * 1.2) AU.breath(0.06);
-  if (frontDoor.open > 0.5 && player.z > 28.9) winGame();
+  if (chapter === 1 && frontDoor.open > 0.5 && player.z > 28.9) startChapter2();
 }
 
 /* ------------------------------------------------------------- hide spots */
@@ -1628,10 +1695,10 @@ function die() {
   player.dead = true; state = 'dying'; deaths++; dieT = 0; dieSl = 0; dieMode = 'butcher';
   clearKillFx();
   if (mapOpen) toggleMap();
-  drawScareFace('butcher');
+  drawScareFace(killer.P.name === 'widow' ? 'wife' : 'butcher');
   showScare(0.45);
-  $('deathTitle').textContent = 'HE FOUND YOU';
-  $('deathText').textContent = 'Everything goes dark… but he isn’t done playing with you yet.';
+  $('deathTitle').textContent = killer.P.deathTitle;
+  $('deathText').textContent = killer.P.deathText;
   AU.sting(); AU.growl(0, 0.5);
   if (document.exitPointerLock) document.exitPointerLock();
 }
@@ -1651,20 +1718,28 @@ function wifeKill() {
 function respawn() {
   player.dead = false; player.health = 100; player.stamina = 100;
   player.hidden = false; player.hideSpot = null;
-  player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0; player.pitch = 0;
+  player.pitch = 0;
   player.vx = player.vz = 0; player.eye = 1.62;
   $('hideSlats').style.opacity = 0;
   flashlight.intensity = player.flash ? 2.6 : 0;
   camera.rotation.z = 0;
-  killer.x = cw(17); killer.z = cw(2); killer.state = 'patrol'; killer.path = null;
-  killer.detect = 0; killer.grace = 6; killer.bust = null; killer.attackT = -1; killer.struck = false;
   clearKillFx();
   $('damageFlash').style.opacity = 0;
-  // she returns to her corner
-  NPCS.wife.g.position.set(NPCS.wife.x, 0, NPCS.wife.z);
-  NPCS.wife.g.rotation.y = NPCS.wife.homeYaw;
+  if (curWorld === WH2) {
+    player.x = cw(11); player.z = cw(15); player.yaw = 0;
+    configureStalker(WH2);
+    killer.grace = 6;
+    caption('You wake on the cold boards by the door. Deeper in, the lantern light sways on.', 4.5);
+  } else {
+    player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0;
+    killer.x = cw(17); killer.z = cw(2); killer.state = 'patrol'; killer.path = null;
+    killer.detect = 0; killer.grace = 6; killer.bust = null; killer.attackT = -1; killer.struck = false;
+    // she returns to her corner
+    NPCS.wife.g.position.set(NPCS.wife.x, 0, NPCS.wife.z);
+    NPCS.wife.g.rotation.y = NPCS.wife.homeYaw;
+    caption('You wake on the bedroom floor again. He carried you back. He wants to play.', 4.5);
+  }
   hideOverlays(); state = 'play'; lockPointer();
-  caption('You wake on the bedroom floor again. He carried you back. He wants to play.', 4.5);
   updateHud();
 }
 function winGame() {
@@ -1703,7 +1778,7 @@ function scanInteract() {
     const label = d.locked ? 'E — try the ' + (d.name || 'door') + ' (locked)' : d.open > 0.5 ? 'E — close the door' : 'E — open the door';
     consider(d.cx, d.cz, { type: 'door', d }, label);
   }
-  if (frontDoor.locked)
+  if (chapter === 1 && frontDoor.locked)
     consider(frontDoor.cx, frontDoor.cz - 0.7, { type: 'front' }, 'E — the sealed front door (' + INV.emblems + '/3 emblems)', 3.2);
   for (const h of hideSpots) consider(h.frontX, h.frontZ, { type: 'hide', h }, 'E — hide in the ' + h.label, 1.9);
   setPrompt(best ? bestPrompt : '');
@@ -1762,6 +1837,10 @@ function updateHud() {
   $('emKey').style.opacity = INV.rustyKey ? 1 : 0.18;
   $('medCount').textContent = '✚ ' + INV.medkits;
   $('medCount').style.opacity = INV.medkits ? 1 : 0.25;
+  $('emVenin').style.display = chapter >= 2 ? '' : 'none';
+  $('emRemedy').style.display = chapter >= 2 ? '' : 'none';
+  $('emVenin').className = 'emblem vialV' + (INV.venin ? ' got' : '');
+  $('emRemedy').className = 'emblem vialR' + (INV.remedy ? ' got' : '');
 }
 const OVERLAYS = ['title', 'pauseOv', 'deathOv', 'winOv', 'noteOv'];
 function showOverlay(id) {
@@ -1772,24 +1851,38 @@ function hideOverlays() { for (const o of OVERLAYS) $(o).classList.remove('show'
 /* --------------------------------------------------------------- ambience */
 let L = 0, lightningT = 5, hbT = 0, ambT = 18, brT = 0, buzzT = 0;
 function ambience(dt) {
-  lightningT -= dt;
-  if (lightningT <= 0) {
-    lightningT = rand(8, 20);
-    L = 1;
-    setTimeout(() => AU.thunder(), rand(300, 1500));
+  if (ENVA.storm) {
+    lightningT -= dt;
+    if (lightningT <= 0) {
+      lightningT = rand(8, 20);
+      L = 1;
+      setTimeout(() => AU.thunder(), rand(300, 1500));
+    }
+    L *= Math.exp(-dt * 3.2);
+    lightning.intensity = L * 1.2;
+    for (const m of windowMats) m.emissiveIntensity = 0.45 + L * 5;
   }
-  L *= Math.exp(-dt * 3.2);
-  lightning.intensity = L * 1.2;
-  for (const m of windowMats) m.emissiveIntensity = 0.45 + L * 5;
+  if (AU.ok) {
+    const k2 = clamp(dt * 1.5, 0, 1);
+    AU.rainGain.gain.value = lerp(AU.rainGain.gain.value, 0.045 * ENVA.rain, k2);
+    AU.windGain.gain.value = lerp(AU.windGain.gain.value, 0.055 * ENVA.wind, k2);
+    let rv = 0;
+    if (curWorld === WF) rv = 0.13 * clamp(1 - Math.abs(player.x - 63) / 30, 0, 1);
+    AU.riverGain.gain.value = lerp(AU.riverGain.gain.value, rv, k2);
+  }
+  if (ENVA.birds && state === 'play') {
+    birdT -= dt;
+    if (birdT <= 0) { birdT = rand(3.5, 9); AU.bird(rand(-1, 1)); }
+  }
   for (const fl of flickerLights) {
     fl.t += dt;
     if (fl.offT > 0) { fl.offT -= dt; fl.light.intensity = 0.02; continue; }
     if (Math.random() < fl.flicker * dt * 0.9) fl.offT = rand(0.04, 0.3);
     fl.light.intensity = fl.base * (0.82 + 0.18 * Math.sin(fl.t * 9.7) * Math.sin(fl.t * 3.1));
   }
-  const d = dist2(killer.x, killer.z, player.x, player.z);
-  const chase = killer.state === 'chase';
-  const near = clamp(1 - d / 13, 0, 1);
+  const d = killer.active ? dist2(killer.x, killer.z, player.x, player.z) : 999;
+  const chase = killer.active && killer.state === 'chase';
+  const near = killer.active ? clamp(1 - d / 13, 0, 1) : 0;
   // the house is never quiet
   ambT -= dt;
   if (ambT <= 0 && state === 'play') {
@@ -1807,8 +1900,8 @@ function ambience(dt) {
       else AU.creak(rand(-1, 1));
     }
   }
-  // his breathing, when he is close and you are not yet caught
-  if (d < 8 && !chase) {
+  // the stalker's breathing, when close and you are not yet caught
+  if (killer.active && d < 8 && !chase) {
     brT -= dt;
     if (brT <= 0) { brT = 1.7; AU.breath(0.05 + (1 - d / 8) * 0.06); }
   }
@@ -1829,7 +1922,7 @@ function ambience(dt) {
     AU.heartbeat(0.12 + near * 0.25);
   }
   if (AU.ok) {
-    const target = chase ? 0.15 : (killer.state === 'investigate' || killer.state === 'search') ? 0.05 : 0;
+    const target = !killer.active ? 0 : chase ? 0.15 : (killer.state === 'investigate' || killer.state === 'search') ? 0.05 : 0;
     AU.droneGain.gain.value = lerp(AU.droneGain.gain.value, target, clamp(dt * 2, 0, 1));
   }
   for (const it of itemMeshes) if (!it.taken && it.spin) {
@@ -1931,18 +2024,20 @@ function toggleMap() {
 }
 function drawMap() {
   const c = $('mapCanvas');
-  const S = 30;
-  if (c.width !== GW * S) { c.width = GW * S; c.height = GH * S; }
+  const S = Math.min(30, Math.floor(920 / GW));
+  if (c.width !== GW * S || c.height !== GH * S) { c.width = GW * S; c.height = GH * S; }
   const g = c.getContext('2d');
+  const outdoor = curWorld === WF;
   g.fillStyle = '#141008'; g.fillRect(0, 0, c.width, c.height);
   for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++) {
     const ch = cellAt(x, z);
-    if (ch === '#') g.fillStyle = '#3d2e1c';
+    if (ch === '#') g.fillStyle = outdoor ? '#101408' : '#3d2e1c';
     else if (ch === 'F') g.fillStyle = '#5a1410';
     else if (ch === '+') g.fillStyle = '#33271a';
-    else g.fillStyle = '#221a10';
+    else g.fillStyle = outdoor ? '#1b2416' : '#221a10';
     g.fillRect(x * S, z * S, S, S);
   }
+  if (curWorld.mapExtra) curWorld.mapExtra(g, S);
   g.textAlign = 'center';
   g.fillStyle = 'rgba(158,64,44,0.8)';
   g.font = "12px 'Special Elite', Georgia, serif";
@@ -1966,22 +2061,34 @@ function drawMap() {
     if (it.id && it.id.indexOf('med') === 0) {
       g.fillStyle = '#c04030'; g.font = 'bold 17px Georgia';
       g.fillText('✚', MX(it.x), MZ(it.z) + 6);
+    } else if (it.id === 'venin' || it.id === 'remedy') {
+      g.fillStyle = it.id === 'venin' ? '#c03018' : '#30a050';
+      g.beginPath(); g.arc(MX(it.x), MZ(it.z), 5.5, 0, 7); g.fill();
+      g.strokeStyle = '#e8dcc0'; g.lineWidth = 1.3; g.stroke();
     } else if (MAPICONS[it.id]) {
       g.font = '19px serif';
       g.fillText(MAPICONS[it.id], MX(it.x), MZ(it.z) + 7);
     }
   }
-  if (!noteRead) { g.font = '16px serif'; g.fillText('📜', MX(cw(3.6)), MZ(cw(9.4)) + 6); }
-  // the other tenants
-  g.font = '15px serif';
-  g.fillText('👵', MX(NPCS.granny.x), MZ(NPCS.granny.z) + 5);
-  g.fillStyle = '#e0a020'; g.font = 'bold 17px Georgia';
-  g.fillText('⚠', MX(NPCS.wife.x), MZ(NPCS.wife.z) + 6);
-  // the way out
-  g.fillStyle = '#d84a35'; g.font = "bold 13px 'Special Elite', Georgia, serif";
-  g.fillText('EXIT ⇩', 14 * S, 14.7 * S);
-  // him — only when he is close enough to hear
-  const kd = dist2(killer.x, killer.z, player.x, player.z);
+  if (curWorld === W1) {
+    if (!noteRead) { g.font = '16px serif'; g.fillText('📜', MX(cw(3.6)), MZ(cw(9.4)) + 6); }
+    // the other tenants
+    g.font = '15px serif';
+    g.fillText('👵', MX(NPCS.granny.x), MZ(NPCS.granny.z) + 5);
+    g.fillStyle = '#e0a020'; g.font = 'bold 17px Georgia';
+    g.fillText('⚠', MX(NPCS.wife.x), MZ(NPCS.wife.z) + 6);
+  }
+  for (const m of (curWorld.marks || [])) {
+    g.fillStyle = m.color || '#d8c8a8';
+    g.font = m.font || '16px serif';
+    g.fillText(m.t, MX(m.x), MZ(m.z) + 6);
+  }
+  if (curWorld.exitMark) {
+    g.fillStyle = '#d84a35'; g.font = "bold 13px 'Special Elite', Georgia, serif";
+    g.fillText(curWorld.exitMark.label, MX(curWorld.exitMark.x), MZ(curWorld.exitMark.z));
+  }
+  // the stalker — only when close enough to hear
+  const kd = killer.active ? dist2(killer.x, killer.z, player.x, player.z) : 999;
   if (kd < 16) {
     const pulse = 4.5 + Math.sin(perfT * 6) * 1.5;
     g.fillStyle = '#e0281a';
@@ -2084,6 +2191,7 @@ function hallScare() {
   }, 1900);
 }
 function scareChecks() {
+  if (curWorld !== W1) return;
   if (!scares.hall && killer.state !== 'chase' && roomOf(player.x, player.z) === 'hall') hallScare();
   if (!scares.mirror && dist2(player.x, player.z, cw(7.5), 18.6) < 2.1) {
     scares.mirror = true;
@@ -2105,6 +2213,944 @@ function grainLoop() {
     }
     g.putImageData(img, 0, 0);
   }, 90);
+}
+
+/* ===================================================================== */
+/*  CHAPTER TWO — the estate grounds, the widow's house, the boathouse   */
+/* ===================================================================== */
+let chapter = 1, ch2phase = 0;
+let phoneRinging = false, phoneRingT = 0, birdT = 3;
+const ENVA = { rain: 1, wind: 0, storm: true, birds: false };
+
+/* ---------------- world management ---------------- */
+function beginWorld(w, map, rooms) {
+  worldRoot = w.group;
+  scene.add(w.group);
+  w.group.visible = false;
+  MAP = map; GW = map[0].length; GH = map.length; ROOMS = rooms;
+  doorAt = new Map(); doors = []; colliders = []; blockedCells = new Set();
+  interactables = []; itemMeshes = []; hideSpots = [];
+  windowMats = []; flickerLights = []; flySwarms = [];
+}
+function sealWorld(w) {
+  Object.assign(w, {
+    map: MAP, gw: GW, gh: GH, rooms: ROOMS,
+    doorAt, doors, colliders, blocked: blockedCells,
+    interactables, itemMeshes, hideSpots, windowMats,
+    flicker: flickerLights, swarms: flySwarms,
+  });
+}
+function activateWorld(w) {
+  for (const o of [W1, WF, WH2]) if (o && o.group) o.group.visible = (o === w);
+  curWorld = w;
+  worldRoot = w.group;
+  MAP = w.map; GW = w.gw; GH = w.gh; ROOMS = w.rooms;
+  doorAt = w.doorAt; doors = w.doors; colliders = w.colliders; blockedCells = w.blocked;
+  interactables = w.interactables; itemMeshes = w.itemMeshes; hideSpots = w.hideSpots;
+  windowMats = w.windowMats; flickerLights = w.flicker; flySwarms = w.swarms;
+  applyEnv(w.envCfg);
+  configureStalker(w);
+}
+function applyEnv(c) {
+  if (!c) return;
+  scene.fog.color.setHex(c.fog); scene.fog.density = c.fogD;
+  scene.background.setHex(c.bg);
+  hemiLight.color.setHex(c.hemiSky); hemiLight.groundColor.setHex(c.hemiGround); hemiLight.intensity = c.hemiI;
+  sunLight.color.setHex(c.sun); sunLight.intensity = c.sunI;
+  sunLight.position.set(c.sunPos[0], c.sunPos[1], c.sunPos[2]);
+  ENVA.rain = c.rain; ENVA.wind = c.wind; ENVA.storm = c.storm; ENVA.birds = c.birds;
+  if (!c.storm) { lightning.intensity = 0; L = 0; }
+}
+function configureStalker(w) {
+  if (w.stalker === 'butcher' && butcherRig) { Object.assign(killer, butcherRig); killer.P = BUTCHER_P; killer.active = true; }
+  else if (w.stalker === 'widow' && widowRig) { Object.assign(killer, widowRig); killer.P = WIDOW_P; killer.active = true; }
+  else { killer.active = false; killer.state = 'patrol'; killer.bust = null; killer.attackT = -1; return; }
+  killer.x = killer.homeX; killer.z = killer.homeZ;
+  killer.state = 'patrol'; killer.path = null; killer.detect = 0; killer.bust = null;
+  killer.attackT = -1; killer.struck = false; killer.grace = 4; killer.loseT = 0;
+  killer.grp.position.set(killer.x, 0, killer.z);
+}
+function fadeSwap(fn) {
+  const f = $('fadeBlack');
+  f.classList.add('show');
+  setTimeout(() => { fn(); }, 320);
+  setTimeout(() => { f.classList.remove('show'); }, 620);
+}
+
+/* ---------------- chapter-two textures ---------------- */
+function buildTextures2() {
+  TEX.grass = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#232e1c'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 60; i++) {
+      g.fillStyle = ['rgba(48,64,36,0.5)', 'rgba(26,34,20,0.6)', 'rgba(58,72,40,0.3)'][i % 3];
+      g.beginPath(); g.arc(rand(w), rand(h), rand(6, 26), 0, 7); g.fill();
+    }
+    for (let i = 0; i < 500; i++) {
+      g.strokeStyle = 'rgba(' + (40 + rand(40) | 0) + ',' + (60 + rand(40) | 0) + ',30,' + rand(0.15, 0.5).toFixed(2) + ')';
+      g.lineWidth = 1;
+      const x = rand(w), y = rand(h);
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(-2, 2), y - rand(2, 6)); g.stroke();
+    }
+  }, 25, 20);
+  TEX.dirt = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#3c3226'; g.fillRect(0, 0, w, h);
+    grime(g, w, h, 120, 0.22);
+    for (let i = 0; i < 22; i++) {
+      g.fillStyle = 'rgba(120,108,88,' + rand(0.15, 0.4).toFixed(2) + ')';
+      g.beginPath(); g.arc(rand(w), rand(h), rand(1.5, 4), 0, 7); g.fill();
+    }
+    g.strokeStyle = 'rgba(20,15,10,0.4)'; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(w * 0.3, 0); g.lineTo(w * 0.32, h); g.stroke();
+    g.beginPath(); g.moveTo(w * 0.7, 0); g.lineTo(w * 0.66, h); g.stroke();
+  });
+  TEX.water = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#22303a'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 46; i++) {
+      g.strokeStyle = 'rgba(150,180,200,' + rand(0.04, 0.18).toFixed(2) + ')';
+      g.lineWidth = rand(1, 3);
+      const y = rand(h);
+      g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y + rand(-6, 6), w * 0.7, y + rand(-6, 6), w, y); g.stroke();
+    }
+  }, 2, 8);
+  TEX.mist = canvasTex(128, 128, (g, w, h) => {
+    const gr = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    gr.addColorStop(0, 'rgba(200,210,220,0.55)'); gr.addColorStop(1, 'rgba(200,210,220,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  });
+  TEX.floor2 = canvasTex(512, 512, (g, w, h) => {
+    g.fillStyle = '#332f26'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 64) {
+      g.fillStyle = `rgb(${44 + rand(14) | 0},${41 + rand(10) | 0},${32 + rand(8) | 0})`;
+      g.fillRect(0, y, w, 62);
+      g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(rand(w), y, 4, 62);
+      for (let i = 0; i < 20; i++) {
+        g.strokeStyle = 'rgba(15,12,8,' + rand(0.1, 0.3).toFixed(2) + ')';
+        g.lineWidth = rand(0.5, 1.6);
+        const gy = y + rand(62);
+        g.beginPath(); g.moveTo(0, gy); g.lineTo(w, gy + rand(-5, 5)); g.stroke();
+      }
+      g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, y + 62, w, 2);
+    }
+    // rot holes and moss
+    for (let i = 0; i < 9; i++) {
+      g.fillStyle = 'rgba(8,6,4,' + rand(0.5, 0.9).toFixed(2) + ')';
+      g.beginPath(); g.ellipse(rand(w), rand(h), rand(8, 26), rand(5, 14), rand(3), 0, 7); g.fill();
+    }
+    for (let i = 0; i < 14; i++) {
+      g.fillStyle = 'rgba(42,64,34,' + rand(0.25, 0.55).toFixed(2) + ')';
+      g.beginPath(); g.arc(rand(w), rand(h), rand(6, 22), 0, 7); g.fill();
+    }
+    grime(g, w, h, 300, 0.2);
+  }, 23, 17);
+  TEX.wall2 = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#33362b'; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 26) { g.fillStyle = 'rgba(46,50,38,0.9)'; g.fillRect(x, 0, 12, h); }
+    // peeled patches showing the boards beneath
+    for (let i = 0; i < 7; i++) {
+      g.fillStyle = 'rgba(74,58,38,0.85)';
+      g.beginPath();
+      const x = rand(w), y = rand(h);
+      g.moveTo(x, y);
+      for (let k = 0; k < 5; k++) g.lineTo(x + rand(-30, 30), y + rand(-24, 24));
+      g.closePath(); g.fill();
+    }
+    // black-green mold blooming from corners
+    for (let i = 0; i < 12; i++) {
+      g.fillStyle = 'rgba(20,32,18,' + rand(0.3, 0.7).toFixed(2) + ')';
+      g.beginPath(); g.arc(rand(w), rand(h), rand(8, 34), 0, 7); g.fill();
+    }
+    grime(g, w, h, 300, 0.25);
+    g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(0, h - 30, w, 30);
+  });
+  TEX.maskWidow = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#cfc2ac'; g.fillRect(0, 0, w, h);
+    grime(g, w, h, 40, 0.1);
+    // hollow cheeks
+    g.fillStyle = 'rgba(90,78,60,0.5)';
+    g.beginPath(); g.ellipse(34, 84, 12, 20, 0.3, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(94, 84, 12, 20, -0.3, 0, 7); g.fill();
+    // sunken sockets, amber pinpoints
+    g.fillStyle = '#171008';
+    g.beginPath(); g.ellipse(42, 48, 15, 12, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(86, 48, 15, 12, 0, 0, 7); g.fill();
+    g.fillStyle = '#ffb040';
+    g.beginPath(); g.arc(42, 49, 3.4, 0, 7); g.fill();
+    g.beginPath(); g.arc(86, 49, 3.4, 0, 7); g.fill();
+    // a thin, patient mouth
+    g.strokeStyle = '#4a3626'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(46, 104); g.quadraticCurveTo(64, 108, 82, 104); g.stroke();
+    for (let i = 0; i < 16; i++) {
+      g.strokeStyle = 'rgba(90,76,58,' + rand(0.2, 0.5).toFixed(2) + ')';
+      g.lineWidth = 1;
+      const y = 20 + rand(90);
+      g.beginPath(); g.moveTo(20 + rand(88), y); g.lineTo(20 + rand(88), y + rand(-4, 4)); g.stroke();
+    }
+  });
+}
+
+/* ---------------- the widow (chapter-two stalker rig) ---------------- */
+function buildWidow() {
+  const g = new THREE.Group();
+  const dress = new THREE.MeshStandardMaterial({ color: 0x1d2418, roughness: 1 });
+  const pale = new THREE.MeshStandardMaterial({ color: 0xcfc2ac, roughness: 0.85 });
+  const hairW = new THREE.MeshStandardMaterial({ color: 0xd6d2c8, roughness: 1 });
+  const skirt = box(0.72, 1.05, 0.5, dress); skirt.position.y = 0.55; g.add(skirt);
+  const torso = box(0.58, 0.62, 0.34, dress); torso.position.y = 1.32; torso.rotation.x = 0.14; g.add(torso);
+  const shawlW = box(0.64, 0.18, 0.4, new THREE.MeshStandardMaterial({ color: 0x2e2a20, roughness: 1 }));
+  shawlW.position.y = 1.6; g.add(shawlW);
+  const headG = new THREE.Group(); headG.position.set(0, 1.82, 0.06); g.add(headG);
+  const head = box(0.27, 0.32, 0.28, pale); headG.add(head);
+  const faceW = new THREE.Mesh(new THREE.PlaneGeometry(0.27, 0.32),
+    new THREE.MeshStandardMaterial({ map: TEX.maskWidow, roughness: 0.95 }));
+  faceW.position.set(0, 0, 0.145); headG.add(faceW);
+  const hb = box(0.3, 0.85, 0.1, hairW); hb.position.set(0, -0.28, -0.14); headG.add(hb);
+  for (const s of [-1, 1]) { const hs = box(0.08, 0.6, 0.2, hairW); hs.position.set(s * 0.16, -0.18, -0.02); headG.add(hs); }
+  const ht = box(0.3, 0.1, 0.3, hairW); ht.position.y = 0.18; headG.add(ht);
+  const mkL = (isArm, side) => {
+    const pivot = new THREE.Group();
+    const seg = box(isArm ? 0.15 : 0.2, isArm ? 0.66 : 0.95, isArm ? 0.15 : 0.22, dress);
+    seg.position.y = -(isArm ? 0.33 : 0.475);
+    pivot.add(seg);
+    if (isArm) { const hand = box(0.12, 0.14, 0.12, pale); hand.position.y = -0.7; pivot.add(hand); }
+    pivot.position.set(side * (isArm ? 0.4 : 0.16), isArm ? 1.56 : 0.98, 0);
+    g.add(pivot);
+    return pivot;
+  };
+  const lArm = mkL(true, -1), rArm = mkL(true, 1);
+  const lLeg = mkL(false, -1), rLeg = mkL(false, 1);
+  // the lantern — always in her left hand
+  const lan = new THREE.Group();
+  const cage = box(0.15, 0.22, 0.15, MAT.metal); cage.position.y = 0; lan.add(cage);
+  const glow = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffc060 }));
+  lan.add(glow);
+  const lanLight = new THREE.PointLight(0xffa040, 1.15, 12, 1.6);
+  lan.add(lanLight);
+  const ring = box(0.02, 0.08, 0.02, MAT.metal); ring.position.y = 0.16; lan.add(ring);
+  lan.position.set(0, -0.82, 0.1);
+  lArm.add(lan);
+  // a curved harvest blade in the right hand
+  const sk = new THREE.Group();
+  const skh = box(0.035, 0.24, 0.035, MAT.wood); sk.add(skh);
+  const skb1 = box(0.015, 0.05, 0.3, MAT.metal); skb1.position.set(0, -0.14, 0.14); sk.add(skb1);
+  const skb2 = box(0.015, 0.05, 0.18, MAT.metal); skb2.position.set(0, -0.2, 0.3); skb2.rotation.x = 0.7; sk.add(skb2);
+  sk.position.set(0, -0.72, 0);
+  rArm.add(sk);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.scale.setScalar(1.08);
+  worldRoot.add(g);
+  widowRig = { grp: g, lArm, rArm, lLeg, rLeg, headG, homeX: cw(18), homeZ: cw(2) };
+}
+
+/* ---------------- the forest ---------------- */
+function buildForest() {
+  const rows = [];
+  for (let z = 0; z < 40; z++) {
+    let r = '';
+    for (let x = 0; x < 50; x++) r += (x < 1 || z < 1 || x >= 49 || z >= 39) ? '#' : '.';
+    rows.push(r);
+  }
+  beginWorld(WF, rows, {});
+  WF.stalker = null;
+  WF.patrolKeys = null;
+  WF.envCfg = {
+    fog: 0x36414c, fogD: 0.013, bg: 0x2b3642,
+    hemiSky: 0x8fa4bd, hemiGround: 0x1a221c, hemiI: 0.62,
+    sun: 0xffc890, sunI: 0.42, sunPos: [70, 26, -30],
+    storm: false, rain: 0, wind: 1, birds: true,
+  };
+  WF.marks = [
+    { t: '🏠', x: 14, z: 8 }, { t: '🚐', x: 30, z: 46 }, { t: '🏚', x: 84, z: 40 },
+    { t: 'THE RIVER', x: 63, z: 16, color: '#5a7f96', font: "11px 'Special Elite', Georgia" },
+  ];
+  WF.mapExtra = (g, S) => {
+    g.fillStyle = 'rgba(58,92,112,0.55)';
+    g.fillRect(59.5 / CELL * S, 2 / CELL * S, 7 / CELL * S, 76 / CELL * S);
+    g.fillStyle = '#6b4a26';
+    g.fillRect(59 / CELL * S, 38.4 / CELL * S, 8.4 / CELL * S, 3.2 / CELL * S); // the bridge
+  };
+
+  // ground and paths
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 80),
+    new THREE.MeshStandardMaterial({ map: TEX.grass, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.set(50, 0, 40);
+  ground.receiveShadow = true; worldRoot.add(ground);
+  const dirtMat = new THREE.MeshStandardMaterial({ map: TEX.dirt, roughness: 1 });
+  const pathSegs = [
+    [14, 12, 16, 30], [16, 30, 30, 46], [30, 46, 56, 40], [56, 40, 67, 40], [67, 40, 82, 40],
+    [30, 46, 42, 58], [42, 58, 58, 65], [58, 65, 62, 66],
+  ];
+  for (const [x1, z1, x2, z2] of pathSegs) {
+    const len = Math.hypot(x2 - x1, z2 - z1);
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(2.6, len + 2), dirtMat);
+    p.rotation.x = -Math.PI / 2;
+    p.rotation.z = -Math.atan2(x2 - x1, z2 - z1);
+    p.position.set((x1 + x2) / 2, 0.02, (z1 + z2) / 2);
+    p.receiveShadow = true;
+    worldRoot.add(p);
+  }
+
+  // the river and its bridge
+  WF.waterMat = new THREE.MeshStandardMaterial({ map: TEX.water, roughness: 0.25, metalness: 0.25, transparent: true, opacity: 0.94 });
+  const river = new THREE.Mesh(new THREE.PlaneGeometry(7, 76), WF.waterMat);
+  river.rotation.x = -Math.PI / 2; river.position.set(63, -0.12, 40);
+  worldRoot.add(river);
+  const bank = new THREE.MeshStandardMaterial({ color: 0x33291d, roughness: 1 });
+  for (const bx of [59.3, 66.7]) {
+    const b = box(1.2, 0.35, 76, bank); b.position.set(bx, 0.05, 40); b.receiveShadow = true; worldRoot.add(b);
+  }
+  colliders.push({ x0: 59, x1: 67.4, z0: 2, z1: 37 });
+  colliders.push({ x0: 59, x1: 67.4, z0: 43, z1: 62.6 });
+  colliders.push({ x0: 59, x1: 67.4, z0: 69.4, z1: 78 });
+  const bridge = box(8.8, 0.18, 3.2, MAT.wood);
+  bridge.position.set(63, 0.12, 40); bridge.receiveShadow = true; worldRoot.add(bridge);
+  for (const bz of [38.6, 41.4]) {
+    const rail = box(8.8, 0.1, 0.08, MAT.woodDark); rail.position.set(63, 1.0, bz); worldRoot.add(rail);
+    for (let i = 0; i < 5; i++) { const p = box(0.09, 1.0, 0.09, MAT.woodDark); p.position.set(59.2 + i * 1.95, 0.5, bz); worldRoot.add(p); }
+    colliders.push({ x0: 58.6, x1: 67.4, z0: bz - 0.15, z1: bz + 0.15 });
+  }
+
+  // pines (instanced)
+  const treePts = [];
+  const clearOf = (x, z) => {
+    if (x > 57 && x < 69) return false;                     // river
+    if (dist2(x, z, 30, 46) < 9) return false;              // camper clearing
+    if (dist2(x, z, 14, 10) < 8 || dist2(x, z, 84, 40) < 8) return false; // facades
+    if (dist2(x, z, 63, 66) < 8) return false;              // dock
+    for (const [x1, z1, x2, z2] of pathSegs) {
+      const l2 = (x2 - x1) ** 2 + (z2 - z1) ** 2;
+      const t = clamp(((x - x1) * (x2 - x1) + (z - z1) * (z2 - z1)) / l2, 0, 1);
+      if (dist2(x, z, x1 + (x2 - x1) * t, z1 + (z2 - z1) * t) < 3.4) return false;
+    }
+    return true;
+  };
+  let guard = 0;
+  while (treePts.length < 150 && guard++ < 3000) {
+    const x = rand(4, 96), z = rand(4, 76);
+    if (clearOf(x, z)) treePts.push([x, z, rand(0.8, 1.35), rand(Math.PI * 2)]);
+  }
+  const barkMat = new THREE.MeshStandardMaterial({ color: 0x4a3626, roughness: 1 });
+  const needleMat = new THREE.MeshStandardMaterial({ color: 0x1e3320, roughness: 1 });
+  const trunkI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.22, 0.36, 3.6, 6), barkMat, treePts.length);
+  const conAI = new THREE.InstancedMesh(new THREE.ConeGeometry(1.9, 4.4, 7), needleMat, treePts.length);
+  const conBI = new THREE.InstancedMesh(new THREE.ConeGeometry(1.3, 3.2, 7), needleMat, treePts.length);
+  const dummy = new THREE.Object3D();
+  treePts.forEach(([x, z, s, ry], i) => {
+    dummy.position.set(x, 1.8 * s, z); dummy.scale.setScalar(s); dummy.rotation.y = ry;
+    dummy.updateMatrix(); trunkI.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(x, (3.4 + 1.4) * s, z); dummy.updateMatrix(); conAI.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(x, (3.4 + 3.6) * s, z); dummy.updateMatrix(); conBI.setMatrixAt(i, dummy.matrix);
+    addCollider(x, z, 0.7 * s, 0.7 * s);
+  });
+  for (const im of [trunkI, conAI, conBI]) { im.castShadow = true; im.receiveShadow = true; worldRoot.add(im); }
+  // undergrowth and stones
+  const bushMat = new THREE.MeshStandardMaterial({ color: 0x24331f, roughness: 1 });
+  for (let i = 0; i < 40; i++) {
+    const [x, z] = treePts[(rand(treePts.length) | 0)];
+    const b = new THREE.Mesh(new THREE.SphereGeometry(rand(0.4, 0.8), 6, 5), bushMat);
+    b.scale.y = 0.55; b.position.set(x + rand(-2, 2), 0.2, z + rand(-2, 2));
+    worldRoot.add(b);
+  }
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x5c5c58, roughness: 0.9 });
+  for (let i = 0; i < 12; i++) {
+    const r = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(0.25, 0.7), 0), rockMat);
+    r.position.set(rand(56, 70), 0.15, rand(6, 76));
+    r.castShadow = true; worldRoot.add(r);
+  }
+
+  // lantern-posts marking the way to the camper
+  for (const [lx, lz] of [[15, 20], [16, 29], [22, 38], [28, 44]]) {
+    const pole = box(0.12, 2.4, 0.12, MAT.woodDark); pole.position.set(lx, 1.2, lz); pole.castShadow = true; worldRoot.add(pole);
+    const cage = box(0.2, 0.26, 0.2, MAT.metal); cage.position.set(lx, 2.45, lz); worldRoot.add(cage);
+    const gl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffc878 }));
+    gl.position.set(lx, 2.43, lz); worldRoot.add(gl);
+    const li = new THREE.PointLight(0xffb050, 0.55, 9, 1.8); li.position.set(lx, 2.4, lz); worldRoot.add(li);
+    flickerLights.push({ light: li, base: 0.55, flicker: 0.12, t: rand(10), bulb: null });
+    addCollider(lx, lz, 0.3, 0.3);
+  }
+
+  // the Hollow House, dark and shut behind you
+  const hw = box(14, 4.4, 0.8, MAT.wall); hw.position.set(14, 2.2, 7.6); worldRoot.add(hw);
+  const hdoor = box(1.6, 2.5, 0.2, MAT.woodDark); hdoor.position.set(14, 1.25, 8.1); worldRoot.add(hdoor);
+  for (let i = 0; i < 3; i++) {
+    const pl = box(1.9, 0.2, 0.06, MAT.wood); pl.position.set(14, 0.9 + i * 0.62, 8.22); pl.rotation.z = rand(-0.15, 0.15); worldRoot.add(pl);
+  }
+  const proof = box(15, 0.5, 2, MAT.woodDark); proof.position.set(14, 4.1, 8.6); worldRoot.add(proof);
+  colliders.push({ x0: 7, x1: 21, z0: 6.8, z1: 8.6 });
+  interactables.push({ x: 14, z: 8.6, y: 1, prompt: 'the Hollow House — bolted from inside', spin: false, action() { AU.locked(); caption('Bolted. Somewhere in there, heavy boots pace back and forth, back and forth.', 4); } });
+
+  // the camper — the one warm, safe place on the estate
+  buildCamper();
+
+  // the widow's house, across the river
+  const ww = box(0.8, 4.6, 12, new THREE.MeshStandardMaterial({ map: TEX.wall2, roughness: 1 }));
+  ww.position.set(84.4, 2.3, 40); ww.castShadow = true; worldRoot.add(ww);
+  const wroof = box(2.4, 0.5, 13, MAT.woodDark); wroof.position.set(84.4, 4.4, 40); worldRoot.add(wroof);
+  const wdoor = box(0.2, 2.5, 1.5, MAT.woodDark); wdoor.position.set(83.9, 1.25, 40); worldRoot.add(wdoor);
+  for (const wz of [35.5, 44.5]) {
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.6),
+      new THREE.MeshStandardMaterial({ map: TEX.window, emissive: 0x3a2c10, emissiveIntensity: 0.7, emissiveMap: TEX.window }));
+    win.position.set(83.95, 1.9, wz); win.rotation.y = -Math.PI / 2; worldRoot.add(win);
+  }
+  colliders.push({ x0: 83.8, x1: 85, z0: 33.8, z1: 46.2 });
+  interactables.push({ x: 83.6, z: 40, y: 1, prompt: 'enter the Widow’s house', spin: false, action() { enterWidowHouse(); } });
+
+  // the old boathouse and its dock
+  const dockMat = new THREE.MeshStandardMaterial({ map: TEX.wood, color: 0x8a7355, roughness: 1 });
+  const dock = box(7, 0.2, 5.6, dockMat); dock.position.set(63, 0.1, 66); dock.receiveShadow = true; worldRoot.add(dock);
+  for (const dz of [63.4, 68.6]) { const r2 = box(7, 0.08, 0.08, MAT.woodDark); r2.position.set(63, 0.9, dz); worldRoot.add(r2); }
+  const shackW = new THREE.MeshStandardMaterial({ map: TEX.wall2, roughness: 1 });
+  const shack = box(3.2, 2.6, 4.4, shackW); shack.position.set(68, 1.3, 66); shack.castShadow = true; worldRoot.add(shack);
+  const shroof = box(4, 0.3, 5.2, MAT.woodDark); shroof.position.set(68, 2.8, 66); shroof.rotation.z = 0.12; worldRoot.add(shroof);
+  colliders.push({ x0: 66.4, x1: 69.6, z0: 63.8, z1: 68.2 });
+  const beaconGlow = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), new THREE.MeshBasicMaterial({ color: 0x203040 }));
+  beaconGlow.position.set(66.2, 2.3, 66); worldRoot.add(beaconGlow);
+  const beacon = new THREE.PointLight(0x6fd0ff, 0, 14, 1.6);
+  beacon.position.set(66.2, 2.2, 66); worldRoot.add(beacon);
+  WF.beacon = beacon; WF.beaconGlow = beaconGlow;
+
+  // low mist over the water and the clearing
+  WF.mists = [];
+  const mistMat = new THREE.MeshBasicMaterial({ map: TEX.mist, transparent: true, opacity: 0.16, depthWrite: false });
+  for (const [mx, mz, ms] of [[60, 25, 16], [64, 52, 18], [34, 44, 14], [50, 64, 16]]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(ms, ms * 0.7), mistMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(mx, 0.55, mz);
+    worldRoot.add(m);
+    WF.mists.push({ m, x: mx, sp: rand(0.1, 0.3) });
+  }
+  // birds on the wing
+  WF.birds = [];
+  const wingMat = new THREE.MeshBasicMaterial({ color: 0x141618 });
+  for (let i = 0; i < 3; i++) {
+    const b = new THREE.Group();
+    const wl = box(0.55, 0.02, 0.16, wingMat); wl.position.x = -0.28; b.add(wl);
+    const wr = box(0.55, 0.02, 0.16, wingMat); wr.position.x = 0.28; b.add(wr);
+    worldRoot.add(b);
+    WF.birds.push({ g: b, wl, wr, a: rand(7), r: rand(14, 26), cx: rand(25, 55), cz: rand(15, 60), h: rand(10, 16), s: rand(0.1, 0.18) });
+  }
+  sealWorld(WF);
+}
+function buildCamper() {
+  const cream = new THREE.MeshStandardMaterial({ color: 0xd8cfb8, roughness: 0.6 });
+  const teal = new THREE.MeshStandardMaterial({ color: 0x3f6f6a, roughness: 0.6 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x22252a, roughness: 0.8 });
+  const cx = 30, cz = 49.5;
+  const body = box(2.3, 2.1, 5.4, cream); body.position.set(cx, 1.35, cz); body.castShadow = true; worldRoot.add(body);
+  const stripe = box(2.34, 0.4, 5.44, teal); stripe.position.set(cx, 1.15, cz); worldRoot.add(stripe);
+  const roofC = box(2.0, 0.25, 5.0, teal); roofC.position.set(cx, 2.5, cz); worldRoot.add(roofC);
+  const cab = box(2.3, 1.3, 1.4, cream); cab.position.set(cx, 0.95, cz - 3.3); cab.castShadow = true; worldRoot.add(cab);
+  const shield = box(2.1, 0.7, 0.08, dark); shield.position.set(cx, 1.35, cz - 3.95); worldRoot.add(shield);
+  for (const [wx, wz] of [[cx - 1.1, cz - 3.1], [cx + 1.1, cz - 3.1], [cx - 1.1, cz + 1.6], [cx + 1.1, cz + 1.6]]) {
+    const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.3, 12), dark);
+    wh.rotation.z = Math.PI / 2; wh.position.set(wx, 0.42, wz); worldRoot.add(wh);
+  }
+  // warm windows — somebody kept this place kind
+  for (const oz of [-1.2, 0.9]) {
+    const wm = new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb050, emissiveIntensity: 0.9 });
+    const win = box(0.06, 0.6, 1.1, wm); win.position.set(cx - 1.18, 1.7, cz + oz); worldRoot.add(win);
+  }
+  const doorC = box(0.08, 1.6, 0.8, teal); doorC.position.set(cx - 1.18, 0.95, cz + 2.2); worldRoot.add(doorC);
+  const step = box(0.5, 0.16, 0.7, dark); step.position.set(cx - 1.5, 0.08, cz + 2.2); worldRoot.add(step);
+  colliders.push({ x0: cx - 1.3, x1: cx + 1.3, z0: cz - 4.1, z1: cz + 2.8 });
+  // awning with string lights
+  const awn = box(2.2, 0.06, 3.4, teal); awn.position.set(cx - 2.3, 2.25, cz - 0.2); awn.rotation.z = 0.16; worldRoot.add(awn);
+  for (let i = 0; i < 6; i++) {
+    const gl = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffd080 }));
+    gl.position.set(cx - 3.3, 2.0 - Math.sin(i / 5 * Math.PI) * 0.12, cz - 1.8 + i * 0.65);
+    worldRoot.add(gl);
+  }
+  const stringLi = new THREE.PointLight(0xffc878, 0.9, 11, 1.7);
+  stringLi.position.set(cx - 3, 2.1, cz); worldRoot.add(stringLi);
+  flickerLights.push({ light: stringLi, base: 0.9, flicker: 0.06, t: rand(10), bulb: null });
+  // fire pit, still warm
+  for (let i = 0; i < 7; i++) {
+    const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14, 0), new THREE.MeshStandardMaterial({ color: 0x5a5a56, roughness: 1 }));
+    const a = i / 7 * Math.PI * 2;
+    st.position.set(cx - 4.6 + Math.cos(a) * 0.55, 0.1, cz + 2.6 + Math.sin(a) * 0.55);
+    worldRoot.add(st);
+  }
+  const emberF = new THREE.PointLight(0xff6a20, 0.6, 6, 2);
+  emberF.position.set(cx - 4.6, 0.35, cz + 2.6); worldRoot.add(emberF);
+  flickerLights.push({ light: emberF, base: 0.6, flicker: 0.4, t: rand(10), bulb: null });
+  addCollider(cx - 4.6, cz + 2.6, 1.2, 1.2);
+  // the little table, and the telephone
+  const tbl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 12), MAT.wood);
+  tbl.position.set(cx - 3.2, 0.75, cz + 0.9); tbl.castShadow = true; worldRoot.add(tbl);
+  const tleg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.75, 8), MAT.woodDark);
+  tleg.position.set(cx - 3.2, 0.37, cz + 0.9); worldRoot.add(tleg);
+  addCollider(cx - 3.2, cz + 0.9, 0.9, 0.9);
+  const phoneG = new THREE.Group();
+  const pbody = box(0.26, 0.16, 0.22, new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.4 })); pbody.position.y = 0.08; phoneG.add(pbody);
+  const phand = box(0.3, 0.07, 0.09, new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.4 })); phand.position.y = 0.2; phoneG.add(phand);
+  phoneG.position.set(cx - 3.2, 0.78, cz + 0.9);
+  worldRoot.add(phoneG);
+  WF.phone = { x: cx - 3.2, z: cz + 0.9 };
+  const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.5, 10), MAT.woodDark);
+  stool.position.set(cx - 4, 0.25, cz + 0.3); worldRoot.add(stool);
+  interactables.push({
+    x: WF.phone.x, z: WF.phone.z, y: 1,
+    get prompt() { return phoneRinging ? 'answer the phone' : 'the phone — silent, for now'; },
+    spin: false,
+    action() { answerPhone(); },
+  });
+}
+
+/* ---------------- the widow's house ---------------- */
+const MAP2 = [
+  '#######################',
+  '#.....#.......#.......#',
+  '#.....#.......#.......#',
+  '#.....#.......#.......#',
+  '#.....#.......#.......#',
+  '###+######+#######+####',
+  '#.....................#',
+  '#.....................#',
+  '#####+#####+#####+#####',
+  '#.........#.#.........#',
+  '#.........#.#.........#',
+  '#.........#.#.........#',
+  '#.........#.#.........#',
+  '###########.###########',
+  '###########.###########',
+  '###########.###########',
+  '###########F###########',
+];
+const ROOMS2 = {
+  apoth: { x0: 1, x1: 5, z0: 1, z1: 4, name: 'Apothecary' },
+  chamber: { x0: 7, x1: 13, z0: 1, z1: 4, name: 'Bed Chamber' },
+  conserv: { x0: 15, x1: 21, z0: 1, z1: 4, name: 'Conservatory' },
+  hall2: { x0: 1, x1: 21, z0: 6, z1: 7, name: 'Long Hall' },
+  parlor: { x0: 1, x1: 9, z0: 9, z1: 12, name: 'Parlor' },
+  hoard: { x0: 13, x1: 21, z0: 9, z1: 12, name: 'Hoard Room' },
+  gullet: { x0: 11, x1: 11, z0: 8, z1: 15, name: '' },
+};
+function buildWidowHouse() {
+  beginWorld(WH2, MAP2, ROOMS2);
+  WH2.stalker = 'widow';
+  WH2.patrolKeys = ['apoth', 'chamber', 'conserv', 'hall2', 'parlor', 'hoard'];
+  WH2.envCfg = {
+    fog: 0x050704, fogD: 0.072, bg: 0x030503,
+    hemiSky: 0x1c2a20, hemiGround: 0x0a0c08, hemiI: 0.22,
+    sun: 0x30405e, sunI: 0.05, sunPos: [-8, 14, -12],
+    storm: true, rain: 0.7, wind: 0, birds: false,
+  };
+  WH2.exitMark = { x: cw(11), z: 16 * CELL + 1, label: 'OUT ⇩' };
+  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.floor2, roughness: 0.85 });
+  const wallMat = new THREE.MeshStandardMaterial({ map: TEX.wall2, roughness: 0.96 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(GW * CELL / 2, 0, GH * CELL / 2);
+  floor.receiveShadow = true; worldRoot.add(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), MAT.ceil);
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.set(GW * CELL / 2, WALLH, GH * CELL / 2);
+  worldRoot.add(ceil);
+  const wallGeo = new THREE.BoxGeometry(CELL, WALLH, CELL);
+  for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++) {
+    if (cellAt(x, z) !== '#') continue;
+    let vis = false;
+    for (let oz = -1; oz <= 1 && !vis; oz++) for (let ox = -1; ox <= 1; ox++)
+      if (cellAt(x + ox, z + oz) !== '#') { vis = true; break; }
+    if (!vis) continue;
+    const m = new THREE.Mesh(wallGeo, wallMat);
+    m.position.set(cw(x), WALLH / 2, cw(z));
+    m.castShadow = true; m.receiveShadow = true;
+    worldRoot.add(m);
+  }
+  for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++)
+    if (cellAt(x, z) === '+') makeDoor(x, z, {});
+  // the way out (a heavy door back to the forest)
+  doorAt.set('11,16', { open: 0, locked: true });
+  const outDoor = box(1.5, 2.5, 0.18, MAT.woodDark);
+  outDoor.position.set(cw(11), 1.25, 16 * CELL + 0.1); worldRoot.add(outDoor);
+  interactables.push({ x: cw(11), z: 15 * CELL + 1.5, y: 1, prompt: 'leave the house', spin: false, action() { exitWidowHouse(); } });
+
+  // candles, few and guttering
+  const candle = (x, z) => {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.22, 8), MAT.white);
+    c.position.set(x, 0.86, z); worldRoot.add(c);
+    const base = box(0.5, 0.75, 0.5, MAT.woodDark); base.position.set(x, 0.37, z); base.castShadow = true; worldRoot.add(base);
+    addCollider(x, z, 0.55, 0.55);
+    const fl = new THREE.PointLight(0xffa040, 0.5, 7, 2);
+    fl.position.set(x, 1.05, z); worldRoot.add(fl);
+    flickerLights.push({ light: fl, base: 0.5, flicker: 0.5, t: rand(10), bulb: null });
+  };
+  candle(cw(3), cw(6.5));
+  candle(cw(19), cw(6.5));
+  candle(cw(11), cw(14));
+  candle(cw(3), cw(11));
+  candle(cw(17), cw(2));
+
+  // hoarded junk, everywhere
+  const junkPile = (x, z, big) => {
+    for (let i = 0; i < (big ? 6 : 3); i++) {
+      const j = box(rand(0.25, 0.7), rand(0.15, 0.55), rand(0.25, 0.7),
+        Math.random() < 0.5 ? MAT.woodDark : MAT.wood);
+      j.position.set(x + rand(-0.7, 0.7), 0.2, z + rand(-0.7, 0.7));
+      j.rotation.y = rand(1.5); j.castShadow = true;
+      worldRoot.add(j);
+    }
+    if (big) { addCollider(x, z, 1.4, 1.4); blockCell(Math.floor(x / CELL), Math.floor(z / CELL)); }
+  };
+  junkPile(cw(2), cw(9.6), true); junkPile(cw(7.5), cw(11.5), true); junkPile(cw(5), cw(10.5), false);
+  junkPile(cw(14), cw(9.6), true); junkPile(cw(20), cw(11.5), true); junkPile(cw(17), cw(10.2), false);
+  junkPile(cw(6), cw(6.3), false); junkPile(cw(15), cw(7.5), false);
+  junkPile(cw(9), cw(2), true); junkPile(cw(12), cw(3.5), false);
+  // fallen roof beams
+  for (const [bx, bz, br] of [[cw(8), cw(6.8), 0.4], [cw(13), cw(10.5), 1.2], [cw(4), cw(3), 0.8]]) {
+    const beam = box(0.22, 0.22, rand(2.4, 3.6), MAT.woodDark);
+    beam.position.set(bx, 0.14, bz); beam.rotation.y = br; beam.rotation.z = 0.05;
+    beam.castShadow = true; worldRoot.add(beam);
+  }
+  // moss and webs
+  const mossMat = new THREE.MeshStandardMaterial({ color: 0x2a4022, transparent: true, opacity: 0.55, roughness: 1, depthWrite: false });
+  for (let i = 0; i < 14; i++) {
+    const mp = new THREE.Mesh(new THREE.CircleGeometry(rand(0.4, 1.1), 10), mossMat);
+    mp.rotation.x = -Math.PI / 2;
+    mp.position.set(rand(4, GW * CELL - 4), 0.015, rand(4, GH * CELL - 8));
+    worldRoot.add(mp);
+  }
+  const webMat2 = new THREE.MeshBasicMaterial({ map: TEX.web, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
+  for (const [wx2, wz2, wr] of [[3, 3, 0.7], [43, 3, -0.7], [3, 22, 2.2], [43, 22, -2.2], [22, 13, 0.4], [12, 30, 0.9], [30, 6, -1.2], [16, 20, 1.7], [36, 20, -0.5], [8, 14, 1.1]]) {
+    const wb = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), webMat2);
+    wb.position.set(wx2, WALLH - 0.6, wz2); wb.rotation.y = wr;
+    worldRoot.add(wb);
+  }
+  // roaches
+  WH2.roaches = [];
+  const roachMat = new THREE.MeshStandardMaterial({ color: 0x1c1208, roughness: 0.5 });
+  for (const [hx, hz] of [[cw(2), cw(10)], [cw(14), cw(10)], [cw(6), cw(6.5)], [cw(16), cw(6.8)], [cw(9), cw(2.5)], [cw(11), cw(12)]]) {
+    for (let i = 0; i < 5; i++) {
+      const r = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.025, 0.12), roachMat);
+      r.position.set(hx + rand(-1, 1), 0.02, hz + rand(-1, 1));
+      worldRoot.add(r);
+      WH2.roaches.push({ m: r, hx, hz, t: rand(1), tx: hx, tz: hz, moving: false });
+    }
+  }
+  // flies too, of course
+  buildFlies2([[cw(9), 1, cw(2.5)], [cw(14.5), 0.8, cw(10)], [cw(11), 0.9, cw(13.5)]]);
+  // hiding places
+  wardrobe2(cw(8), 3.0, 0, 'wardrobe');
+  blockCell(8, 1);
+  wardrobe2(cw(20.5), cw(12.4), -Math.PI / 2, 'mildewed cabinet');
+  blockCell(20, 12);
+  // dead planters in the conservatory
+  for (let i = 0; i < 4; i++) {
+    const px = cw(16 + (i % 2) * 3), pz = cw(2 + Math.floor(i / 2) * 1.6);
+    const planter = box(1.0, 0.5, 0.5, MAT.woodDark); planter.position.set(px, 0.25, pz); planter.castShadow = true; worldRoot.add(planter);
+    addCollider(px, pz, 1.0, 0.5);
+    for (let s = 0; s < 3; s++) {
+      const stick = box(0.03, rand(0.4, 0.9), 0.03, MAT.woodDark);
+      stick.position.set(px + rand(-0.4, 0.4), 0.6, pz + rand(-0.15, 0.15));
+      stick.rotation.z = rand(-0.4, 0.4);
+      worldRoot.add(stick);
+    }
+  }
+  blockCell(16, 2); blockCell(19, 2);
+  // glowing fungus in the dark corners
+  const shroomMat = new THREE.MeshStandardMaterial({ color: 0x3a5c2c, emissive: 0x1c3a14, emissiveIntensity: 0.7, roughness: 1 });
+  for (const [sx, sz] of [[cw(1) + 0.3, cw(4)], [cw(21) - 0.3, cw(9.4)], [cw(11), cw(15)], [cw(13) - 0.3, cw(4)]]) {
+    for (let i = 0; i < 4; i++) {
+      const sh = new THREE.Mesh(new THREE.ConeGeometry(rand(0.04, 0.09), rand(0.1, 0.2), 6), shroomMat);
+      sh.position.set(sx + rand(-0.3, 0.3), 0.07, sz + rand(-0.3, 0.3));
+      worldRoot.add(sh);
+    }
+  }
+  // apothecary shelving and the two vials
+  const shelfA = box(3, 2.2, 0.4, MAT.woodDark); shelfA.position.set(cw(3), 1.1, CELL + 0.3); shelfA.castShadow = true; worldRoot.add(shelfA);
+  addCollider(cw(3), CELL + 0.3, 3, 0.5); blockCell(2, 1); blockCell(3, 1); blockCell(4, 1);
+  for (let i = 0; i < 9; i++) {
+    const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, rand(0.12, 0.22), 8),
+      new THREE.MeshStandardMaterial({ color: [0x4a5c38, 0x5c4a2a, 0x3a3f52][i % 3], roughness: 0.3 }));
+    jar.position.set(cw(3) + rand(-1.3, 1.3), 1.0 + (i % 3) * 0.55, CELL + 0.32);
+    worldRoot.add(jar);
+  }
+  const benchA = box(1.8, 0.85, 0.7, MAT.wood); benchA.position.set(cw(3), 0.42, cw(3.6)); benchA.castShadow = true; worldRoot.add(benchA);
+  addCollider(cw(3), cw(3.6), 1.8, 0.7); blockCell(3, 3);
+  addItem('venin', vialMesh(0xc03018), cw(3), 1.05, CELL + 0.34, 'Take the VENIN vial', () => {
+    INV.venin = true; vialTaken('Venin');
+  });
+  addItem('remedy', vialMesh(0x30a050), cw(19), 0.64, cw(2), 'Take the REMEDY vial', () => {
+    INV.remedy = true; vialTaken('Remedy');
+  });
+  // supplies for the brave
+  const mk2 = (x, y, z) => addItem('med2' + (x | 0), medkitMesh(), x, y, z, 'Take the first aid kit', () => {
+    INV.medkits++; toast('First Aid Kit (' + INV.medkits + ') — press Q to heal'); updateHud();
+  });
+  mk2(cw(2), 0.6, cw(12.4));
+  mk2(cw(12.5), 0.9, cw(1.6));
+  sealWorld(WH2);
+  // and her, at home among it all
+  worldRoot = WH2.group;
+  buildWidow();
+}
+function vialMesh(color) {
+  const g = new THREE.Group();
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.18, 10),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.45, roughness: 0.2 }));
+  glass.position.y = 0.09; g.add(glass);
+  const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8),
+    new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.9 }));
+  cork.position.y = 0.2; g.add(cork);
+  return g;
+}
+function wardrobe2(x, z, ry, label) {
+  const g = new THREE.Group();
+  const bodyW = box(1.3, 2.3, 0.75, MAT.woodDark); bodyW.position.y = 1.15; g.add(bodyW);
+  const dl = box(0.6, 2.1, 0.05, MAT.wood); dl.position.set(-0.33, 1.15, 0.4); g.add(dl);
+  const dr = box(0.6, 2.1, 0.05, MAT.wood); dr.position.set(0.33, 1.15, 0.4); g.add(dr);
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  g.position.set(x, 0, z); g.rotation.y = ry;
+  worldRoot.add(g);
+  const cs = Math.abs(Math.sin(ry)) > 0.5 ? [0.75, 1.3] : [1.3, 0.75];
+  addCollider(x, z, cs[0], cs[1]);
+  hideSpots.push({ x, z, ry, frontX: x + Math.sin(ry) * 0.9, frontZ: z + Math.cos(ry) * 0.9, label: label || 'wardrobe' });
+}
+function buildFlies2(spots) {
+  const mat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+  for (const [x, y, z] of spots) {
+    const grp = new THREE.Group();
+    const flies = [];
+    for (let i = 0; i < 6; i++) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 0.025), mat);
+      grp.add(f);
+      flies.push({ m: f, p: rand(7), r: rand(0.12, 0.4), h: rand(-0.08, 0.28), s: rand(3, 7), w: rand(2, 5) });
+    }
+    grp.position.set(x, y, z);
+    worldRoot.add(grp);
+    flySwarms.push({ x, y, z, flies });
+  }
+}
+function vialTaken(name) {
+  toast('Picked up: ' + name + ' vial (' + ((INV.venin ? 1 : 0) + (INV.remedy ? 1 : 0)) + '/2)');
+  updateHud();
+  noiseEvent(player.x, player.z, 60, true);
+  if (INV.venin && INV.remedy) {
+    setObjective('Slip out and get back to the camper');
+    caption('Both vials. Somewhere in the house, the lantern light stops moving.', 4.5);
+  } else {
+    setObjective('Find the other vial (1/2)');
+    caption('Glass chimes somewhere as you lift it. The lantern is coming.', 4);
+  }
+}
+
+/* ---------------- doors between worlds ---------------- */
+function enterWidowHouse() {
+  if (ch2phase < 2) {
+    AU.locked();
+    caption('Chained shut. Whoever keeps calling that phone wants to talk to you first.', 4);
+    return;
+  }
+  fadeSwap(() => {
+    activateWorld(WH2);
+    player.x = cw(11); player.z = cw(15); player.yaw = 0; player.pitch = 0;
+    player.vx = player.vz = 0;
+    AU.slam();
+    if (!WH2.visited) {
+      WH2.visited = true;
+      caption('Rot, mold, and a thousand small things moving in the walls. And lantern light, far off.', 5);
+      setTimeout(() => { if (state === 'play') caption('Remember: she loves light. Flashlight OFF (F) when she is near.', 5); }, 5500);
+    }
+  });
+}
+function exitWidowHouse() {
+  fadeSwap(() => {
+    activateWorld(WF);
+    player.x = 82.6; player.z = 40; player.yaw = Math.PI / 2; player.pitch = 0;
+    player.vx = player.vz = 0;
+    AU.slam();
+  });
+}
+
+/* ---------------- cutscenes ---------------- */
+let cut = null;
+const CS1 = [
+  { who: '', text: 'You lift the receiver. Static — then a woman’s voice, calm and very tired.' },
+  { who: 'THE WOMAN', text: '“You made it out of his house. Good. Now listen, because he is already looking for you.”' },
+  { who: 'THE WOMAN', text: '“Your best friend Ash came to the estate three nights ago, searching for you. Crane caught them.”' },
+  { who: 'THE WOMAN', text: '“What he does to the ones he keeps isn’t death. It’s worse. Ash is changing. The bite is in their blood.”' },
+  { who: 'THE WOMAN', text: '“There is an antidote — two vials, the VENIN and the REMEDY. His wife brews both, in the crooked house across the river.”' },
+  { who: 'THE WOMAN', text: '“She walks her halls with a lantern, and she loves light more than anything. Carry yours near her and she WILL find you. Walk dark.”' },
+  { who: '', text: 'The road out of the estate is behind you. The crooked house is ahead.', choice: [
+    { label: 'LEAVE THE ESTATE', say: 'You stare down the dark road for a long moment. …No. Ash came here because of you. You turn back toward the river.' },
+    { label: 'FIND THE SERUM', say: 'You grip the receiver tighter. “Tell me exactly where the vials are.”' },
+  ] },
+  { who: '', text: 'The line clicks dead. Across the river, in a crooked window, a small warm light begins to move.' },
+];
+const CS2 = [
+  { who: '', text: 'The phone is already ringing as you reach the clearing. You snatch it up.' },
+  { who: 'CRANE', text: '“THOSE. ARE. MINE. Bring them back to my porch, little rabbit, and I will make it quick.”' },
+  { who: '', text: 'A scuffle. A door slams somewhere on the line. The woman’s voice returns, breathless.' },
+  { who: 'THE WOMAN', text: '“Ignore him — he can’t leave the house tonight. You have both vials? Truly?”' },
+  { who: 'THE WOMAN', text: '“Then bring them to the old boathouse, south along the river. I’ll light the blue lamp. Come alone — Ash doesn’t have long.”' },
+];
+const CS3 = [
+  { who: '', text: 'A hooded figure waits at the end of the dock, hands empty, no lantern anywhere near her.' },
+  { who: 'THE WOMAN', text: '“You actually did it. Give them here — and hold your light steady for me.”' },
+  { who: '', text: 'Venin into remedy, three drops, a slow swirl. The serum turns the colour of dawn.' },
+  { who: 'THE WOMAN', text: '“Ash will live. I’ll take you to them now — the boat is faster than any road.”' },
+  { who: 'THE WOMAN', text: '“But understand something, before you rest. Crane knows your face now.”' },
+  { who: 'THE WOMAN', text: '“And he never stops hunting.”' },
+];
+function playCutscene(steps, onEnd) {
+  cut = { steps, i: -1, onEnd, waitChoice: false, choiceDone: false };
+  state = 'cutscene';
+  if (document.exitPointerLock) document.exitPointerLock();
+  $('cutOv').classList.add('show');
+  cutNext();
+}
+function cutNext() {
+  if (!cut) return;
+  cut.i++;
+  if (cut.i >= cut.steps.length) {
+    $('cutOv').classList.remove('show');
+    const cb = cut.onEnd; cut = null;
+    state = 'play'; lockPointer();
+    if (cb) cb();
+    return;
+  }
+  const s = cut.steps[cut.i];
+  $('cutSpeaker').textContent = s.who || '';
+  $('cutLine').textContent = s.text;
+  const cb = $('cutChoices');
+  cb.innerHTML = '';
+  cut.waitChoice = !!s.choice;
+  cut.choiceDone = false;
+  if (s.choice) {
+    for (const c of s.choice) {
+      const b = document.createElement('button');
+      b.textContent = c.label;
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        $('cutSpeaker').textContent = '';
+        $('cutLine').textContent = c.say;
+        cb.innerHTML = '';
+        cut.choiceDone = true;
+      });
+      cb.appendChild(b);
+    }
+  }
+  AU.noise(0.18, 1800, 0.05, 0.6);
+}
+function cutAdvance() {
+  if (!cut) return;
+  if (cut.waitChoice && !cut.choiceDone) return;
+  cut.waitChoice = false;
+  cutNext();
+}
+
+/* ---------------- chapter flow ---------------- */
+function startChapter2() {
+  if (chapter !== 1) return;
+  chapter = 2; ch2phase = 1;
+  state = 'chapter';
+  killer.active = false;
+  hideOverlays();
+  $('chapterTitle').textContent = 'CHAPTER TWO';
+  $('chapterSub').textContent = 'THE ESTATE';
+  $('chapterCard').classList.add('show');
+  if (document.exitPointerLock) document.exitPointerLock();
+  AU.thunder();
+  setTimeout(() => {
+    if (!WF) { WF = { group: new THREE.Group() }; WH2 = { group: new THREE.Group() }; buildTextures2(); buildForest(); buildWidowHouse(); }
+    activateWorld(WF);
+    player.x = 14; player.z = 12; player.yaw = Math.PI; player.pitch = 0;
+    player.vx = player.vz = 0;
+    player.health = Math.max(player.health, 70);
+    setObjective('Follow the lantern-posts to the camper by the river');
+    updateHud();
+  }, 1000);
+  setTimeout(() => {
+    $('chapterCard').classList.remove('show');
+    state = 'play'; lockPointer();
+    caption('The rain has stopped. Dawn is close. Behind you, the Hollow House goes very quiet.', 5);
+    setTimeout(() => { if (state === 'play') caption('Birdsong — and a warm little light waiting between the pines.', 4.5); }, 5600);
+  }, 3600);
+}
+function startRinging() {
+  phoneRinging = true; phoneRingT = 0;
+  caption('Somewhere ahead, an old telephone begins to ring.', 3.5);
+}
+function answerPhone() {
+  if (!phoneRinging) { caption('The phone sits silent. Cozy out here, almost. Almost.', 3); return; }
+  phoneRinging = false;
+  if (ch2phase === 1) {
+    playCutscene(CS1, () => {
+      ch2phase = 2;
+      setObjective('Cross the river — find the VENIN and REMEDY vials in the Widow’s house');
+      updateHud();
+    });
+  } else if (ch2phase === 2) {
+    playCutscene(CS2, () => {
+      ch2phase = 3;
+      setObjective('Bring the serum to the boathouse, south along the river');
+      if (WF.beacon) { WF.beacon.intensity = 1.4; WF.beaconGlow.material.color.setHex(0x6fd0ff); }
+      WF.marks.push({ t: '⛵', x: 63, z: 66 });
+      caption('Far down the riverbank, a cold blue lamp flickers on.', 4);
+    });
+  }
+}
+function endChapter2() {
+  state = 'win';
+  const t = Math.floor((performance.now() - startTime) / 1000);
+  $('winTitle').textContent = 'CHAPTER TWO COMPLETE';
+  $('winText').textContent = 'The serum glows the colour of dawn as the boat pulls away from the dock. Ash will live. Behind the pines, a door slams — Crane knows your face now, and he never stops hunting.';
+  $('winStats').textContent = 'Time: ' + Math.floor(t / 60) + 'm ' + (t % 60) + 's · Deaths: ' + deaths + ' · To be continued…';
+  showOverlay('winOv');
+  if (document.exitPointerLock) document.exitPointerLock();
+  AU.thunder();
+}
+
+/* ---------------- per-frame chapter-two updates ---------------- */
+function forestUpdate(dt) {
+  if (curWorld !== WF || state !== 'play') return;
+  // water drifts, mist breathes, birds wheel
+  if (WF.waterMat) WF.waterMat.map.offset.y -= dt * 0.22;
+  for (const m of WF.mists) {
+    m.m.position.x = m.x + Math.sin(perfT * m.sp) * 2.2;
+    m.m.material.opacity = 0.13 + Math.sin(perfT * m.sp * 1.7) * 0.04;
+  }
+  for (const b of WF.birds) {
+    b.a += dt * b.s;
+    b.g.position.set(b.cx + Math.cos(b.a) * b.r, b.h + Math.sin(b.a * 2.3) * 1.2, b.cz + Math.sin(b.a) * b.r);
+    b.g.rotation.y = -b.a;
+    const flap = Math.sin(perfT * 9 + b.r) * 0.6;
+    b.wl.rotation.z = flap; b.wr.rotation.z = -flap;
+  }
+  // phone logic
+  if (ch2phase === 1 && !phoneRinging && dist2(player.x, player.z, WF.phone.x, WF.phone.z) < 26) startRinging();
+  if (ch2phase === 2 && INV.venin && INV.remedy && !phoneRinging && dist2(player.x, player.z, WF.phone.x, WF.phone.z) < 14) startRinging();
+  if (phoneRinging) {
+    phoneRingT -= dt;
+    if (phoneRingT <= 0) { phoneRingT = 3.4; AU.phone(panTo(WF.phone)); }
+  }
+  // the meeting
+  if (ch2phase === 3 && dist2(player.x, player.z, 63, 66) < 3.4) {
+    ch2phase = 4;
+    playCutscene(CS3, endChapter2);
+  }
+}
+function roachUpdate(dt) {
+  const list = curWorld && curWorld.roaches;
+  if (!list) return;
+  for (const r of list) {
+    r.t -= dt;
+    if (r.t <= 0) {
+      r.t = rand(0.4, 2.2);
+      r.tx = r.hx + rand(-1.4, 1.4); r.tz = r.hz + rand(-1.4, 1.4);
+      r.moving = Math.random() < 0.75;
+    }
+    if (r.moving) {
+      const dx = r.tx - r.m.position.x, dz = r.tz - r.m.position.z;
+      const dd = Math.hypot(dx, dz);
+      if (dd > 0.05) {
+        r.m.position.x += dx / dd * 1.3 * dt;
+        r.m.position.z += dz / dd * 1.3 * dt;
+        r.m.rotation.y = Math.atan2(dx, dz);
+      } else r.moving = false;
+    }
+  }
 }
 
 /* -------------------------------------------------------------- input/lock */
@@ -2139,6 +3185,7 @@ function applyVolume() {
 addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (e.code === 'Tab') e.preventDefault();
+  if (state === 'cutscene' && (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); cutAdvance(); return; }
   if (state === 'play' && (e.code === 'Tab' || e.code === 'KeyX')) { toggleMap(); return; }
   if (e.code === 'Minus' || e.code === 'NumpadSubtract') { volume = Math.max(0, Math.round((volume - 0.1) * 10) / 10); muted = false; applyVolume(); return; }
   if (e.code === 'Equal' || e.code === 'NumpadAdd') { volume = Math.min(1, Math.round((volume + 0.1) * 10) / 10); muted = false; applyVolume(); return; }
@@ -2200,6 +3247,8 @@ function loop(t) {
       killerUpdate(dt);
       npcUpdate(dt);
       updateFlies(dt);
+      roachUpdate(dt);
+      forestUpdate(dt);
       scareChecks();
       currentInteract = scanInteract();
       if (mapOpen) drawMap();
@@ -2270,11 +3319,24 @@ function loop(t) {
 buildTextures();
 buildRenderer();
 buildMaterials();
+W1 = { group: new THREE.Group() };
+beginWorld(W1, MAP1, ROOMS1);
+W1.stalker = 'butcher';
+W1.patrolKeys = PATROL_KEYS;
+W1.envCfg = {
+  fog: 0x04050a, fogD: 0.062, bg: 0x030407,
+  hemiSky: 0x1c2740, hemiGround: 0x0a0806, hemiI: 0.26,
+  sun: 0x30405e, sunI: 0.1, sunPos: [-8, 14, -12],
+  storm: true, rain: 1, wind: 0, birds: false,
+};
+W1.exitMark = { x: 28, z: 29.4, label: 'EXIT ⇩' };
 buildHouse();
 buildItems();
 buildKiller();
 buildNpcs();
 buildFlies();
+sealWorld(W1);
+activateWorld(W1);
 drawScareFace('butcher');
 grainLoop();
 updateHud();
@@ -2285,9 +3347,19 @@ $('retryBtn').addEventListener('click', respawn);
 $('resumeBtn').addEventListener('click', () => { hideOverlays(); state = 'play'; lockPointer(); });
 $('restartBtn').addEventListener('click', () => location.reload());
 $('noteClose').addEventListener('click', closeNote);
+$('cutOv').addEventListener('click', cutAdvance);
 showOverlay('title');
 // debug/testing handle
-window.HH = { player, killer, INV, doorAt, frontDoor, getState: () => state };
+window.HH = {
+  player, killer, INV, frontDoor,
+  getState: () => state,
+  getChapter: () => chapter,
+  getPhase: () => ch2phase,
+  getWorld: () => (curWorld === W1 ? 'house1' : curWorld === WF ? 'forest' : 'widow'),
+  startChapter2, enterWidowHouse2: () => { ch2phase = Math.max(ch2phase, 2); enterWidowHouse(); },
+  answerPhone, cutAdvance,
+  isRinging: () => phoneRinging,
+};
 requestAnimationFrame((t) => { last = t; requestAnimationFrame(loop); });
 
 })();

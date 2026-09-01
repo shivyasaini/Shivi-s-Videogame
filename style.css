@@ -51,6 +51,53 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
 
 #killfx { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
 
+#fadeBlack {
+  position: fixed; inset: 0; z-index: 25; background: #000;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+#fadeBlack.show { opacity: 1; }
+
+#chapterCard {
+  position: fixed; inset: 0; z-index: 26; background: #000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.8s;
+}
+#chapterCard.show { opacity: 1; }
+#chapterTitle {
+  font-family: 'Special Elite', Georgia, serif;
+  font-size: clamp(30px, 6vw, 58px); letter-spacing: 12px; color: #b8342a;
+  text-shadow: 0 0 24px rgba(150, 20, 10, 0.6);
+}
+#chapterSub { margin-top: 14px; letter-spacing: 7px; font-size: 15px; color: #8b8375; }
+
+#cutOv {
+  position: fixed; inset: 0; z-index: 22; display: none;
+  flex-direction: column; justify-content: space-between;
+  background: rgba(2, 2, 3, 0.88); cursor: pointer;
+}
+#cutOv.show { display: flex; }
+.cutBar { height: 11vh; background: #000; }
+#cutBox { text-align: center; padding: 0 8vw; }
+#cutSpeaker {
+  font-family: 'Special Elite', Georgia, serif;
+  font-size: 15px; letter-spacing: 4px; color: #9c342c; margin-bottom: 16px; min-height: 20px;
+}
+#cutLine {
+  font-size: clamp(17px, 2.4vw, 24px); line-height: 1.7; color: #ddd5c4;
+  max-width: 800px; margin: 0 auto; font-style: italic;
+}
+#cutChoices { margin-top: 26px; display: flex; gap: 24px; justify-content: center; }
+#cutChoices button {
+  padding: 12px 30px; font-family: 'Special Elite', Georgia, serif; font-size: 15px;
+  letter-spacing: 3px; color: #e3d9c4; background: rgba(90, 20, 16, 0.35);
+  border: 1px solid #7a2a26; cursor: pointer;
+}
+#cutChoices button:hover { background: rgba(140, 30, 22, 0.55); }
+#cutHint { margin-top: 26px; font-size: 12px; color: #6d675c; letter-spacing: 2px; }
+
+.emblem.vialV.got { text-shadow: 0 0 8px rgba(220, 60, 30, 0.9); }
+.emblem.vialR.got { text-shadow: 0 0 8px rgba(60, 200, 90, 0.9); }
+
 #mapOv {
   position: fixed; inset: 0; z-index: 15; display: none;
   align-items: center; justify-content: center;

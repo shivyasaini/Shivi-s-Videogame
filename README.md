@@ -42,6 +42,27 @@ You wake in a guest bedroom. The front door is sealed by three emblems —
 behind a locked bathroom door; the rusty key is on the fireplace mantel.
 Slot all three into the front door in the foyer and escape.
 
+## Chapter Two — The Estate
+
+Escaping the house is only the beginning. The estate's fence has no gate you
+can open — but there is a cozy campervan in a clearing, a telephone that
+knows your name, and terrible news: your best friend Ash was caught by Crane
+and is turning. The antidote takes two vials — **VENIN** and **REMEDY** —
+brewed by Crane's wife in her crooked, rotting house across the river.
+
+- **The Widow** hunts her halls exactly like her husband — except she carries
+  a lantern everywhere, and she *loves light*. Turn your **flashlight OFF (F)**
+  when she's near: with your light off she can barely see you; with it on,
+  she'll come straight for it.
+- Her house is worse than his: hoarded junk, collapsing beams, moss, glowing
+  fungus, roaches scuttling across the floor.
+- Between the houses lies a misty dawn forest — pines, a river with a wooden
+  bridge, birdsong, lantern-posts marking the trail. Nothing hunts you out
+  here. Breathe.
+- Phone-call cutscenes drive the story: answer the phone at the camper,
+  choose your path, and deliver the finished serum to the boathouse when the
+  blue lamp lights.
+
 ## The other tenants
 
 You are not alone in there with him. An old woman rocks at the dining table,

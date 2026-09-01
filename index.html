@@ -51,6 +51,8 @@
       <span class="emblem" id="emOwl" title="Owl emblem">🦉</span>
       <span class="emblem" id="emSerpent" title="Serpent emblem">🐍</span>
       <span id="emKey" title="Rusty key">🗝️</span>
+      <span class="emblem vialV" id="emVenin" style="display:none" title="Venin vial">🧪</span>
+      <span class="emblem vialR" id="emRemedy" style="display:none" title="Remedy vial">🧪</span>
       <span id="medCount">✚ 0</span>
     </div>
     <div id="crosshair"></div>
@@ -61,7 +63,7 @@
 
   <div id="title" class="overlay show">
     <h1>THE HOLLOW HOUSE</h1>
-    <p class="sub">a survival horror</p>
+    <p class="sub">a survival horror in two chapters</p>
     <p class="story">
       October 3rd. Your car died on Route 9, and the only light for miles came
       from an old farmhouse. You remember knocking. You remember his smile.<br><br>
@@ -94,11 +96,29 @@
   </div>
 
   <div id="winOv" class="overlay">
-    <h1>YOU ESCAPED</h1>
-    <p class="story">Cold rain has never felt so good. Behind you, a scream of rage
+    <h1 id="winTitle">YOU ESCAPED</h1>
+    <p class="story" id="winText">Cold rain has never felt so good. Behind you, a scream of rage
       shakes the windows of the Hollow House.</p>
     <p id="winStats" class="sub"></p>
     <button id="restartBtn">PLAY AGAIN</button>
+  </div>
+
+  <div id="fadeBlack"></div>
+
+  <div id="chapterCard">
+    <div id="chapterTitle">CHAPTER TWO</div>
+    <div id="chapterSub">THE ESTATE</div>
+  </div>
+
+  <div id="cutOv">
+    <div class="cutBar top"></div>
+    <div id="cutBox">
+      <div id="cutSpeaker"></div>
+      <div id="cutLine"></div>
+      <div id="cutChoices"></div>
+      <div id="cutHint">click or press E to continue</div>
+    </div>
+    <div class="cutBar bottom"></div>
   </div>
 
   <div id="noteOv" class="overlay">
