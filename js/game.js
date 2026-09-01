@@ -595,44 +595,34 @@ function buildHands() {
     h.add(thumb);
     return h;
   };
+  // one hand only — it stays out of sight until the phone is answered
   const right = mkHand(1);
-  right.position.set(0.24, -0.26, -0.5);
-  right.rotation.set(0.32, -0.15, 0.1);
-  // the flashlight, gripped tight
-  const torch = new THREE.Group();
-  const bodyT = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.22, 10), MAT.metal);
-  bodyT.rotation.x = Math.PI / 2; torch.add(bodyT);
-  handLensMat = new THREE.MeshBasicMaterial({ color: 0xfff2d8 });
-  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.02, 10), handLensMat);
-  lens.rotation.x = Math.PI / 2; lens.position.z = -0.12; torch.add(lens);
-  torch.position.set(0, 0.05, -0.06);
-  right.add(torch);
-  const left = mkHand(-1);
-  left.position.set(-0.27, -0.29, -0.52);
-  left.rotation.set(0.36, 0.22, -0.12);
+  // the receiver, gripped in it
+  const recv = box(0.26, 0.055, 0.085, new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.4 }));
+  recv.position.set(0, 0.05, -0.05);
+  recv.rotation.z = 0.1;
+  right.add(recv);
   handsGrp.add(right);
-  handsGrp.add(left);
   handsGrp.scale.setScalar(0.8);
+  handsGrp.visible = false;
   camera.add(handsGrp);
 }
+let phoneHandT = -1, phoneHandNext = null;
 function updateHands(dt) {
   if (!handsGrp) return;
-  handsGrp.visible = !player.hidden && !player.dead;
-  if (!handsGrp.visible) return;
-  // hands lag a beat behind where you look — like they weigh something
-  let dy = (player.yaw - handSway.prevYaw + Math.PI * 3) % (Math.PI * 2) - Math.PI;
-  const dp = player.pitch - handSway.prevPitch;
-  handSway.prevYaw = player.yaw; handSway.prevPitch = player.pitch;
-  handSway.x = lerp(handSway.x, clamp(dy * 1.6, -0.05, 0.05), clamp(dt * 9, 0, 1));
-  handSway.y = lerp(handSway.y, clamp(dp * 1.6, -0.04, 0.04), clamp(dt * 9, 0, 1));
-  const spd = Math.hypot(player.vx, player.vz);
-  const amp = clamp(spd / 4.2, 0, 1);
-  handsGrp.position.set(
-    handSway.x + Math.sin(player.bobT) * 0.008 * amp,
-    handSway.y + Math.sin(player.bobT * 2) * 0.014 * amp - 0.012 * amp - 0.045,
-    -0.02
-  );
-  handsGrp.rotation.z = Math.sin(player.bobT) * 0.012 * amp;
+  if (phoneHandT < 0) { handsGrp.visible = false; return; }
+  phoneHandT += dt;
+  const t = clamp(phoneHandT / 1.25, 0, 1);
+  const e = t * t * (3 - 2 * t); // ease: reach out, then lift to the ear
+  handsGrp.visible = true;
+  handsGrp.position.set(lerp(0.36, 0.11, e), lerp(-0.62, -0.15, e), lerp(-0.58, -0.34, e));
+  handsGrp.rotation.set(lerp(0.7, 0.05, e), lerp(-0.35, -0.55, e), lerp(0.15, 0.55, e));
+  if (t >= 1 && phoneHandT > 1.55) {
+    phoneHandT = -1;
+    handsGrp.visible = false;
+    const cb = phoneHandNext; phoneHandNext = null;
+    if (cb) cb();
+  }
 }
 
 /* ------------------------------------------------------------ house build */
@@ -1735,6 +1725,7 @@ function playerUpdate(dt) {
   if (keys.KeyD) ix += 1;
   if (keys.KeyA) ix -= 1;
   const mag = Math.hypot(ix, iz) || 1; ix /= mag; iz /= mag;
+  if (phoneHandT >= 0) { ix = 0; iz = 0; } // hold still — you're answering the phone
   const wantSprint = (keys.ShiftLeft || keys.ShiftRight) && (ix !== 0 || iz !== 0) && player.stamina > 1 && !player.crouch;
   const speed = player.crouch ? 1.5 : wantSprint ? 4.9 : 2.75;
   if (wantSprint) { player.stamina = Math.max(0, player.stamina - 13 * dt); player.sinceSprint = 0; }
@@ -3492,24 +3483,31 @@ function startRinging() {
   caption('Somewhere ahead, an old telephone begins to ring.', 3.5);
 }
 function answerPhone() {
+  if (phoneHandT >= 0) return;
   if (!phoneRinging) { caption('The phone sits silent. Cozy out here, almost. Almost.', 3); return; }
   phoneRinging = false;
-  if (ch2phase === 1) {
-    playCutscene(CS1, () => {
-      ch2phase = 2;
-      setObjective('Cross the river — find the VENIN and REMEDY vials in the Widow’s house');
-      openBridge();
-      updateHud();
-    });
-  } else if (ch2phase === 2) {
-    playCutscene(CS2, () => {
-      ch2phase = 3;
-      setObjective('Bring the serum to the boathouse, south along the river');
-      if (WF.beacon) { WF.beacon.intensity = 1.4; WF.beaconGlow.material.color.setHex(0x6fd0ff); }
-      WF.marks.push({ t: '⛵', x: 63, z: 66 });
-      caption('Far down the riverbank, a cold blue lamp flickers on.', 4);
-    });
-  }
+  // your bruised hand reaches out and lifts the receiver
+  phoneHandT = 0;
+  AU.noise(0.06, 1200, 0.12, 2);
+  const phase = ch2phase;
+  phoneHandNext = () => {
+    if (phase === 1) {
+      playCutscene(CS1, () => {
+        ch2phase = 2;
+        setObjective('Cross the river — find the VENIN and REMEDY vials in the Widow’s house');
+        openBridge();
+        updateHud();
+      });
+    } else if (phase === 2) {
+      playCutscene(CS2, () => {
+        ch2phase = 3;
+        setObjective('Bring the serum to the boathouse, south along the river');
+        if (WF.beacon) { WF.beacon.intensity = 1.4; WF.beaconGlow.material.color.setHex(0x6fd0ff); }
+        WF.marks.push({ t: '⛵', x: 63, z: 66 });
+        caption('Far down the riverbank, a cold blue lamp flickers on.', 4);
+      });
+    }
+  };
 }
 function openBridge() {
   if (!WF || !WF.bridgeLog) return;
