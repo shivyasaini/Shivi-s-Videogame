@@ -437,6 +437,31 @@ function buildTextures() {
       g.stroke();
     }
   });
+  TEX.hands = canvasTex(128, 128, (g, w, h) => {
+    // skin that has been through two very bad nights
+    g.fillStyle = '#b98a68'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 8; i++) { // scrapes
+      g.fillStyle = 'rgba(140,60,40,' + rand(0.25, 0.5).toFixed(2) + ')';
+      g.beginPath(); g.ellipse(rand(w), rand(h), rand(4, 10), rand(3, 6), rand(3), 0, 7); g.fill();
+    }
+    for (let i = 0; i < 6; i++) { // bruises, blue-purple under the skin
+      g.fillStyle = 'rgba(' + (70 + rand(30) | 0) + ',' + (50 + rand(20) | 0) + ',' + (110 + rand(40) | 0) + ',' + rand(0.2, 0.4).toFixed(2) + ')';
+      g.beginPath(); g.ellipse(rand(w), rand(h), rand(8, 18), rand(6, 12), rand(3), 0, 7); g.fill();
+    }
+    for (let i = 0; i < 10; i++) { // cuts with sore edges
+      const x = rand(w), y = rand(h), a = rand(7), len = rand(8, 26);
+      g.strokeStyle = 'rgba(190,120,100,0.5)'; g.lineWidth = 3.5;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
+      g.strokeStyle = 'rgba(120,20,16,0.9)'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
+    }
+    grime(g, w, h, 50, 0.1);
+    // one grubby bandage, soaked through in the middle
+    g.fillStyle = 'rgba(210,200,180,0.95)'; g.fillRect(10, 88, 44, 13);
+    g.strokeStyle = 'rgba(150,140,120,0.8)'; g.strokeRect(10, 88, 44, 13);
+    g.fillStyle = 'rgba(140,30,20,0.55)';
+    g.beginPath(); g.arc(30, 94, 4.5, 0, 7); g.fill();
+  });
   TEX.window = canvasTex(128, 160, (g, w, h) => {
     g.fillStyle = '#0d1626'; g.fillRect(0, 0, w, h);
     g.strokeStyle = '#241d14'; g.lineWidth = 10;
@@ -545,6 +570,70 @@ function put(mesh, x, y, z, ry = 0, shadow = true) {
 }
 function addCollider(cx, cz, w, d) { colliders.push({ x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2, z1: cz + d / 2 }); }
 function blockCell(x, z) { blockedCells.add(x + ',' + z); }
+
+/* ------------------------------------------------------ first-person hands */
+let handsGrp = null, handLensMat = null;
+const handSway = { x: 0, y: 0, prevYaw: 0, prevPitch: 0 };
+function buildHands() {
+  handsGrp = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({ map: TEX.hands, roughness: 0.85 });
+  const cuff = new THREE.MeshStandardMaterial({ color: 0x35544f, roughness: 1 });
+  const mkHand = (side) => {
+    const h = new THREE.Group();
+    const fore = box(0.085, 0.085, 0.3, skin); fore.position.z = 0.16; h.add(fore);
+    const sleeve = box(0.115, 0.115, 0.13, cuff); sleeve.position.z = 0.29; h.add(sleeve);
+    const palm = box(0.095, 0.05, 0.11, skin); palm.position.set(0, 0.005, -0.02); h.add(palm);
+    for (let i = 0; i < 4; i++) {
+      const f = box(0.019, 0.032, 0.085, skin);
+      f.position.set(-0.036 + i * 0.024, 0.012, -0.1);
+      f.rotation.x = -0.55;
+      h.add(f);
+    }
+    const thumb = box(0.024, 0.03, 0.07, skin);
+    thumb.position.set(side * 0.055, 0.005, -0.03);
+    thumb.rotation.y = side * 0.5;
+    h.add(thumb);
+    return h;
+  };
+  const right = mkHand(1);
+  right.position.set(0.24, -0.26, -0.5);
+  right.rotation.set(0.32, -0.15, 0.1);
+  // the flashlight, gripped tight
+  const torch = new THREE.Group();
+  const bodyT = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.22, 10), MAT.metal);
+  bodyT.rotation.x = Math.PI / 2; torch.add(bodyT);
+  handLensMat = new THREE.MeshBasicMaterial({ color: 0xfff2d8 });
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.02, 10), handLensMat);
+  lens.rotation.x = Math.PI / 2; lens.position.z = -0.12; torch.add(lens);
+  torch.position.set(0, 0.05, -0.06);
+  right.add(torch);
+  const left = mkHand(-1);
+  left.position.set(-0.27, -0.29, -0.52);
+  left.rotation.set(0.36, 0.22, -0.12);
+  handsGrp.add(right);
+  handsGrp.add(left);
+  handsGrp.scale.setScalar(0.8);
+  camera.add(handsGrp);
+}
+function updateHands(dt) {
+  if (!handsGrp) return;
+  handsGrp.visible = !player.hidden && !player.dead;
+  if (!handsGrp.visible) return;
+  // hands lag a beat behind where you look — like they weigh something
+  let dy = (player.yaw - handSway.prevYaw + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+  const dp = player.pitch - handSway.prevPitch;
+  handSway.prevYaw = player.yaw; handSway.prevPitch = player.pitch;
+  handSway.x = lerp(handSway.x, clamp(dy * 1.6, -0.05, 0.05), clamp(dt * 9, 0, 1));
+  handSway.y = lerp(handSway.y, clamp(dp * 1.6, -0.04, 0.04), clamp(dt * 9, 0, 1));
+  const spd = Math.hypot(player.vx, player.vz);
+  const amp = clamp(spd / 4.2, 0, 1);
+  handsGrp.position.set(
+    handSway.x + Math.sin(player.bobT) * 0.008 * amp,
+    handSway.y + Math.sin(player.bobT * 2) * 0.014 * amp - 0.012 * amp - 0.045,
+    -0.02
+  );
+  handsGrp.rotation.z = Math.sin(player.bobT) * 0.012 * amp;
+}
 
 /* ------------------------------------------------------------ house build */
 function buildHouse() {
@@ -3552,6 +3641,7 @@ addEventListener('keydown', (e) => {
   } else if (e.code === 'KeyF') {
     player.flash = !player.flash;
     if (!player.hidden) flashlight.intensity = player.flash ? 2.6 : 0;
+    if (handLensMat) handLensMat.color.setHex(player.flash ? 0xfff2d8 : 0x2a2a2a);
     AU.tone(1200, 0.05, 'square', 0.08);
   } else if (e.code === 'KeyC') {
     player.crouch = !player.crouch;
@@ -3640,6 +3730,7 @@ function loop(t) {
     updateDoors(dt);
     if (state === 'play') {
       playerUpdate(dt);
+      updateHands(dt);
       killerUpdate(dt);
       npcUpdate(dt);
       updateFlies(dt);
@@ -3650,6 +3741,7 @@ function loop(t) {
       if (mapOpen) drawMap();
     } else {
       dieT += dt;
+      if (handsGrp) handsGrp.visible = false;
       let iris = 0;
       if (dieMode === 'wife') {
         // she has you — lifted, clawed, and the world closes in
@@ -3716,6 +3808,7 @@ buildTextures();
 buildRenderer();
 buildEnvMap();
 buildMaterials();
+buildHands();
 W1 = { group: new THREE.Group() };
 beginWorld(W1, MAP1, ROOMS1);
 W1.stalker = 'butcher';
