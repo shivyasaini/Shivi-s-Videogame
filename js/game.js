@@ -3373,6 +3373,55 @@ function exitWidowHouse() {
   });
 }
 
+/* ---------------- video cutscenes (AI-generated clips) ---------------- */
+const CUT_VIDS = {
+  intro: [['assets/cutscenes/intro.webm', 'assets/cutscenes/intro.mp4']],
+  escape: [['assets/cutscenes/escape.webm', 'assets/cutscenes/escape.mp4']],
+};
+let vidState = null;
+function playVideoCutscene(key, onEnd) {
+  const list = (window.HH_VIDEO_URLS && window.HH_VIDEO_URLS[key]) || CUT_VIDS[key];
+  if (!list || !list.length) { onEnd(); return; }
+  vidState = { list, i: 0, onEnd, done: false, watchdog: null };
+  state = 'video';
+  if (document.exitPointerLock) document.exitPointerLock();
+  $('videoOv').classList.add('show');
+  if (AU.ok) AU.master.gain.value = (muted ? 0 : volume) * 0.15;
+  videoNext();
+}
+function videoNext() {
+  const vs = vidState;
+  if (!vs) return;
+  clearTimeout(vs.watchdog);
+  if (vs.i >= vs.list.length) { endVideoCutscene(); return; }
+  const v = $('cutVideo');
+  const sources = vs.list[vs.i++];
+  v.innerHTML = '';
+  for (const s of (Array.isArray(sources) ? sources : [sources])) {
+    const el = document.createElement('source');
+    el.src = s;
+    v.appendChild(el);
+  }
+  v.load();
+  // if a clip can't start (missing file, unsupported codec), move on
+  vs.watchdog = setTimeout(() => { if (vidState === vs && v.readyState < 2) videoNext(); }, 4000);
+  const p = v.play();
+  if (p && p.catch) p.catch(() => {});
+}
+function endVideoCutscene() {
+  const vs = vidState;
+  if (!vs || vs.done) return;
+  vs.done = true;
+  clearTimeout(vs.watchdog);
+  const v = $('cutVideo');
+  try { v.pause(); } catch (err) { /* fine */ }
+  v.innerHTML = ''; v.load();
+  $('videoOv').classList.remove('show');
+  if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
+  vidState = null;
+  vs.onEnd();
+}
+
 /* ---------------- cutscenes ---------------- */
 let cut = null;
 const CS1 = [
@@ -3454,9 +3503,13 @@ function cutAdvance() {
 function startChapter2() {
   if (chapter !== 1) return;
   chapter = 2; ch2phase = 1;
-  state = 'chapter';
   killer.active = false;
   hideOverlays();
+  if (document.exitPointerLock) document.exitPointerLock();
+  playVideoCutscene('escape', chapter2Card);
+}
+function chapter2Card() {
+  state = 'chapter';
   $('chapterTitle').textContent = 'CHAPTER TWO';
   $('chapterSub').textContent = 'THE ESTATE';
   $('chapterCard').classList.add('show');
@@ -3621,6 +3674,7 @@ function applyVolume() {
 addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (e.code === 'Tab') e.preventDefault();
+  if (state === 'video' && (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape')) { e.preventDefault(); videoNext(); return; }
   if (state === 'cutscene' && (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); cutAdvance(); return; }
   if (state === 'play' && (e.code === 'Tab' || e.code === 'KeyX')) { toggleMap(); return; }
   if (e.code === 'Minus' || e.code === 'NumpadSubtract') { volume = Math.max(0, Math.round((volume - 0.1) * 10) / 10); muted = false; applyVolume(); return; }
@@ -3708,6 +3762,9 @@ function startGame() {
   if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
   if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
   hideOverlays();
+  playVideoCutscene('intro', beginPlay);
+}
+function beginPlay() {
   state = 'play';
   startTime = performance.now();
   lockPointer();
@@ -3836,6 +3893,9 @@ $('resumeBtn').addEventListener('click', () => { hideOverlays(); state = 'play';
 $('restartBtn').addEventListener('click', () => location.reload());
 $('noteClose').addEventListener('click', closeNote);
 $('cutOv').addEventListener('click', cutAdvance);
+$('cutVideo').addEventListener('ended', () => videoNext());
+$('cutVideo').addEventListener('error', () => videoNext());
+$('videoOv').addEventListener('click', () => videoNext());
 bindHold('skipHold1', 'skipFill1', 5, skipToChapter2);
 bindHold('skipHold2', 'skipFill2', 5, skipToChapter2);
 showOverlay('title');

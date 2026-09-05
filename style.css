@@ -70,6 +70,18 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
 }
 #chapterSub { margin-top: 14px; letter-spacing: 7px; font-size: 15px; color: #8b8375; }
 
+#videoOv {
+  position: fixed; inset: 0; z-index: 24; display: none;
+  align-items: center; justify-content: center;
+  background: #000; cursor: pointer;
+}
+#videoOv.show { display: flex; }
+#cutVideo { max-width: 100%; max-height: 100%; }
+#videoSkipHint {
+  position: absolute; right: 26px; bottom: 20px;
+  font-size: 12px; letter-spacing: 2px; color: rgba(200, 190, 170, 0.5);
+}
+
 #cutOv {
   position: fixed; inset: 0; z-index: 22; display: none;
   flex-direction: column; justify-content: space-between;
