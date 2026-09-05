@@ -3377,6 +3377,7 @@ function exitWidowHouse() {
 const CUT_VIDS = {
   intro: [['assets/cutscenes/intro.webm', 'assets/cutscenes/intro.mp4']],
   escape: [['assets/cutscenes/escape.webm', 'assets/cutscenes/escape.mp4']],
+  phone1: [['assets/cutscenes/phonecall1.webm', 'assets/cutscenes/phonecall1.mp4']],
 };
 let vidState = null;
 function playVideoCutscene(key, onEnd) {
@@ -3545,12 +3546,13 @@ function answerPhone() {
   const phase = ch2phase;
   phoneHandNext = () => {
     if (phase === 1) {
-      playCutscene(CS1, () => {
+      // what she tells you about Ash, shown before the words
+      playVideoCutscene('phone1', () => playCutscene(CS1, () => {
         ch2phase = 2;
         setObjective('Cross the river — find the VENIN and REMEDY vials in the Widow’s house');
         openBridge();
         updateHud();
-      });
+      }));
     } else if (phase === 2) {
       playCutscene(CS2, () => {
         ch2phase = 3;
