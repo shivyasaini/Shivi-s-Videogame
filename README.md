@@ -68,6 +68,25 @@ brewed by Crane's wife in her crooked, rotting house across the river.
   choose your path, and deliver the finished serum to the boathouse when the
   blue lamp lights.
 
+## Chapter Three — The Full Moon
+
+The serum is delivered, the boat is on open water, the moon is full, and for
+one minute everything is fine. Then a hand closes on the stern rail.
+
+- **The boss fight:** Crane swam after you. Waterlogged and slow, he boards
+  the boat — and for the first time in the game you can fight back. Swing the
+  boat hook (click / Space), dodge his long windups, and put him down. He
+  sinks the boat out of spite on his way into the sea.
+- **The island:** shipwrecked under the moon, the only way to call for help
+  is the old lighthouse. Climb it floor by floor.
+- **Ash turns:** the full moon calls the bite before the serum can finish.
+  On the second landing your best friend stops being your best friend — and
+  you CANNOT fight them. Run, hide, climb.
+- **Mara has your back:** press **T** and she pulls Ash's attention so you
+  can slip past. Reaching the lamp room and lighting the beacon holds the
+  moonlight off until dawn — and ends the story.
+- The pause-menu skip button now jumps chapter to chapter (1 → 2 → 3).
+
 ## The other tenants
 
 You are not alone in there with him. An old woman rocks at the dining table,

@@ -1823,10 +1823,22 @@ function die() {
   player.dead = true; state = 'dying'; deaths++; dieT = 0; dieSl = 0; dieMode = 'butcher';
   clearKillFx();
   if (mapOpen) toggleMap();
-  drawScareFace(killer.P.name === 'widow' ? 'wife' : 'butcher');
-  showScare(0.45);
-  $('deathTitle').textContent = killer.P.deathTitle;
-  $('deathText').textContent = killer.P.deathText;
+  if (curWorld === WB) {
+    // the boss got you, right there on the deck
+    drawScareFace('butcher');
+    showScare(0.45);
+    $('deathTitle').textContent = 'NOT EVEN THE SEA STOPS HIM';
+    $('deathText').textContent = 'The moon watches. The water waits. He does neither.';
+  } else if (killer.P.name === 'ashm') {
+    // no jumpscare for Ash — this death is just sad
+    $('deathTitle').textContent = killer.P.deathTitle;
+    $('deathText').textContent = killer.P.deathText;
+  } else {
+    drawScareFace(killer.P.name === 'widow' ? 'wife' : 'butcher');
+    showScare(0.45);
+    $('deathTitle').textContent = killer.P.deathTitle;
+    $('deathText').textContent = killer.P.deathText;
+  }
   AU.sting(); AU.growl(0, 0.5);
   if (document.exitPointerLock) document.exitPointerLock();
 }
@@ -1853,7 +1865,27 @@ function respawn() {
   camera.rotation.z = 0;
   clearKillFx();
   $('damageFlash').style.opacity = 0;
-  if (curWorld === WH2) {
+  if (curWorld === WB) {
+    player.x = 9; player.z = 7; player.yaw = Math.PI / 2;
+    if (boss) {
+      boss.hp = boss.maxHp; boss.stun = 0; boss.atkT = -1; boss.rising = 1;
+      boss.x = 4.5; boss.z = 9.5;
+      boss.grp.position.set(boss.x, 0, boss.z);
+      updateBossBar();
+    }
+    caption('Salt water in your throat. The rail in your fist. He is STILL on your boat.', 4.5);
+  } else if (curWorld === WLH) {
+    const f = LH_FLOORS[curFloor - 1];
+    player.x = cw(f.inX); player.z = cw(f.inZ); player.yaw = 0;
+    if (ch3phase >= 6) {
+      configureStalker(WLH);
+      killer.x = cw(f.inX) + 3; killer.z = cw(f.inZ) - 4;
+      killer.grp.position.set(killer.x, 0, killer.z);
+      killer.grace = 6;
+    }
+    if (WLH.mara) WLH.mara.position.set(player.x - 1.2, 0, player.z + 0.6);
+    caption('Mara hauls you up by the collar. “Not like this. UP. Keep climbing.”', 4.5);
+  } else if (curWorld === WH2) {
     player.x = cw(11); player.z = cw(15); player.yaw = 0;
     configureStalker(WH2);
     killer.grace = 6;
@@ -2369,7 +2401,7 @@ function sealWorld(w) {
   });
 }
 function activateWorld(w) {
-  for (const o of [W1, WF, WH2]) if (o && o.group) o.group.visible = (o === w);
+  for (const o of [W1, WF, WH2, WB, WI, WLH]) if (o && o.group) o.group.visible = (o === w);
   curWorld = w;
   worldRoot = w.group;
   MAP = w.map; GW = w.gw; GH = w.gh; ROOMS = w.rooms;
@@ -2392,6 +2424,7 @@ function applyEnv(c) {
 function configureStalker(w) {
   if (w.stalker === 'butcher' && butcherRig) { Object.assign(killer, butcherRig); killer.P = BUTCHER_P; killer.active = true; }
   else if (w.stalker === 'widow' && widowRig) { Object.assign(killer, widowRig); killer.P = WIDOW_P; killer.active = true; }
+  else if (w.stalker === 'ashm' && ashRig) { Object.assign(killer, ashRig); killer.P = ASH_P; killer.active = true; killer.grp.visible = true; }
   else { killer.active = false; killer.state = 'patrol'; killer.bust = null; killer.attackT = -1; return; }
   killer.x = killer.homeX; killer.z = killer.homeZ;
   killer.state = 'patrol'; killer.path = null; killer.detect = 0; killer.bust = null;
@@ -3622,7 +3655,7 @@ function forestUpdate(dt) {
   // the meeting
   if (ch2phase === 3 && dist2(player.x, player.z, 63, 66) < 3.4) {
     ch2phase = 4;
-    playVideoCutscene('finale', () => playCutscene(CS3, endChapter2));
+    playVideoCutscene('finale', () => playCutscene(CS3, startChapter3));
   }
 }
 function roachUpdate(dt) {
@@ -3647,6 +3680,720 @@ function roachUpdate(dt) {
   }
 }
 
+/* ===================================================================== */
+/*  CHAPTER THREE — the full moon, the boat, the island, the lighthouse  */
+/* ===================================================================== */
+let ch3phase = 0, curFloor = 1;
+let WB = null, WI = null, WLH = null; // the boat, the island, the lighthouse
+let boss = null, gaffT = -1, gaffCd = 0, gaffGrp = null;
+let ashRig = null, talkedAsh = false, talkedMara = false, boatTalkT = 0;
+let distractCd = 0;
+
+const ASH_TAUNTS = ['“…know… you…”', '“…why does it… hurt…”', '“…run… please… run…”'];
+const ASH_P = {
+  name: 'ashm', patrol: 1.6, invest: 2.4, search: 2.0, chase: 3.05,
+  attackCd: 2.4, dmg: 40, sight: 12, flashBonus: 2, lightLover: false,
+  taunts: ASH_TAUNTS, whistles: false,
+  spotText: 'ASH SEES YOU — RUN. DO NOT FIGHT BACK.',
+  sweepText: 'Wet, wrong footsteps circle the floor, looking for you.',
+  fadeText: 'The footsteps stop. Somewhere close, a sound like crying.',
+  deathTitle: 'ASH DOESN’T KNOW YOU',
+  deathText: 'The last thing you see is your best friend’s face — and nothing of your best friend in it.',
+};
+
+/* ---------------- shared little builders ---------------- */
+function buildPerson(opts) {
+  // a simple standing person: used for Mara and for human Ash
+  const g = new THREE.Group();
+  const cloth = new THREE.MeshStandardMaterial({ color: opts.coat, roughness: 1 });
+  const skin = new THREE.MeshStandardMaterial({ color: opts.skin || 0xc9a886, roughness: 0.85 });
+  const legs = new THREE.MeshStandardMaterial({ color: opts.legs || 0x23252a, roughness: 1 });
+  const torso = box(0.44, 0.6, 0.26, cloth); torso.position.y = 1.25; g.add(torso);
+  for (const s of [-1, 1]) {
+    const leg = box(0.15, 0.85, 0.18, legs); leg.position.set(s * 0.12, 0.42, 0); g.add(leg);
+    const arm = box(0.11, 0.55, 0.11, cloth); arm.position.set(s * 0.29, 1.22, 0); g.add(arm);
+  }
+  const head = box(0.24, 0.28, 0.24, skin); head.position.y = 1.72; g.add(head);
+  if (opts.hood) {
+    const hood = box(0.3, 0.32, 0.3, cloth); hood.position.set(0, 1.74, -0.03); g.add(hood);
+    const brim = box(0.3, 0.08, 0.12, cloth); brim.position.set(0, 1.88, 0.12); g.add(brim);
+  } else {
+    const hair = box(0.26, 0.12, 0.26, new THREE.MeshStandardMaterial({ color: opts.hair || 0x2c1f14, roughness: 1 }));
+    hair.position.y = 1.87; g.add(hair);
+  }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  worldRoot.add(g);
+  return g;
+}
+function buildAshMonster() {
+  // Ash, turned: the teal hoodie you know, and nothing else you know
+  const g = new THREE.Group();
+  const hoodie = new THREE.MeshStandardMaterial({ color: 0x274642, roughness: 1 });
+  const sick = new THREE.MeshStandardMaterial({ color: 0x9aa694, roughness: 0.8 });
+  const legs = new THREE.MeshStandardMaterial({ color: 0x1c1e24, roughness: 1 });
+  const torso = box(0.5, 0.62, 0.3, hoodie); torso.position.y = 1.28; torso.rotation.x = 0.22; g.add(torso);
+  const headG = new THREE.Group(); headG.position.set(0, 1.74, 0.1); g.add(headG);
+  const head = box(0.25, 0.28, 0.25, sick); headG.add(head);
+  // dark veins crawling up the face
+  for (let i = 0; i < 5; i++) {
+    const vein = box(0.015, rand(0.08, 0.16), 0.015, new THREE.MeshStandardMaterial({ color: 0x22262c, roughness: 1 }));
+    vein.position.set(rand(-0.1, 0.1), rand(-0.08, 0.06), 0.125);
+    vein.rotation.z = rand(-0.5, 0.5);
+    headG.add(vein);
+  }
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), new THREE.MeshBasicMaterial({ color: 0xbfffd8 }));
+    eye.position.set(s * 0.065, 0.03, 0.13); headG.add(eye);
+  }
+  const hoodB = box(0.3, 0.3, 0.28, hoodie); hoodB.position.set(0, 1.76, -0.08); g.add(hoodB);
+  const mkL = (isArm, side) => {
+    const pivot = new THREE.Group();
+    const seg = box(isArm ? 0.13 : 0.16, isArm ? 0.62 : 0.88, isArm ? 0.13 : 0.18, isArm ? hoodie : legs);
+    seg.position.y = -(isArm ? 0.31 : 0.44);
+    pivot.add(seg);
+    if (isArm) { const hand = box(0.1, 0.16, 0.06, sick); hand.position.y = -0.68; pivot.add(hand); }
+    pivot.position.set(side * (isArm ? 0.32 : 0.13), isArm ? 1.56 : 0.94, 0);
+    g.add(pivot);
+    return pivot;
+  };
+  const lArm = mkL(true, -1), rArm = mkL(true, 1);
+  const lLeg = mkL(false, -1), rLeg = mkL(false, 1);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.visible = false;
+  worldRoot.add(g);
+  ashRig = { grp: g, lArm, rArm, lLeg, rLeg, headG, homeX: 0, homeZ: 0 };
+}
+function buildBossButcher() {
+  // Crane, soaked to the bone and slower for it — but here, in person
+  const g = new THREE.Group();
+  const cloth = new THREE.MeshStandardMaterial({ color: 0x0e0f12, roughness: 1 });
+  const apron = new THREE.MeshStandardMaterial({ map: TEX.apron, roughness: 0.9 });
+  const hood = new THREE.MeshStandardMaterial({ color: 0x4a3d26, roughness: 1 });
+  const torso = box(0.7, 0.8, 0.4, cloth); torso.position.y = 1.24; torso.rotation.x = 0.14; g.add(torso);
+  const ap = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.98), apron); ap.position.set(0, 1.04, 0.22); g.add(ap);
+  const headG = new THREE.Group(); headG.position.set(0, 1.82, 0.06); g.add(headG);
+  const head = box(0.33, 0.38, 0.33, hood); headG.add(head);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.33, 0.38), new THREE.MeshStandardMaterial({ map: TEX.mask, roughness: 0.95 }));
+  face.position.set(0, 0, 0.17); headG.add(face);
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.036, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a }));
+    eye.position.set(s * 0.08, 0.1, 0.18); headG.add(eye);
+  }
+  const mkL = (isArm, side) => {
+    const pivot = new THREE.Group();
+    const seg = box(isArm ? 0.17 : 0.21, isArm ? 0.68 : 0.95, isArm ? 0.17 : 0.23, cloth);
+    seg.position.y = -(isArm ? 0.34 : 0.475);
+    pivot.add(seg);
+    pivot.position.set(side * (isArm ? 0.44 : 0.17), isArm ? 1.56 : 0.98, 0);
+    g.add(pivot);
+    return pivot;
+  };
+  const lArm = mkL(true, -1), rArm = mkL(true, 1);
+  const lLeg = mkL(false, -1), rLeg = mkL(false, 1);
+  const cl = new THREE.Group();
+  const handle = box(0.035, 0.26, 0.035, MAT.wood); cl.add(handle);
+  const blade = box(0.02, 0.34, 0.24, MAT.metal); blade.position.set(0, -0.3, 0.1); cl.add(blade);
+  cl.position.set(0, -0.7, 0.02);
+  rArm.add(cl);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.scale.setScalar(1.16);
+  g.visible = false;
+  worldRoot.add(g);
+  boss = {
+    grp: g, lArm, rArm, lLeg, rLeg, headG,
+    x: 5, z: 7, yaw: Math.PI / 2, hp: 100, maxHp: 100,
+    active: false, rising: 0, stun: 0, teleT: 0, atkT: -1, struckB: false,
+    walkPhase: 0, lastPh: 0,
+  };
+}
+function buildGaff() {
+  gaffGrp = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({ map: TEX.hands, roughness: 0.85 });
+  const hand = box(0.09, 0.16, 0.12, skin); gaffGrp.add(hand);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 1.3, 8), MAT.wood);
+  pole.rotation.x = Math.PI / 2 - 0.25;
+  pole.position.set(0, 0.06, -0.5);
+  gaffGrp.add(pole);
+  const hook = box(0.02, 0.12, 0.05, MAT.metal); hook.position.set(0, 0.22, -1.08); hook.rotation.x = 0.6; gaffGrp.add(hook);
+  gaffGrp.position.set(0.3, -0.32, -0.45);
+  gaffGrp.rotation.set(0.25, -0.12, 0.08);
+  gaffGrp.visible = false;
+  camera.add(gaffGrp);
+}
+
+/* ---------------- the boat, at sea, under the full moon ---------------- */
+function buildBoat() {
+  const rows = [];
+  for (let z = 0; z < 7; z++) {
+    let r = '';
+    for (let x = 0; x < 10; x++) r += (x < 1 || z < 1 || x >= 9 || z >= 6) ? '#' : '.';
+    rows.push(r);
+  }
+  beginWorld(WB, rows, { deck: { x0: 1, x1: 8, z0: 1, z1: 5, name: '' } });
+  WB.stalker = null;
+  WB.envCfg = {
+    fog: 0x0a1322, fogD: 0.0045, bg: 0x070e1a,
+    hemiSky: 0x41546e, hemiGround: 0x05070c, hemiI: 0.5,
+    sun: 0xbfd2f0, sunI: 0.6, sunPos: [40, 46, -50],
+    storm: false, rain: 0, wind: 0.5, birds: false,
+  };
+  WB.marks = [{ t: '⛵', x: 10, z: 7 }];
+  // the sea, and the moon's road across it
+  WB.seaMat = new THREE.MeshStandardMaterial({ map: TEX.water, color: 0x9db4cc, roughness: 0.35, metalness: 0.3 });
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), WB.seaMat);
+  sea.rotation.x = -Math.PI / 2; sea.position.set(10, -0.55, 7);
+  worldRoot.add(sea);
+  const moonRoad = new THREE.Mesh(new THREE.PlaneGeometry(7, 220),
+    new THREE.MeshBasicMaterial({ color: 0x9fb6d8, transparent: true, opacity: 0.16, depthWrite: false }));
+  moonRoad.rotation.x = -Math.PI / 2; moonRoad.rotation.z = 0.5;
+  moonRoad.position.set(45, -0.5, -30);
+  worldRoot.add(moonRoad);
+  const moon = new THREE.Mesh(new THREE.CircleGeometry(7, 24), new THREE.MeshBasicMaterial({ color: 0xe8eef8 }));
+  moon.position.set(58, 38, -68); moon.lookAt(10, 1, 7);
+  worldRoot.add(moon);
+  const starGeo = new THREE.BufferGeometry();
+  const starPos = [];
+  for (let i = 0; i < 300; i++) {
+    const a = rand(Math.PI * 2), e = rand(0.12, 1.4), r = 95;
+    starPos.push(10 + Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r, 7 + Math.sin(a) * Math.cos(e) * r);
+  }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+  worldRoot.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xcfd8ea, size: 0.8, sizeAttenuation: true })));
+  // the deck
+  const deck = box(15, 0.3, 9.4, new THREE.MeshStandardMaterial({ map: TEX.wood, color: 0x9a7a54, roughness: 0.85 }));
+  deck.position.set(10, -0.15, 7); deck.receiveShadow = true; worldRoot.add(deck);
+  const bow = box(3, 0.3, 5, deck.material); bow.position.set(18, -0.15, 7); bow.rotation.y = 0.0; worldRoot.add(bow);
+  // rails
+  for (const rz of [2.2, 11.8]) {
+    const rail = box(15, 0.08, 0.08, MAT.woodDark); rail.position.set(10, 1.0, rz); worldRoot.add(rail);
+    for (let i = 0; i < 7; i++) { const p = box(0.08, 1.0, 0.08, MAT.woodDark); p.position.set(3.5 + i * 2.2, 0.5, rz); worldRoot.add(p); }
+  }
+  for (const rx of [2.6, 17.4]) {
+    const rail = box(0.08, 0.08, 9.6, MAT.woodDark); rail.position.set(rx, 1.0, 7); worldRoot.add(rail);
+  }
+  // small cabin and mast
+  const cabin = box(2.6, 1.9, 2.4, MAT.woodDark); cabin.position.set(4.6, 0.95, 5.4); cabin.castShadow = true; worldRoot.add(cabin);
+  addCollider(4.6, 5.4, 2.7, 2.5);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 7, 8), MAT.woodDark);
+  mast.position.set(11, 3.5, 7); mast.castShadow = true; worldRoot.add(mast);
+  addCollider(11, 7, 0.5, 0.5);
+  const lampB = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffc878 }));
+  lampB.position.set(11, 2.4, 7.3); worldRoot.add(lampB);
+  const lampLi = new THREE.PointLight(0xffb050, 0.9, 12, 1.7);
+  lampLi.position.set(11, 2.4, 7.3); worldRoot.add(lampLi);
+  flickerLights.push({ light: lampLi, base: 0.9, flicker: 0.12, t: rand(10), bulb: null });
+  // your people
+  WB.ash = buildPerson({ coat: 0x274642, hood: false, hair: 0x3a2a18 });
+  WB.ash.position.set(15, 0, 5.6); WB.ash.rotation.y = -1.2;
+  addCollider(15, 5.6, 0.6, 0.6);
+  WB.mara = buildPerson({ coat: 0x1c1e24, hood: true });
+  WB.mara.position.set(15, 0, 8.6); WB.mara.rotation.y = -1.9;
+  addCollider(15, 8.6, 0.6, 0.6);
+  interactables.push({ x: 15, z: 5.6, y: 1, prompt: 'talk to Ash', spin: false, action() { talkAsh(); } });
+  interactables.push({ x: 15, z: 8.6, y: 1, prompt: 'talk to Mara', spin: false, action() { talkMara(); } });
+  // the hole he will leave behind
+  WB.hole = new THREE.Mesh(new THREE.CircleGeometry(0.9, 14), new THREE.MeshBasicMaterial({ color: 0x04070c }));
+  WB.hole.rotation.x = -Math.PI / 2; WB.hole.position.set(7.5, 0.02, 7.5); WB.hole.visible = false;
+  worldRoot.add(WB.hole);
+  buildBossButcher();
+  sealWorld(WB);
+}
+function talkAsh() {
+  talkedAsh = true;
+  caption('ASH: “You came for me. You absolute idiot. …Thank you.” They smile, and it’s almost the old smile.', 5);
+  checkBoatTalks();
+}
+function talkMara() {
+  talkedMara = true;
+  caption('MARA: “Two doses. One for Ash, one for the one I lost too long ago to matter. …Enjoy the moon. You earned it.”', 5);
+  checkBoatTalks();
+}
+function checkBoatTalks() {
+  if (talkedAsh && talkedMara && ch3phase === 1) {
+    ch3phase = 1.5;
+    boatTalkT = 6; // a few last calm seconds
+    setObjective('Enjoy the quiet while it lasts');
+  }
+}
+
+/* ---------------- the island ---------------- */
+function buildIsland() {
+  const rows = [];
+  for (let z = 0; z < 26; z++) {
+    let r = '';
+    for (let x = 0; x < 32; x++) r += (x < 1 || z < 1 || x >= 31 || z >= 25) ? '#' : '.';
+    rows.push(r);
+  }
+  beginWorld(WI, rows, { isle: { x0: 1, x1: 30, z0: 1, z1: 24, name: '' } });
+  WI.stalker = null;
+  WI.envCfg = {
+    fog: 0x0c1420, fogD: 0.016, bg: 0x090f18,
+    hemiSky: 0x3c4e66, hemiGround: 0x0a0d10, hemiI: 0.42,
+    sun: 0xbfd2f0, sunI: 0.5, sunPos: [40, 40, -30],
+    storm: false, rain: 0, wind: 0.9, birds: false,
+  };
+  WI.marks = [{ t: '🗼', x: 32, z: 10 }, { t: '🛶', x: 30, z: 46 }];
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(600, 600),
+    new THREE.MeshStandardMaterial({ map: TEX.water, color: 0x8ca4bc, roughness: 0.4, metalness: 0.25 }));
+  sea.rotation.x = -Math.PI / 2; sea.position.set(32, -0.6, 26);
+  worldRoot.add(sea);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(64, 52),
+    new THREE.MeshStandardMaterial({ map: TEX.dirt, color: 0x6a6f6e, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.set(32, 0, 26);
+  ground.receiveShadow = true; worldRoot.add(ground);
+  // rocks everywhere
+  const rockM = new THREE.MeshStandardMaterial({ color: 0x4c5054, roughness: 0.95 });
+  for (let i = 0; i < 40; i++) {
+    const x = rand(4, 60), z = rand(4, 48);
+    if (dist2(x, z, 32, 10) < 8 || dist2(x, z, 30, 46) < 6) continue;
+    if (Math.abs(x - 32) < 3 && z > 12 && z < 46) continue; // keep the path clear
+    const rk = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(0.4, 1.6), 0), rockM);
+    rk.position.set(x, rand(0.1, 0.4), z); rk.rotation.set(rand(3), rand(3), rand(3));
+    rk.castShadow = true; worldRoot.add(rk);
+    addCollider(x, z, 1.4, 1.4);
+  }
+  // the wreck, thrown up on the shingle
+  const wreck = box(9, 2, 4.5, MAT.woodDark);
+  wreck.position.set(30, 0.4, 47); wreck.rotation.z = 0.35; wreck.rotation.y = 0.5;
+  wreck.castShadow = true; worldRoot.add(wreck);
+  addCollider(30, 47, 8, 5);
+  // the lighthouse
+  const towerM = new THREE.MeshStandardMaterial({ color: 0xb9b4a8, roughness: 0.8 });
+  const bandM = new THREE.MeshStandardMaterial({ color: 0x7c2a24, roughness: 0.8 });
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.6, 30, 14), towerM);
+  tower.position.set(32, 15, 8); tower.castShadow = true; worldRoot.add(tower);
+  for (let i = 0; i < 3; i++) {
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(3.05 - i * 0.28, 3.3 - i * 0.28, 2.2, 14), bandM);
+    band.position.set(32, 5 + i * 9, 8); worldRoot.add(band);
+  }
+  const gallery = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 0.5, 14), MAT.metal);
+  gallery.position.set(32, 30, 8); worldRoot.add(gallery);
+  const lampRoom = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 3, 12),
+    new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.4, metalness: 0.5 }));
+  lampRoom.position.set(32, 31.7, 8); worldRoot.add(lampRoom);
+  WI.lampGlow = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 12), new THREE.MeshBasicMaterial({ color: 0x22262c }));
+  WI.lampGlow.position.set(32, 31.7, 8); worldRoot.add(WI.lampGlow);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(2.6, 2, 12), bandM);
+  cap.position.set(32, 34.2, 8); worldRoot.add(cap);
+  addCollider(32, 8, 6.4, 6.4);
+  const doorL = box(1.5, 2.4, 0.2, MAT.woodDark);
+  doorL.position.set(32, 1.2, 11.6); worldRoot.add(doorL);
+  interactables.push({ x: 32, z: 12.2, y: 1, prompt: 'enter the lighthouse', spin: false, action() { enterLighthouse(); } });
+  // your people wait at the door
+  WI.mara = buildPerson({ coat: 0x1c1e24, hood: true });
+  WI.mara.position.set(30.4, 0, 13); WI.mara.rotation.y = 2.6;
+  WI.ash = buildPerson({ coat: 0x274642, hood: false, hair: 0x3a2a18 });
+  WI.ash.position.set(33.6, 0, 13.2); WI.ash.rotation.y = -2.6;
+  sealWorld(WI);
+}
+
+/* ---------------- the lighthouse, floor by floor ---------------- */
+const LH_MAP = [
+  '###########################',
+  '#.....###.....###.....##..#',
+  '#.....###.....###.....##..#',
+  '#.....###.....###.....##..#',
+  '#.....###.....###.....##..#',
+  '#.....###.....###.....##..#',
+  '#.....###.....###.....##..#',
+  '###########################',
+];
+const LH_ROOMS = {
+  f1: { x0: 1, x1: 5, z0: 1, z1: 6, name: 'Storage' },
+  f2: { x0: 9, x1: 13, z0: 1, z1: 6, name: 'Quarters' },
+  f3: { x0: 17, x1: 21, z0: 1, z1: 6, name: 'Machinery' },
+  f4: { x0: 24, x1: 25, z0: 1, z1: 6, name: 'Lamp Room' },
+};
+const LH_FLOORS = [
+  { key: 'f1', upX: 5, upZ: 1, inX: 3, inZ: 5 },
+  { key: 'f2', upX: 13, upZ: 1, inX: 9, inZ: 5 },
+  { key: 'f3', upX: 21, upZ: 1, inX: 17, inZ: 5 },
+  { key: 'f4', upX: -1, upZ: -1, inX: 24, inZ: 5 },
+];
+function buildLighthouse() {
+  // widen f4 a touch in the map: rebuild row strings with f4 at x23-25
+  const rows = LH_MAP.map((r, z) => {
+    if (z === 0 || z === LH_MAP.length - 1) return r;
+    return r.slice(0, 22) + '#...#' ;
+  });
+  LH_ROOMS.f4.x0 = 23; LH_ROOMS.f4.x1 = 25;
+  LH_FLOORS[3].inX = 24;
+  beginWorld(WLH, rows, LH_ROOMS);
+  WLH.stalker = null; // Ash isn't Ash yet
+  WLH.patrolKeys = ['f1'];
+  WLH.envCfg = {
+    fog: 0x07080a, fogD: 0.05, bg: 0x040507,
+    hemiSky: 0x2c3644, hemiGround: 0x0a0b0c, hemiI: 0.3,
+    sun: 0x30405e, sunI: 0.08, sunPos: [-8, 14, -12],
+    storm: false, rain: 0, wind: 0.4, birds: false,
+  };
+  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.floor2, roughness: 0.85 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x6e6a60, map: TEX.wall2, roughness: 0.95 });
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), floorMat);
+  fl.rotation.x = -Math.PI / 2; fl.position.set(GW * CELL / 2, 0, GH * CELL / 2);
+  fl.receiveShadow = true; worldRoot.add(fl);
+  const ce = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), MAT.ceil);
+  ce.rotation.x = Math.PI / 2; ce.position.set(GW * CELL / 2, WALLH, GH * CELL / 2);
+  worldRoot.add(ce);
+  const wallGeo = new THREE.BoxGeometry(CELL, WALLH, CELL);
+  for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++) {
+    if (cellAt(x, z) !== '#') continue;
+    let vis = false;
+    for (let oz = -1; oz <= 1 && !vis; oz++) for (let ox = -1; ox <= 1; ox++)
+      if (cellAt(x + ox, z + oz) !== '#') { vis = true; break; }
+    if (!vis) continue;
+    const m = new THREE.Mesh(wallGeo, wallMat);
+    m.position.set(cw(x), WALLH / 2, cw(z));
+    m.castShadow = true; m.receiveShadow = true;
+    worldRoot.add(m);
+  }
+  // decor per floor
+  const crate = (x, z, s) => {
+    const c = box(s, s * 0.8, s, MAT.woodDark); c.position.set(x, s * 0.4, z);
+    c.rotation.y = rand(1.5); c.castShadow = true; worldRoot.add(c);
+    addCollider(x, z, s + 0.1, s + 0.1);
+  };
+  const lamp2 = (x, z, color, inten, flick) => {
+    const li = new THREE.PointLight(color, inten, 10, 1.8);
+    li.position.set(x, WALLH - 0.7, z); worldRoot.add(li);
+    flickerLights.push({ light: li, base: inten, flicker: flick, t: rand(10), bulb: null });
+  };
+  // F1 storage
+  crate(cw(1.6), cw(2), 0.8); crate(cw(2.4), cw(2.3), 0.6); crate(cw(4.4), cw(4), 0.9);
+  lamp2(cw(3), cw(3.5), 0xffc890, 0.5, 0.4);
+  // F2 keeper's quarters
+  const bed2 = box(1.3, 0.4, 2.0, MAT.woodDark); bed2.position.set(cw(9.6), 0.2, cw(2)); bed2.castShadow = true; worldRoot.add(bed2);
+  addCollider(cw(9.6), cw(2), 1.4, 2.1);
+  crate(cw(12.4), cw(4.5), 0.7);
+  wardrobe2(cw(12.3), cw(2), -Math.PI / 2, 'keeper’s wardrobe');
+  lamp2(cw(11), cw(3.5), 0xffc890, 0.45, 0.5);
+  // F3 machinery
+  const fly = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.16, 8, 18), MAT.metal);
+  fly.position.set(cw(19), 1.1, cw(2.4)); fly.rotation.y = 0.6; fly.castShadow = true; worldRoot.add(fly);
+  addCollider(cw(19), cw(2.4), 1.8, 1.2); WLH.flywheel = fly;
+  crate(cw(17.5), cw(4.8), 0.7);
+  wardrobe2(cw(21.4), cw(4.6), -Math.PI / 2, 'tool locker');
+  lamp2(cw(19), cw(4), 0xbfd4ff, 0.4, 0.7);
+  // F4 lamp room
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.4, 12),
+    new THREE.MeshStandardMaterial({ color: 0x8fa8b8, roughness: 0.15, metalness: 0.6, emissive: 0x0a0f14, emissiveIntensity: 0.6 }));
+  lens.position.set(cw(24), 1.3, cw(2)); lens.castShadow = true; worldRoot.add(lens);
+  addCollider(cw(24), cw(2), 1.4, 1.4);
+  WLH.lensMat = lens.material;
+  lamp2(cw(24), cw(4), 0xffe0b0, 0.5, 0.3);
+  interactables.push({ x: cw(24), z: cw(3), y: 1, prompt: 'light the beacon', spin: false, action() { lightBeacon(); } });
+  // stairs between floors (up in the NE corner, down in the SW)
+  for (let i = 0; i < 3; i++) {
+    const f = LH_FLOORS[i];
+    const sx = cw(f.upX), sz = cw(f.upZ);
+    const st = box(1.0, 0.9, 1.0, MAT.woodDark); st.position.set(sx, 0.45, sz); worldRoot.add(st);
+    interactables.push({ x: sx, z: sz + 0.9, y: 1, prompt: 'climb the stairs', spin: false, action() { goFloor(i + 2); } });
+  }
+  for (let i = 1; i < 4; i++) {
+    const f = LH_FLOORS[i];
+    const sx = cw(f.inX), sz = cw(f.inZ);
+    interactables.push({ x: sx - 0.2, z: sz + 0.6, y: 1, prompt: 'go back down', spin: false, action() { goFloor(i); } });
+  }
+  WLH.mara = buildPerson({ coat: 0x1c1e24, hood: true });
+  WLH.mara.position.set(cw(2), 0, cw(5));
+  WLH.ashHuman = buildPerson({ coat: 0x274642, hood: false, hair: 0x3a2a18 });
+  WLH.ashHuman.position.set(cw(4), 0, cw(5));
+  buildAshMonster();
+  sealWorld(WLH);
+}
+function goFloor(n) {
+  const f = LH_FLOORS[n - 1];
+  fadeSwap(() => {
+    curFloor = n;
+    player.x = cw(f.inX); player.z = cw(f.inZ); player.yaw = 0;
+    player.vx = player.vz = 0;
+    WLH.patrolKeys = [f.key];
+    if (WLH.mara) WLH.mara.position.set(player.x - 1.2, 0, player.z + 0.6);
+    if (ch3phase < 6 && WLH.ashHuman) WLH.ashHuman.position.set(player.x + 1.3, 0, player.z + 0.6);
+    AU.creak();
+    if (ch3phase >= 6 && killer.active) {
+      // it climbs the outside faster than you climb the inside
+      killer.path = null; killer.state = 'patrol'; killer.grace = 5;
+      killer.x = cw(f.inX) + 2; killer.z = cw(f.inZ) - 4;
+      ashRig.homeX = killer.x; ashRig.homeZ = killer.z;
+      killer.grp.position.set(killer.x, 0, killer.z);
+      setTimeout(() => { if (state === 'play') caption('Something lands on this floor’s window ledge. It found a way up.', 4); }, 1500);
+    }
+    if (n === 2 && ch3phase === 5) startTransform();
+    if (n === 4) setObjective('Light the beacon');
+  });
+}
+function startTransform() {
+  ch3phase = 6;
+  playVideoCutscene('ashturn', () => playCutscene(CS6, () => {
+    if (WLH.ashHuman) WLH.ashHuman.visible = false;
+    WLH.stalker = 'ashm';
+    configureStalker(WLH);
+    killer.grace = 6;
+    setObjective('Climb to the lamp room. DO NOT fight Ash. (T — Mara distracts)');
+    caption('MARA: “That’s the moon in their blood. Get UP the tower — I’ll pull their eyes when you need it. Press T.”', 6);
+  }));
+}
+function lightBeacon() {
+  if (curFloor !== 4 || ch3phase >= 7) return;
+  if (ch3phase < 6) { caption('The lens is cold. Something feels unfinished — the others are still below.', 4); return; }
+  ch3phase = 7;
+  killer.active = false;
+  if (ashRig) ashRig.grp.visible = false;
+  if (WLH.lensMat) { WLH.lensMat.emissive.setHex(0xdfefff); WLH.lensMat.emissiveIntensity = 2.2; }
+  AU.unlock(); AU.thunder();
+  playVideoCutscene('ending', () => playCutscene(CS7, endChapter3));
+}
+
+/* ---------------- chapter-three flow ---------------- */
+function startChapter3() {
+  chapter = 3; ch3phase = 1; curFloor = 1;
+  killer.active = false;
+  state = 'chapter';
+  hideOverlays();
+  $('chapterTitle').textContent = 'CHAPTER THREE';
+  $('chapterSub').textContent = 'THE FULL MOON';
+  $('chapterCard').classList.add('show');
+  if (document.exitPointerLock) document.exitPointerLock();
+  setTimeout(() => {
+    if (!WB) {
+      if (!TEX.water) buildTextures2(); // chapter two may have been skipped entirely
+      WB = { group: new THREE.Group() };
+      WI = { group: new THREE.Group() };
+      WLH = { group: new THREE.Group() };
+      buildBoat(); buildIsland(); buildLighthouse();
+      buildGaff();
+    }
+    activateWorld(WB);
+    player.x = 9; player.z = 7; player.yaw = Math.PI / 2 + 1.2; player.pitch = 0;
+    player.vx = player.vz = 0;
+    player.health = 100; player.stamina = 100;
+    updateHud();
+    setObjective('Breathe. Talk to Ash and Mara.');
+  }, 1000);
+  setTimeout(() => {
+    $('chapterCard').classList.remove('show');
+    state = 'play'; lockPointer();
+    playCutscene(CS4, () => {
+      caption('The engine hums. The moon lays a silver road on the water, all the way home.', 5);
+    });
+  }, 3400);
+}
+function startBoss() {
+  ch3phase = 2;
+  playVideoCutscene('boarding', () => {
+    boss.active = true; boss.rising = 0; boss.hp = boss.maxHp;
+    boss.x = 4; boss.z = 9.5; boss.yaw = 1.2;
+    boss.grp.visible = true;
+    boss.grp.position.set(boss.x, -1.6, boss.z);
+    gaffGrp.visible = true;
+    $('bossBar').style.display = '';
+    updateBossBar();
+    AU.noise(0.8, 300, 0.5, 0.6, 'lowpass'); // the splash and the grip on the rail
+    AU.sting(); AU.growl(0, 0.5);
+    setObjective('FIGHT. Click / Space to swing the boat hook');
+    caption('A hand on the stern rail. Then the other. He swam. He SWAM.', 4.5);
+    if (AU.ok) AU.droneGain.gain.value = 0.14;
+  });
+}
+function updateBossBar() {
+  $('bossFill').style.width = clamp(boss.hp / boss.maxHp * 100, 0, 100) + '%';
+}
+function doGaffSwing() {
+  if (gaffT >= 0 || gaffCd > 0 || state !== 'play' || ch3phase !== 2) return;
+  gaffT = 0; gaffCd = 0.75;
+  AU.noise(0.12, 1400, 0.14, 1.2, 'highpass'); // swish
+  setTimeout(() => {
+    if (!boss || !boss.active) return;
+    const d = dist2(player.x, player.z, boss.x, boss.z);
+    const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+    const dot = ((boss.x - player.x) * fx + (boss.z - player.z) * fz) / (d || 0.001);
+    if (d < 2.6 && dot > 0.25 && boss.rising >= 1) {
+      boss.hp -= 12; boss.stun = 0.55;
+      AU.noise(0.2, 220, 0.5, 0.8, 'lowpass'); AU.tone(90, 0.2, 'sine', 0.4);
+      AU.growl(panTo(boss), 0.3);
+      updateBossBar();
+      if (boss.hp <= 0) killBoss();
+    }
+  }, 140);
+}
+function killBoss() {
+  boss.active = false;
+  ch3phase = 3;
+  gaffGrp.visible = false;
+  $('bossBar').style.display = 'none';
+  if (AU.ok) AU.droneGain.gain.value = 0;
+  AU.slam(); AU.thunder();
+  WB.hole.visible = true;
+  caption('He drops to one knee. Looks at you — almost proud. Then drives the cleaver through the deck, and lets the sea take him.', 6);
+  const df = $('damageFlash'); df.style.opacity = 0.4; setTimeout(() => { df.style.opacity = 0; }, 400);
+  setTimeout(() => {
+    if (state !== 'play') return;
+    playVideoCutscene('wreck', () => playCutscene(CS5, () => {
+      fadeSwap(() => {
+        activateWorld(WI);
+        ch3phase = 4;
+        player.x = 30; player.z = 43; player.yaw = Math.PI; player.pitch = 0;
+        player.vx = player.vz = 0;
+        player.health = Math.max(player.health, 70);
+        updateHud();
+        setObjective('Reach the lighthouse');
+        caption('Cold shingle under your hands. The wreck groans behind you. Ahead, up the rock: the tower.', 5);
+      });
+    }));
+  }, 4500);
+}
+function enterLighthouse() {
+  if (ch3phase < 4) return;
+  fadeSwap(() => {
+    activateWorld(WLH);
+    ch3phase = 5; curFloor = 1;
+    const f = LH_FLOORS[0];
+    player.x = cw(f.inX); player.z = cw(f.inZ); player.yaw = 0;
+    player.vx = player.vz = 0;
+    WLH.patrolKeys = ['f1'];
+    WLH.mara.position.set(player.x - 1.2, 0, player.z + 0.6);
+    WLH.ashHuman.position.set(player.x + 1.3, 0, player.z + 0.6);
+    WLH.ashHuman.visible = true;
+    AU.slam();
+    setObjective('Climb the lighthouse');
+    caption('ASH, quietly: “The moon’s so bright through the windows. It… it itches. Let’s just get up there.”', 5.5);
+  });
+}
+function endChapter3() {
+  state = 'win';
+  const t = Math.floor((performance.now() - startTime) / 1000);
+  $('winTitle').textContent = 'THE HOLLOW HOUSE — THE END';
+  $('winText').textContent = 'The beacon burns until dawn, and the moonlight loses. Ash wakes with their own eyes again, wrapped in Mara’s coat. Out on the gray water a fishing boat answers the light and turns toward your island. Far upriver, in a crooked house, a lantern goes out by itself.';
+  $('winStats').textContent = 'Time: ' + Math.floor(t / 60) + 'm ' + (t % 60) + 's · Deaths: ' + deaths + ' · Thank you for playing';
+  showOverlay('winOv');
+  if (document.exitPointerLock) document.exitPointerLock();
+  AU.thunder();
+}
+function maraDistract() {
+  if (chapter !== 3 || ch3phase !== 6 || curWorld !== WLH || distractCd > 0 || !killer.active) return;
+  distractCd = 35;
+  const m = WLH.mara;
+  killer.state = 'investigate'; killer.investT = 7;
+  setPath(Math.floor(m.position.x / CELL), Math.floor(m.position.z / CELL));
+  killer.detect = 0; killer.bust = null;
+  AU.whistle();
+  caption('MARA: “ASH! HEY! Look at ME!” — the pale eyes swing away from you.', 4);
+}
+
+/* ---------------- chapter-three per-frame ---------------- */
+function ch3Update(dt) {
+  if (chapter !== 3 || state !== 'play') return;
+  gaffCd = Math.max(0, gaffCd - dt);
+  distractCd = Math.max(0, distractCd - dt);
+  if (gaffT >= 0) {
+    gaffT += dt;
+    const t = clamp(gaffT / 0.3, 0, 1);
+    gaffGrp.rotation.x = 0.25 + Math.sin(t * Math.PI) * -0.9;
+    if (gaffT > 0.35) { gaffT = -1; gaffGrp.rotation.x = 0.25; }
+  }
+  if (curWorld === WB) {
+    // the sea breathes under the deck
+    WB.group.rotation.z = Math.sin(perfT * 0.5) * 0.012;
+    WB.group.rotation.x = Math.sin(perfT * 0.34 + 1) * 0.008;
+    if (WB.seaMat && WB.seaMat.map) WB.seaMat.map.offset.y -= dt * 0.03;
+    if (ch3phase === 1 && !talkedAsh && !talkedMara) { /* waiting */ }
+    if (ch3phase === 1.5) {
+      boatTalkT -= dt;
+      if (boatTalkT <= 0) startBoss();
+    }
+    if (ch3phase === 2 && boss && boss.active) bossUpdate(dt);
+  }
+  if (curWorld === WI && WI.lampGlow) {
+    // the dead lamp catches a little moonlight, nothing more
+  }
+  if (curWorld === WLH) {
+    if (WLH.flywheel) WLH.flywheel.rotation.z += dt * 0.6;
+    // Mara stays close
+    const m = WLH.mara;
+    if (m) {
+      const dx = player.x - m.position.x, dz = player.z - m.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d > 1.6) {
+        const sp = Math.min(3.2, d) * dt;
+        let nx = m.position.x + dx / d * sp * 2.2, nz = m.position.z + dz / d * sp * 2.2;
+        const res = collideCircle(nx, nz, 0.3);
+        m.position.x = res[0]; m.position.z = res[1];
+        m.rotation.y = Math.atan2(dx, dz);
+      }
+    }
+  }
+}
+function bossUpdate(dt) {
+  const B = boss;
+  if (B.rising < 1) {
+    B.rising += dt / 1.6;
+    B.grp.position.set(B.x, lerp(-1.6, 0, clamp(B.rising, 0, 1)), B.z);
+    B.grp.rotation.y = B.yaw;
+    return;
+  }
+  B.stun = Math.max(0, B.stun - dt);
+  const d = dist2(B.x, B.z, player.x, player.z);
+  if (B.stun <= 0 && B.atkT < 0) {
+    if (d > 1.6) {
+      const sp = 0.85 * dt;
+      B.x += (player.x - B.x) / d * sp;
+      B.z += (player.z - B.z) / d * sp;
+      B.walkPhase += dt * 2.2;
+      const res = collideCircle(B.x, B.z, 0.45);
+      B.x = res[0]; B.z = res[1];
+    } else {
+      B.atkT = 0; B.struckB = false;
+    }
+  }
+  if (B.atkT >= 0) {
+    B.atkT += dt;
+    if (B.atkT < 0.7) B.rArm.rotation.x = lerp(0.2, -2.4, B.atkT / 0.7); // the long, slow windup
+    else if (B.atkT < 0.9) {
+      B.rArm.rotation.x = lerp(-2.4, 0.7, (B.atkT - 0.7) / 0.2);
+      if (!B.struckB && B.atkT > 0.8) {
+        B.struckB = true;
+        AU.noise(0.2, 900, 0.25, 2);
+        if (dist2(B.x, B.z, player.x, player.z) < 2.2) damagePlayer(15, B);
+      }
+    } else if (B.atkT > 1.5) { B.atkT = -1; }
+  }
+  B.yaw = angLerp(B.yaw, Math.atan2(player.x - B.x, player.z - B.z), clamp(dt * 4, 0, 1));
+  const sw = Math.sin(B.walkPhase) * 0.4;
+  B.lLeg.rotation.x = sw; B.rLeg.rotation.x = -sw;
+  B.lArm.rotation.x = -sw * 0.7;
+  if (B.atkT < 0) B.rArm.rotation.x = sw * 0.7;
+  B.headG.rotation.z = Math.sin(perfT * 0.8) * 0.1;
+  const ph = Math.floor(B.walkPhase / Math.PI);
+  if (ph !== B.lastPh) { B.lastPh = ph; AU.killerStep(0.4, panTo(B)); }
+  B.grp.position.set(B.x, 0, B.z);
+  B.grp.rotation.y = B.yaw;
+}
+
+/* ---------------- chapter-three dialogue ---------------- */
+const CS4 = [
+  { who: '', text: 'The boat noses out onto open water. Behind you the estate shrinks to a black line of pines. Above you: a full moon, huge and calm.' },
+  { who: 'ASH', text: '“Okay so — recap. You broke into TWO murder houses, robbed a lantern lady, and mixed me a smoothie. Never doubting you again.”' },
+  { who: 'MARA', text: '“Don’t make them blush, they’ll steer us into a rock.” …She almost laughs. It sounds rusty, like it hasn’t been used in years.' },
+  { who: '', text: 'For one entire minute, nothing in the world is hunting you.' },
+];
+const CS5 = [
+  { who: '', text: 'The sea pours in through the broken deck faster than three pairs of hands can bail.' },
+  { who: 'MARA', text: '“Land! There — where the tower is! Swim for the tower and DON’T let go of each other!”' },
+  { who: '', text: 'Cold. Black. Salt. The moon watching, all the way down.' },
+];
+const CS6 = [
+  { who: '', text: 'On the second landing, moonlight falls across the floor like spilled milk — and Ash steps into it.' },
+  { who: 'ASH', text: '“Oh,” they say, very quietly, looking at their own hands. “Oh no. It’s so BRIGHT—”' },
+  { who: 'MARA', text: '“The serum needs until dawn and the moon is calling the bite. UP. Get UP the tower. That is not Ash right now.”' },
+];
+const CS7 = [
+  { who: '', text: 'The great lens catches, hums, and floods the lamp room with white fire. The tower throws its beam across the whole sea.' },
+  { who: '', text: 'Below you on the stairs, something screams at the light — and then, slowly, the scream turns back into a voice you know.' },
+  { who: 'ASH', text: '“…hey. Why am I on the stairs. Why am I SOAKED. Why are you both looking at me like that.”' },
+  { who: 'MARA', text: '“Dawn’s coming. And there — a boat, answering the beacon. We actually made it. All three of us.”' },
+];
+
 /* -------------------------------------------------------------- input/lock */
 const keys = {};
 let state = 'title', deaths = 0, startTime = 0, noteRead = false;
@@ -3659,7 +4406,7 @@ function lockPointer() {
 document.addEventListener('pointerlockchange', () => {
   if (!document.pointerLockElement && state === 'play' && !fallbackLook) {
     state = 'pause'; showOverlay('pauseOv');
-    $('skipHold2').style.display = chapter === 1 ? '' : 'none';
+    refreshPauseSkip();
   }
 });
 addEventListener('mousemove', (e) => {
@@ -3670,7 +4417,10 @@ addEventListener('mousemove', (e) => {
     player.pitch = clamp(player.pitch - (e.movementY || 0) * s, -1.45, 1.45);
   }
 });
-addEventListener('mousedown', () => { mouseDown = true; });
+addEventListener('mousedown', () => {
+  mouseDown = true;
+  if (state === 'play' && chapter === 3 && ch3phase === 2) doGaffSwing();
+});
 addEventListener('mouseup', () => { mouseDown = false; });
 let volume = 0.85, muted = false;
 function applyVolume() {
@@ -3708,9 +4458,14 @@ addEventListener('keydown', (e) => {
       INV.medkits--; player.health = Math.min(100, player.health + 75);
       AU.heal(); toast('You patch yourself up.'); updateHud();
     }
+  } else if (e.code === 'KeyT') {
+    maraDistract();
+  } else if (e.code === 'Space') {
+    e.preventDefault();
+    doGaffSwing();
   } else if (e.code === 'KeyP') {
     state = 'pause'; showOverlay('pauseOv');
-    $('skipHold2').style.display = chapter === 1 ? '' : 'none';
+    refreshPauseSkip();
     if (document.exitPointerLock) document.exitPointerLock();
   }
 });
@@ -3763,6 +4518,24 @@ function skipToChapter2() {
   state = 'play';
   startChapter2();
 }
+function skipToChapter3() {
+  if (chapter !== 2) return;
+  hideOverlays();
+  INV.venin = true; INV.remedy = true;
+  ch2phase = 4;
+  player.health = 100; player.stamina = 100; player.dead = false;
+  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
+  flashlight.intensity = player.flash ? 2.6 : 0;
+  updateHud();
+  state = 'play';
+  startChapter3();
+}
+function refreshPauseSkip() {
+  const sk = $('skipHold2');
+  sk.style.display = chapter <= 2 ? '' : 'none';
+  const span = sk.querySelector('span');
+  if (span) span.textContent = chapter === 1 ? 'HOLD 5s — SKIP TO CHAPTER TWO' : 'HOLD 5s — SKIP TO CHAPTER THREE';
+}
 function startGame() {
   AU.init();
   if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
@@ -3797,6 +4570,7 @@ function loop(t) {
       updateFlies(dt);
       roachUpdate(dt);
       forestUpdate(dt);
+      ch3Update(dt);
       scareChecks();
       currentInteract = scanInteract();
       if (mapOpen) drawMap();
@@ -3824,24 +4598,25 @@ function loop(t) {
         camera.rotation.x = lerp(camera.rotation.x, -0.02, clamp(dt * 4, 0, 1));
         camera.rotation.z = lerp(camera.rotation.z, 0.12, clamp(dt * 4, 0, 1));
       } else {
-        // he looms in over you, hacking
-        const kd = dist2(killer.x, killer.z, player.x, player.z);
+        // whoever got you looms in, hacking
+        const KA = (curWorld === WB && boss) ? boss : killer;
+        const kd = dist2(KA.x, KA.z, player.x, player.z);
         if (kd > 1.0) {
-          killer.x += (player.x - killer.x) / kd * 1.7 * dt;
-          killer.z += (player.z - killer.z) / kd * 1.7 * dt;
-          killer.walkPhase += 3 * dt;
+          KA.x += (player.x - KA.x) / kd * 1.7 * dt;
+          KA.z += (player.z - KA.z) / kd * 1.7 * dt;
+          if (KA.walkPhase !== undefined) KA.walkPhase += 3 * dt;
         }
-        killer.yaw = Math.atan2(player.x - killer.x, player.z - killer.z);
-        killer.grp.position.set(killer.x, 0, killer.z);
-        killer.grp.rotation.y = killer.yaw;
-        killer.rArm.rotation.x = -1.3 + Math.sin(perfT * 9) * 1.0;
+        KA.yaw = Math.atan2(player.x - KA.x, player.z - KA.z);
+        KA.grp.position.set(KA.x, 0, KA.z);
+        KA.grp.rotation.y = KA.yaw;
+        KA.rArm.rotation.x = -1.3 + Math.sin(perfT * 9) * 1.0;
         // the cleaver comes down, again and again
         if (dieT > 0.25 && dieSl < 1) { dieSl = 1; killSlash(); }
         if (dieT > 0.65 && dieSl < 2) { dieSl = 2; killSlash(); }
         if (dieT > 1.05 && dieSl < 3) { dieSl = 3; killSlash(); }
         if (dieT > 1.6) $('damageFlash').style.opacity = Math.min(1, (dieT - 1.6) * 1.3);
         player.eye = lerp(player.eye, 0.4, clamp(dt * 3, 0, 1));
-        const dx = killer.x - player.x, dz = killer.z - player.z;
+        const dx = KA.x - player.x, dz = KA.z - player.z;
         player.yaw = angLerp(player.yaw, Math.atan2(-dx, -dz), clamp(dt * 4, 0, 1));
         camera.rotation.x = lerp(camera.rotation.x, 0.15, clamp(dt * 3, 0, 1));
         camera.rotation.z = lerp(camera.rotation.z, 0.55, clamp(dt * 3, 0, 1));
@@ -3854,7 +4629,10 @@ function loop(t) {
         $('damageFlash').style.opacity = 0;
         clearKillFx();
         // the killer's own death cinematic, if a clip exists for them
-        const dkey = dieMode === 'wife' ? null : (killer.P.name === 'widow' ? 'deathW' : 'deathB');
+        const dkey = dieMode === 'wife' ? null
+          : curWorld === WB ? 'deathB'
+          : killer.P.name === 'ashm' ? null
+          : killer.P.name === 'widow' ? 'deathW' : 'deathB';
         const showDeath = () => { state = 'dead'; showOverlay('deathOv'); };
         if (dkey) playVideoCutscene(dkey, showDeath);
         else showDeath();
@@ -3907,7 +4685,10 @@ $('cutVideo').addEventListener('ended', () => videoNext());
 $('cutVideo').addEventListener('error', () => videoNext());
 $('videoOv').addEventListener('click', () => videoNext());
 bindHold('skipHold1', 'skipFill1', 5, skipToChapter2);
-bindHold('skipHold2', 'skipFill2', 5, skipToChapter2);
+bindHold('skipHold2', 'skipFill2', 5, () => {
+  if (chapter === 1) skipToChapter2();
+  else if (chapter === 2) skipToChapter3();
+});
 showOverlay('title');
 // debug/testing handle
 window.HH = {
@@ -3920,6 +4701,12 @@ window.HH = {
   answerPhone, cutAdvance,
   isRinging: () => phoneRinging,
   getLog: () => (WF && WF.bridgeLog ? { blocked: WF.colliders.indexOf(WF.logCollider) >= 0, x: +WF.bridgeLog.position.x.toFixed(1) } : null),
+  startChapter3,
+  getCh3: () => ({ phase: ch3phase, floor: curFloor, boss: boss ? { hp: boss.hp, active: boss.active, rising: +boss.rising.toFixed(2) } : null }),
+  forceBoss: () => startBoss(),
+  bossObj: () => boss,
+  talkAsh, talkMara, enterLighthouse, goFloor, lightBeacon, maraDistract,
+  swing: doGaffSwing,
 };
 requestAnimationFrame((t) => { last = t; requestAnimationFrame(loop); });
 
