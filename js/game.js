@@ -3378,6 +3378,10 @@ const CUT_VIDS = {
   intro: [['assets/cutscenes/intro.webm', 'assets/cutscenes/intro.mp4']],
   escape: [['assets/cutscenes/escape.webm', 'assets/cutscenes/escape.mp4']],
   phone1: [['assets/cutscenes/phonecall1.webm', 'assets/cutscenes/phonecall1.mp4']],
+  phone2: [['assets/cutscenes/phonecall2.webm', 'assets/cutscenes/phonecall2.mp4']],
+  finale: [['assets/cutscenes/finale.webm', 'assets/cutscenes/finale.mp4']],
+  deathB: [['assets/cutscenes/deathB.webm', 'assets/cutscenes/deathB.mp4']],
+  deathW: [['assets/cutscenes/deathW.webm', 'assets/cutscenes/deathW.mp4']],
 };
 let vidState = null;
 function playVideoCutscene(key, onEnd) {
@@ -3554,13 +3558,13 @@ function answerPhone() {
         updateHud();
       }));
     } else if (phase === 2) {
-      playCutscene(CS2, () => {
+      playVideoCutscene('phone2', () => playCutscene(CS2, () => {
         ch2phase = 3;
         setObjective('Bring the serum to the boathouse, south along the river');
         if (WF.beacon) { WF.beacon.intensity = 1.4; WF.beaconGlow.material.color.setHex(0x6fd0ff); }
         WF.marks.push({ t: '⛵', x: 63, z: 66 });
         caption('Far down the riverbank, a cold blue lamp flickers on.', 4);
-      });
+      }));
     }
   };
 }
@@ -3618,7 +3622,7 @@ function forestUpdate(dt) {
   // the meeting
   if (ch2phase === 3 && dist2(player.x, player.z, 63, 66) < 3.4) {
     ch2phase = 4;
-    playCutscene(CS3, endChapter2);
+    playVideoCutscene('finale', () => playCutscene(CS3, endChapter2));
   }
 }
 function roachUpdate(dt) {
@@ -3847,9 +3851,13 @@ function loop(t) {
       camera.rotation.y = player.yaw;
       drawKillFx(dt, iris);
       if (dieT > 2.7) {
-        state = 'dead'; showOverlay('deathOv');
         $('damageFlash').style.opacity = 0;
         clearKillFx();
+        // the killer's own death cinematic, if a clip exists for them
+        const dkey = dieMode === 'wife' ? null : (killer.P.name === 'widow' ? 'deathW' : 'deathB');
+        const showDeath = () => { state = 'dead'; showOverlay('deathOv'); };
+        if (dkey) playVideoCutscene(dkey, showDeath);
+        else showDeath();
       }
     }
     ambience(dt);
