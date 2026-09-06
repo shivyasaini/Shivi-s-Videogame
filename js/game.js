@@ -4530,6 +4530,27 @@ function skipToChapter3() {
   state = 'play';
   startChapter3();
 }
+function skipToChapter3Direct() {
+  if (chapter >= 3) return;
+  AU.init();
+  if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
+  if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
+  hideOverlays();
+  if (!startTime) startTime = performance.now();
+  // chapters one and two behind you — take everything you would have earned
+  INV.wolf = INV.owl = INV.serpent = true; INV.emblems = 3;
+  INV.rustyKey = true; noteRead = true;
+  INV.venin = true; INV.remedy = true;
+  INV.medkits = Math.max(INV.medkits, 2);
+  ch2phase = 4;
+  player.health = 100; player.stamina = 100; player.dead = false;
+  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
+  flashlight.intensity = player.flash ? 2.6 : 0;
+  chapter = 2;
+  updateHud();
+  state = 'play';
+  startChapter3();
+}
 function refreshPauseSkip() {
   const sk = $('skipHold2');
   sk.style.display = chapter <= 2 ? '' : 'none';
@@ -4685,6 +4706,7 @@ $('cutVideo').addEventListener('ended', () => videoNext());
 $('cutVideo').addEventListener('error', () => videoNext());
 $('videoOv').addEventListener('click', () => videoNext());
 bindHold('skipHold1', 'skipFill1', 5, skipToChapter2);
+bindHold('skipHold3', 'skipFill3', 5, skipToChapter3Direct);
 bindHold('skipHold2', 'skipFill2', 5, () => {
   if (chapter === 1) skipToChapter2();
   else if (chapter === 2) skipToChapter3();
