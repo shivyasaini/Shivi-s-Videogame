@@ -33,7 +33,7 @@ Click **ENTER THE HOUSE**, and the game grabs your mouse.
 | `Tab` / `X` | Map of the house |
 | `P` / `Esc` | Pause |
 | `−` / `+` | Volume down / up |
-| Hold the SKIP button 5s | Jump straight to Chapter Two (title & pause screens) |
+| Hold a SKIP button 5s | Jump straight to Chapter Two or Three (title screen has both; the pause menu skips one chapter ahead) |
 | `M` | Mute |
 
 ## The goal
