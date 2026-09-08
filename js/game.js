@@ -522,6 +522,39 @@ function buildRenderer() {
   });
 }
 
+/* --------------------------------------------------------- graphics quality
+   'high' = full retina + soft shadows; 'med' = reduced resolution;
+   'low'  = 1x resolution, no shadows, no grain. G cycles; the game also
+   steps itself down automatically when the frame rate can't keep up.   */
+const GFX_LEVELS = ['low', 'med', 'high'];
+const GFX_NAMES = { low: 'LOW — fastest', med: 'MEDIUM', high: 'HIGH — prettiest' };
+let gfx = 'high';
+try { const s = localStorage.getItem('hh_gfx'); if (GFX_LEVELS.includes(s)) gfx = s; } catch (err) { /* private mode etc. */ }
+function applyGfx(save) {
+  const dpr = window.devicePixelRatio || 1;
+  renderer.setPixelRatio(gfx === 'high' ? Math.min(dpr, 2) : gfx === 'med' ? Math.min(dpr, 1.25) : 1);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  const shadows = gfx !== 'low';
+  if (renderer.shadowMap.enabled !== shadows) {
+    renderer.shadowMap.enabled = shadows;
+    scene.traverse((o) => {
+      if (o.isMesh && o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.needsUpdate = true; });
+    });
+  }
+  const res = gfx === 'high' ? 1024 : 512;
+  if (flashlight.shadow.mapSize.x !== res) {
+    flashlight.shadow.mapSize.set(res, res);
+    if (flashlight.shadow.map) { flashlight.shadow.map.dispose(); flashlight.shadow.map = null; }
+  }
+  $('grain').style.display = gfx === 'low' ? 'none' : '';
+  if (save) { try { localStorage.setItem('hh_gfx', gfx); } catch (err) { /* fine */ } }
+}
+function cycleGfx() {
+  gfx = GFX_LEVELS[(GFX_LEVELS.indexOf(gfx) + 2) % 3]; // high → med → low → high
+  applyGfx(true);
+  toast('GRAPHICS: ' + GFX_NAMES[gfx] + '  (G to change)');
+}
+
 // A hand-built environment map: every surface picks up faint ambient
 // reflections from a dim imaginary room, instead of pure spotlight-on-plastic.
 function buildEnvMap() {
@@ -4438,6 +4471,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Minus' || e.code === 'NumpadSubtract') { volume = Math.max(0, Math.round((volume - 0.1) * 10) / 10); muted = false; applyVolume(); return; }
   if (e.code === 'Equal' || e.code === 'NumpadAdd') { volume = Math.min(1, Math.round((volume + 0.1) * 10) / 10); muted = false; applyVolume(); return; }
   if (e.code === 'KeyM') { muted = !muted; applyVolume(); return; }
+  if (e.code === 'KeyG') { cycleGfx(); return; }
   if (state === 'note' && (e.code === 'KeyE' || e.code === 'Escape' || e.code === 'Enter')) { closeNote(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyE') {
@@ -4579,10 +4613,24 @@ function beginPlay() {
 
 /* -------------------------------------------------------------- main loop */
 let last = 0, perfT = 0;
+let fpsAvg = 60, lagT = 0;
 function loop(t) {
   requestAnimationFrame(loop);
-  const dt = clamp((t - last) / 1000, 0.0001, 0.05);
+  const rawDt = Math.max((t - last) / 1000, 0.0001);
+  const dt = clamp(rawDt, 0.0001, 0.05);
   last = t; perfT = t / 1000;
+  // if the machine can't hold ~38fps for a few seconds, drop a quality level
+  if (state === 'play' && rawDt < 1) {
+    fpsAvg += (1 / rawDt - fpsAvg) * 0.05;
+    if (fpsAvg < 38 && gfx !== 'low') {
+      lagT += rawDt;
+      if (lagT > 4) {
+        gfx = gfx === 'high' ? 'med' : 'low';
+        applyGfx(true); lagT = 0; fpsAvg = 60;
+        toast('Running rough — graphics dropped to ' + GFX_NAMES[gfx] + ' (G to change)');
+      }
+    } else lagT = Math.max(0, lagT - rawDt);
+  }
   if (state === 'play' || state === 'dying') {
     updateDoors(dt);
     if (state === 'play') {
@@ -4672,6 +4720,7 @@ function loop(t) {
 /* ------------------------------------------------------------------- boot */
 buildTextures();
 buildRenderer();
+applyGfx(false);
 buildEnvMap();
 buildMaterials();
 buildHands();
