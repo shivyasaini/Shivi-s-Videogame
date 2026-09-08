@@ -3415,6 +3415,7 @@ const CUT_VIDS = {
   finale: [['assets/cutscenes/finale.webm', 'assets/cutscenes/finale.mp4']],
   deathB: [['assets/cutscenes/deathB.webm', 'assets/cutscenes/deathB.mp4']],
   deathW: [['assets/cutscenes/deathW.webm', 'assets/cutscenes/deathW.mp4']],
+  boarding: [['assets/cutscenes/boarding.webm', 'assets/cutscenes/boarding.mp4']],
 };
 let vidState = null;
 function playVideoCutscene(key, onEnd) {
@@ -3457,6 +3458,7 @@ function endVideoCutscene() {
   $('videoOv').classList.remove('show');
   if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
   vidState = null;
+  if (state === 'video') state = 'play'; // onEnd may immediately switch to 'cut', 'dead', etc.
   vs.onEnd();
 }
 
