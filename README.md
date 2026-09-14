@@ -34,7 +34,7 @@ Click **ENTER THE HOUSE**, and the game grabs your mouse.
 | `P` / `Esc` | Pause |
 | `−` / `+` | Volume down / up |
 | `G` | Graphics quality (HIGH / MEDIUM / LOW — auto-drops if the game lags) |
-| Hold a SKIP button 5s | Jump straight to Chapter Two or Three (title screen has both; the pause menu skips one chapter ahead) |
+| Hold a SKIP button 5s | Jump straight to Chapter Two, Three or Four (title screen has all three; the pause menu skips one chapter ahead) |
 | `M` | Mute |
 
 ## The goal
@@ -85,8 +85,29 @@ one minute everything is fine. Then a hand closes on the stern rail.
   you CANNOT fight them. Run, hide, climb.
 - **Mara has your back:** press **T** and she pulls Ash's attention so you
   can slip past. Reaching the lamp room and lighting the beacon holds the
-  moonlight off until dawn — and ends the story.
-- The pause-menu skip button now jumps chapter to chapter (1 → 2 → 3).
+  moonlight off until dawn.
+- The pause-menu skip button jumps chapter to chapter (1 → 2 → 3 → 4).
+
+## Chapter Four — Ashes
+
+The beacon saved you. It did not finish anything. The night it burned, the
+Widow's lantern went out on its own — and a house like Crane's does not stay
+empty. The sea gives back what it is given.
+
+- **Return at dusk.** The fishing boat drops the three of you at the old
+  boathouse dock. Mara hid cans of **lamp oil** across the estate years ago:
+  the camper, the boathouse, her porch. Find all three before moonrise.
+- **The Hollow House stands open.** The front door that was sealed by three
+  emblems now hangs wide, like a held breath. Go back in and **soak three
+  rooms** — the kitchen, the living room, the workshop.
+- **The Drowned Man.** Crane came home along the riverbed. Waterlogged,
+  pale-eyed, dripping — and every can you pour makes him **faster and
+  angrier**. You can track him by the drip… until the third can, when the
+  house kills its own lights, slams every door, and he stops playing:
+  a full-dark, no-escape final chase to the front door.
+- **Strike the match.** Get out onto the porch and end it. Houses like his
+  only truly die empty and burning at once. This time the game shows you the
+  TRUE END.
 
 ## The other tenants
 

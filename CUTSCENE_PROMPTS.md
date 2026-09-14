@@ -147,6 +147,62 @@ story and characters.
 > On the far bank, barely visible between trees, a huge hooded figure
 > stands watching the boat go. Slow fade to black.
 
+## CHAPTER FOUR
+
+The game looks for two more clips: `return` (played as Chapter Four opens)
+and `burning` (played as the house catches). Drop them in
+`assets/cutscenes/` and add them to `CUT_VIDS` in `js/game.js` — or via
+`window.HH_VIDEO_URLS = { return: [...], burning: [...] }`. If the files
+aren't there, the game skips straight to the dialogue.
+
+**THE DROWNED MAN (Crane, given back by the sea):**
+> a huge hunched man in soaked near-black work clothes and a waterlogged
+> butcher's apron, a rotting burlap hood plastered wet to his head with a
+> crooked too-wide grin sewn into it, faint pale ice-blue glowing eyes,
+> dark kelp tangled over his shoulders, constantly dripping, a rusted
+> cleaver in one fist
+
+**18. `return` — back up the river at dusk** (12s)
+> [STYLE] A small fishing boat noses up a darkening river at dusk, pines
+> going black against a bruise-colored sky. On the deck, a hooded woman
+> watches the water behind the boat, not the way ahead. Far off on a rise,
+> a dark farmhouse waits with its front door standing wide open. No lights
+> anywhere in a crooked house on the far bank.
+>
+**19. The lantern goes out** (8s)
+> [STYLE] Inside a rotting hoarder's house, an iron lantern hangs from a
+> hook, burning alone in the dark. No one is holding it. The flame shrinks,
+> gutters, and goes out by itself. In the after-dark, the sound of slow
+> water dripping somewhere below the floor.
+
+**20. Him, coming home along the riverbed** (10s)
+> [STYLE] Underwater, moonlight rippling down through black river water.
+> [THE DROWNED MAN] walks slowly along the riverbed against the current,
+> trailing kelp, boots stirring silt. He does not swim. He walks. Above
+> him, the shadow of a small boat passes. His pale eyes tilt up to follow
+> it.
+
+**21. Caught — the Drowned Man's kill** (8s)
+> [STYLE] A pitch-dark farmhouse hallway, rain hammering the boarded
+> windows. A flashlight beam whips around to find [THE DROWNED MAN]
+> already filling the corridor, dripping. The rusted cleaver rises. Three
+> fast slashes whip across frame. The flashlight rolls on the floorboards,
+> its beam full of falling water drops. Black.
+
+**22. `burning` — the match** (12s)
+> [STYLE] [HANDS] First-person: a bruised hand strikes a match on the
+> porch rail of the dark farmhouse at night. The tiny flame drops in slow
+> motion onto oil-soaked boards. Fire races away along the porch and up
+> the boarded windows with a soft WHUMP. In an upstairs window, a huge
+> hooded silhouette stands with both hands flat against the glass, not
+> moving, as the flames climb around it.
+
+**23. The true end** (12s)
+> [STYLE] Wide shot at first light: the farmhouse fully ablaze against a
+> paling sky, sparks rising into the last stars, three small figures
+> walking away down a dirt road without looking back. The fire's roar
+> fades under morning birdsong. Slow fade to white — not black, white.
+
 ---
 
 *Tip: generate #1, #8 and #15 first — establishing shots with no characters

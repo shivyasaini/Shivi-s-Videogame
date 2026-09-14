@@ -176,6 +176,7 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
 .emblem.got { filter: none; text-shadow: 0 0 8px rgba(255,200,80,0.8); }
 #emKey { opacity: 0.18; transition: opacity .4s; }
 #medCount { font-size: 15px; color: #c46a5a; }
+#oilCount { font-size: 15px; color: #c49a4a; }
 #bossBar {
   position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
   text-align: center;

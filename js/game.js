@@ -261,6 +261,10 @@ const AU = {
   heal() { this.tone(392, 0.3, 'sine', 0.12); this.tone(523, 0.45, 'sine', 0.1); },
   breath(vol) { this.noise(0.5, 700, vol, 0.6, 'bandpass'); },
   paper() { this.noise(0.25, 2000, 0.1, 0.7); },
+  drip(pan = 0) {
+    this.tone(rand(1500, 2100), 0.05, 'sine', 0.05, pan, 700);
+    setTimeout(() => this.tone(rand(800, 1100), 0.06, 'sine', 0.035, pan), 100 + rand(80));
+  },
 };
 
 /* ---------------------------------------------------------------- textures */
@@ -659,7 +663,7 @@ function updateHands(dt) {
 }
 
 /* ------------------------------------------------------------ house build */
-function buildHouse() {
+function buildHouse(variant) {
   // floor & ceiling
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), MAT.floor);
   floor.rotation.x = -Math.PI / 2;
@@ -828,6 +832,8 @@ function buildHouse() {
   scrawl('NOBODY LEAVES', cw(13.5), 2.1, 5 * CELL + CELL + 0.03, 0, 3.4);
   scrawl('HE HEARS YOU', 4.6, 2.0, 8 * CELL + CELL + 0.03, 0, 2.4);
   scrawl('STAY OUT', cw(24), 2.72, 8 * CELL + CELL + 0.03, 0, 1.9);
+  // in chapter four the house has written something new, just for you
+  if (variant === 4) scrawl('WELCOME HOME', cw(16.5), 2.2, 14 * CELL - 0.05, Math.PI, 2.8);
 
   // cobwebs in the high corners
   const webMat = new THREE.MeshBasicMaterial({ map: TEX.web, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false });
@@ -1182,7 +1188,7 @@ function updateFlies(dt) {
 
 /* ------------------------------------------------------------------ items */
 let interactables = [];
-const INV = { emblems: 0, owl: false, wolf: false, serpent: false, rustyKey: false, medkits: 0, venin: false, remedy: false };
+const INV = { emblems: 0, owl: false, wolf: false, serpent: false, rustyKey: false, medkits: 0, venin: false, remedy: false, oil: 0 };
 let itemMeshes = [];
 
 function emblemMesh(color) {
@@ -1289,7 +1295,7 @@ const WIDOW_TAUNTS = [
   '“Shhh. It only hurts in the dark.”',
 ];
 const BUTCHER_P = {
-  name: 'butcher', patrol: 1.5, invest: 2.3, search: 1.9, chase: 3.4,
+  name: 'butcher', patrol: 1.5, invest: 2.3, search: 1.9, chase: 4.2,
   attackCd: 2.6, dmg: 22, sight: 14, flashBonus: 3, lightLover: false,
   taunts: TAUNTS, whistles: true,
   spotText: 'HE SEES YOU. RUN.',
@@ -1299,7 +1305,7 @@ const BUTCHER_P = {
   deathText: 'Everything goes dark… but he isn’t done playing with you yet.',
 };
 const WIDOW_P = {
-  name: 'widow', patrol: 1.1, invest: 1.7, search: 1.4, chase: 2.9,
+  name: 'widow', patrol: 1.1, invest: 1.7, search: 1.4, chase: 3.6,
   attackCd: 2.7, dmg: 20, sight: 8.5, flashBonus: 9.5, lightLover: true,
   taunts: WIDOW_TAUNTS, whistles: false, armBase: -0.95,
   spotText: 'SHE SEES YOUR LIGHT. RUN — AND GO DARK (F).',
@@ -1760,7 +1766,7 @@ function playerUpdate(dt) {
   const mag = Math.hypot(ix, iz) || 1; ix /= mag; iz /= mag;
   if (phoneHandT >= 0) { ix = 0; iz = 0; } // hold still — you're answering the phone
   const wantSprint = (keys.ShiftLeft || keys.ShiftRight) && (ix !== 0 || iz !== 0) && player.stamina > 1 && !player.crouch;
-  const speed = player.crouch ? 1.5 : wantSprint ? 4.9 : 2.75;
+  const speed = player.crouch ? 1.8 : wantSprint ? 6.2 : 3.6;
   if (wantSprint) { player.stamina = Math.max(0, player.stamina - 13 * dt); player.sinceSprint = 0; }
   else { player.sinceSprint += dt; if (player.sinceSprint > 0.7) player.stamina = Math.min(100, player.stamina + 13 * dt); }
   const k = clamp(dt * 10, 0, 1);
@@ -1771,7 +1777,7 @@ function playerUpdate(dt) {
   const spd = Math.hypot(player.vx, player.vz);
   player.moving = spd > 0.4;
   player.stepAcc += spd * dt;
-  const stride = wantSprint ? 2.7 : player.crouch ? 1.7 : 2.1;
+  const stride = wantSprint ? 2.9 : player.crouch ? 1.8 : 2.3;
   if (player.stepAcc > stride && player.moving) {
     player.stepAcc = 0;
     AU.step(player.crouch ? 0.05 : wantSprint ? 0.22 : 0.12, rand(0.9, 1.1));
@@ -1790,6 +1796,11 @@ function playerUpdate(dt) {
   camera.updateProjectionMatrix();
   if (player.stamina < 20 && Math.random() < dt * 1.2) AU.breath(0.06);
   if (chapter === 1 && frontDoor.open > 0.5 && player.z > 28.9) startChapter2();
+  if (chapter === 4 && curWorld === WH4 && ch4phase === 2 && player.z > 28.6) {
+    player.z = 28.6;
+    caption('Not yet. If it does not all burn at once, it comes back. Soak every marked room first.', 4);
+  }
+  if (chapter === 4 && curWorld === WH4 && ch4phase === 3 && player.z > 28.9) igniteHouse();
 }
 
 /* ------------------------------------------------------------- hide spots */
@@ -1923,6 +1934,11 @@ function respawn() {
     configureStalker(WH2);
     killer.grace = 6;
     caption('You wake on the cold boards by the door. Deeper in, the lantern light sways on.', 4.5);
+  } else if (curWorld === WH4) {
+    player.x = 28; player.z = 26.5; player.yaw = 0;
+    configureStalker(WH4);
+    killer.grace = 6;
+    caption('You wake in the foyer, dragged as far as the open door and no further. He wants you to try again.', 4.5);
   } else {
     player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0;
     killer.x = cw(17); killer.z = cw(2); killer.state = 'patrol'; killer.path = null;
@@ -2030,10 +2046,12 @@ function updateHud() {
   $('emKey').style.opacity = INV.rustyKey ? 1 : 0.18;
   $('medCount').textContent = '✚ ' + INV.medkits;
   $('medCount').style.opacity = INV.medkits ? 1 : 0.25;
-  $('emVenin').style.display = chapter >= 2 ? '' : 'none';
-  $('emRemedy').style.display = chapter >= 2 ? '' : 'none';
+  $('emVenin').style.display = chapter >= 2 && chapter < 4 ? '' : 'none';
+  $('emRemedy').style.display = chapter >= 2 && chapter < 4 ? '' : 'none';
   $('emVenin').className = 'emblem vialV' + (INV.venin ? ' got' : '');
   $('emRemedy').className = 'emblem vialR' + (INV.remedy ? ' got' : '');
+  $('oilCount').style.display = chapter === 4 && ch4phase === 1 ? '' : 'none';
+  $('oilCount').textContent = '🛢 ' + INV.oil + '/3';
 }
 const OVERLAYS = ['title', 'pauseOv', 'deathOv', 'winOv', 'noteOv'];
 function showOverlay(id) {
@@ -2254,6 +2272,9 @@ function drawMap() {
     if (it.id && it.id.indexOf('med') === 0) {
       g.fillStyle = '#c04030'; g.font = 'bold 17px Georgia';
       g.fillText('✚', MX(it.x), MZ(it.z) + 6);
+    } else if (it.id && it.id.indexOf('oil') === 0) {
+      g.font = '16px serif';
+      g.fillText('🛢', MX(it.x), MZ(it.z) + 6);
     } else if (it.id === 'venin' || it.id === 'remedy') {
       g.fillStyle = it.id === 'venin' ? '#c03018' : '#30a050';
       g.beginPath(); g.arc(MX(it.x), MZ(it.z), 5.5, 0, 7); g.fill();
@@ -2434,7 +2455,7 @@ function sealWorld(w) {
   });
 }
 function activateWorld(w) {
-  for (const o of [W1, WF, WH2, WB, WI, WLH]) if (o && o.group) o.group.visible = (o === w);
+  for (const o of [W1, WF, WH2, WB, WI, WLH, WH4]) if (o && o.group) o.group.visible = (o === w);
   curWorld = w;
   worldRoot = w.group;
   MAP = w.map; GW = w.gw; GH = w.gh; ROOMS = w.rooms;
@@ -2458,6 +2479,7 @@ function configureStalker(w) {
   if (w.stalker === 'butcher' && butcherRig) { Object.assign(killer, butcherRig); killer.P = BUTCHER_P; killer.active = true; }
   else if (w.stalker === 'widow' && widowRig) { Object.assign(killer, widowRig); killer.P = WIDOW_P; killer.active = true; }
   else if (w.stalker === 'ashm' && ashRig) { Object.assign(killer, ashRig); killer.P = ASH_P; killer.active = true; killer.grp.visible = true; }
+  else if (w.stalker === 'drowned' && drownedRig) { Object.assign(killer, drownedRig); killer.P = DROWNED_P; killer.active = true; }
   else { killer.active = false; killer.state = 'patrol'; killer.bust = null; killer.attackT = -1; return; }
   killer.x = killer.homeX; killer.z = killer.homeZ;
   killer.state = 'patrol'; killer.path = null; killer.detect = 0; killer.bust = null;
@@ -2941,7 +2963,21 @@ function buildForest() {
   }
   const proof = box(15, 0.5, 2, MAT.woodDark); proof.position.set(14, 4.1, 8.6); worldRoot.add(proof);
   colliders.push({ x0: 7, x1: 21, z0: 6.8, z1: 8.6 });
-  interactables.push({ x: 14, z: 8.6, y: 1, prompt: 'the Hollow House — bolted from inside', spin: false, action() { AU.locked(); caption('Bolted. Somewhere in there, heavy boots pace back and forth, back and forth.', 4); } });
+  interactables.push({
+    x: 14, z: 8.6, y: 1, spin: false,
+    get prompt() {
+      if (chapter < 4) return 'the Hollow House — bolted from inside';
+      if (ch4phase >= 4) return 'the Hollow House — burning';
+      return ch4phase >= 2 ? 'enter the Hollow House' : 'the Hollow House — the door stands open';
+    },
+    action() {
+      if (chapter >= 4) {
+        if (ch4phase >= 4) { caption('The heat pushes you back like a hand on your chest. Nothing goes in there now. Nothing comes out.', 4.5); return; }
+        if (ch4phase >= 2) enterHollowHouse4();
+        else { AU.creak(); caption('The front door stands wide open now — a black mouth in the boards. Not without the oil. Not yet.', 4.5); }
+      } else { AU.locked(); caption('Bolted. Somewhere in there, heavy boots pace back and forth, back and forth.', 4); }
+    },
+  });
 
   // the camper — the one warm, safe place on the estate
   buildCamper();
@@ -3413,6 +3449,11 @@ function vialTaken(name) {
 
 /* ---------------- doors between worlds ---------------- */
 function enterWidowHouse() {
+  if (chapter >= 4) {
+    AU.creak();
+    caption('The door swings loose on its hinges. Inside: dust, dark, and no lantern anywhere. Nothing lives here now.', 5);
+    return;
+  }
   if (ch2phase < 2) {
     AU.locked();
     caption('Chained shut. Whoever keeps calling that phone wants to talk to you first.', 4);
@@ -3726,7 +3767,7 @@ let distractCd = 0;
 
 const ASH_TAUNTS = ['“…know… you…”', '“…why does it… hurt…”', '“…run… please… run…”'];
 const ASH_P = {
-  name: 'ashm', patrol: 1.6, invest: 2.4, search: 2.0, chase: 3.05,
+  name: 'ashm', patrol: 1.6, invest: 2.4, search: 2.0, chase: 3.8,
   attackCd: 2.4, dmg: 40, sight: 12, flashBonus: 2, lightLover: false,
   taunts: ASH_TAUNTS, whistles: false,
   spotText: 'ASH SEES YOU — RUN. DO NOT FIGHT BACK.',
@@ -4177,7 +4218,7 @@ function lightBeacon() {
   if (ashRig) ashRig.grp.visible = false;
   if (WLH.lensMat) { WLH.lensMat.emissive.setHex(0xdfefff); WLH.lensMat.emissiveIntensity = 2.2; }
   AU.unlock(); AU.thunder();
-  playVideoCutscene('ending', () => playCutscene(CS7, endChapter3));
+  playVideoCutscene('ending', () => playCutscene(CS7, startChapter4));
 }
 
 /* ---------------- chapter-three flow ---------------- */
@@ -4294,16 +4335,6 @@ function enterLighthouse() {
     setObjective('Climb the lighthouse');
     caption('ASH, quietly: “The moon’s so bright through the windows. It… it itches. Let’s just get up there.”', 5.5);
   });
-}
-function endChapter3() {
-  state = 'win';
-  const t = Math.floor((performance.now() - startTime) / 1000);
-  $('winTitle').textContent = 'THE HOLLOW HOUSE — THE END';
-  $('winText').textContent = 'The beacon burns until dawn, and the moonlight loses. Ash wakes with their own eyes again, wrapped in Mara’s coat. Out on the gray water a fishing boat answers the light and turns toward your island. Far upriver, in a crooked house, a lantern goes out by itself.';
-  $('winStats').textContent = 'Time: ' + Math.floor(t / 60) + 'm ' + (t % 60) + 's · Deaths: ' + deaths + ' · Thank you for playing';
-  showOverlay('winOv');
-  if (document.exitPointerLock) document.exitPointerLock();
-  AU.thunder();
 }
 function maraDistract() {
   if (chapter !== 3 || ch3phase !== 6 || curWorld !== WLH || distractCd > 0 || !killer.active) return;
@@ -4427,6 +4458,452 @@ const CS7 = [
   { who: '', text: 'Below you on the stairs, something screams at the light — and then, slowly, the scream turns back into a voice you know.' },
   { who: 'ASH', text: '“…hey. Why am I on the stairs. Why am I SOAKED. Why are you both looking at me like that.”' },
   { who: 'MARA', text: '“Dawn’s coming. And there — a boat, answering the beacon. We actually made it. All three of us.”' },
+];
+
+/* ===================================================================== */
+/*  CHAPTER FOUR — ASHES: back to the estate at dusk, to burn it down    */
+/* ===================================================================== */
+let WH4 = null;               // the Hollow House, revisited
+let ch4phase = 0, ch4poured = 0;
+let drownedRig = null;
+const ch4Seen = { chair: false, corner: false, writing: false, hall: false, treeline: false };
+let dripT4 = 3, fireT4 = 0.5;
+
+const DROWNED_TAUNTS = [
+  '“The sea spat me back out, little rabbit.”',
+  '“You bring FIRE into my house?”',
+  '“I waited under the water. I am very good at waiting.”',
+  '“Wet wood burns slow. We have all night.”',
+  '“Stay. Everyone else did.”',
+];
+const DROWNED_P = {
+  name: 'drowned', patrol: 1.35, invest: 2.2, search: 1.8, chase: 3.6,
+  attackCd: 2.7, dmg: 24, sight: 13, flashBonus: 3, lightLover: false,
+  taunts: DROWNED_TAUNTS, whistles: false,
+  spotText: 'HE SEES YOU — AND HE REMEMBERS.',
+  sweepText: 'Squelch. Drip. Squelch. Wet boots, sweeping the house toward you.',
+  fadeText: 'The dripping wanders away, deeper into the house — for now.',
+  deathTitle: 'THE SEA GAVE HIM BACK',
+  deathText: 'Drowning was only somewhere to wait. He carries you to the old guest bedroom, gently, like a host.',
+};
+
+// dusk over the estate — the same dawn dome reads as sunset from the other side
+const ENV4_DUSK = {
+  fog: 0x32262e, fogD: 0.015, bg: 0x281f28,
+  hemiSky: 0x8a6478, hemiGround: 0x15100e, hemiI: 0.5,
+  sun: 0xff8a50, sunI: 0.32, sunPos: [70, 12, -30],
+  storm: false, rain: 0, wind: 1, birds: false,
+};
+// full dark, for the burning
+const ENV4_NIGHT = {
+  fog: 0x0b0a12, fogD: 0.019, bg: 0x070710,
+  hemiSky: 0x2c3448, hemiGround: 0x0c0a08, hemiI: 0.4,
+  sun: 0x8a9ac0, sunI: 0.18, sunPos: [40, 30, -40],
+  storm: false, rain: 0, wind: 0.8, birds: false,
+};
+// the house itself: his storm again, but the rot smells of riverwater now
+const ENV4_HOUSE = {
+  fog: 0x04070a, fogD: 0.062, bg: 0x030507,
+  hemiSky: 0x1c2c34, hemiGround: 0x0a0806, hemiI: 0.26,
+  sun: 0x30505e, sunI: 0.1, sunPos: [-8, 14, -12],
+  storm: true, rain: 1, wind: 0, birds: false,
+};
+
+/* ---------------- the drowned man (chapter-four stalker rig) ---------------- */
+function buildDrowned() {
+  const g = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({ color: 0x86988a, roughness: 0.55 });
+  const cloth = new THREE.MeshStandardMaterial({ color: 0x10141a, roughness: 0.9 });
+  const apron = new THREE.MeshStandardMaterial({ map: TEX.apron, color: 0x8a9a94, roughness: 0.85 });
+  const hood = new THREE.MeshStandardMaterial({ color: 0x3c4438, roughness: 1 });
+  const kelp = new THREE.MeshStandardMaterial({ color: 0x1c3320, roughness: 1 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x0e1210, roughness: 0.8 });
+  const torso = box(0.68, 0.8, 0.38, cloth); torso.position.y = 1.24; torso.rotation.x = 0.16; g.add(torso);
+  const ap = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.98), apron); ap.position.set(0, 1.04, 0.21); g.add(ap);
+  const headG = new THREE.Group(); headG.position.set(0, 1.8, 0.08); g.add(headG);
+  const head = box(0.32, 0.38, 0.32, hood); head.position.y = 0.04; headG.add(head);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.38),
+    new THREE.MeshStandardMaterial({ map: TEX.mask, color: 0x9ab0a4, roughness: 0.95 }));
+  face.position.set(0, 0.04, 0.165); headG.add(face);
+  const rope = box(0.36, 0.06, 0.36, dark); rope.position.y = -0.16; headG.add(rope);
+  // his eyes burned red once; the sea put them out and lit something colder
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.034, 6, 6), new THREE.MeshBasicMaterial({ color: 0xbfe8ff }));
+    eye.position.set(s * 0.075, 0.1, 0.17); headG.add(eye);
+  }
+  const eyeGlow = new THREE.PointLight(0x66bbff, 0.5, 3.2, 2);
+  eyeGlow.position.set(0, 0.08, 0.3); headG.add(eyeGlow);
+  // kelp hanging from the hood and shoulders like drowned hair
+  for (let i = 0; i < 6; i++) {
+    const strand = box(0.03, rand(0.25, 0.6), 0.03, kelp);
+    strand.position.set(rand(-0.32, 0.32), 1.55 - strand.geometry.parameters.height / 2, rand(-0.12, 0.15));
+    strand.rotation.z = rand(-0.2, 0.2);
+    g.add(strand);
+  }
+  const mkLimb = (isArm, side) => {
+    const pivot = new THREE.Group();
+    const seg = box(isArm ? 0.16 : 0.2, isArm ? 0.68 : 0.95, isArm ? 0.16 : 0.22, cloth);
+    seg.position.y = -(isArm ? 0.34 : 0.475);
+    pivot.add(seg);
+    if (isArm) { const hand = box(0.14, 0.15, 0.14, skin); hand.position.y = -0.72; pivot.add(hand); }
+    else { const boot = box(0.22, 0.14, 0.32, dark); boot.position.set(0, -0.95, 0.05); pivot.add(boot); }
+    pivot.position.set(side * (isArm ? 0.42 : 0.17), isArm ? 1.56 : 0.98, 0);
+    g.add(pivot);
+    return pivot;
+  };
+  const lArm = mkLimb(true, -1), rArm = mkLimb(true, 1);
+  const lLeg = mkLimb(false, -1), rLeg = mkLimb(false, 1);
+  // the same cleaver, one long soak rustier
+  const cl = new THREE.Group();
+  const handle = box(0.035, 0.26, 0.035, MAT.wood); handle.position.y = -0.1; cl.add(handle);
+  const blade = box(0.02, 0.34, 0.24, new THREE.MeshStandardMaterial({ color: 0x6a5648, roughness: 0.7, metalness: 0.5 }));
+  blade.position.set(0, -0.36, 0.1); cl.add(blade);
+  cl.position.set(0, -0.72, 0.02);
+  rArm.add(cl);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.scale.setScalar(1.14);
+  worldRoot.add(g);
+  drownedRig = { grp: g, lArm, rArm, lLeg, rLeg, headG, lantern: null, homeX: cw(17), homeZ: cw(2) };
+}
+
+/* ---------------- the Hollow House, one last time ---------------- */
+function buildHollowHouse4() {
+  beginWorld(WH4, MAP1, ROOMS1);
+  WH4.stalker = 'drowned';
+  WH4.patrolKeys = PATROL_KEYS;
+  WH4.envCfg = ENV4_HOUSE;
+  WH4.exitMark = { x: 28, z: 29.4, label: 'OUT ⇩' };
+  WH4.marks = [];
+  buildHouse(4);
+  buildFlies();
+  // the front door stands open now — it wants you inside
+  frontDoor.locked = false; frontDoor.open = 1; frontDoor.target = 1;
+  // seawater pooled where he walks
+  WH4.oilMat = new THREE.MeshStandardMaterial({ color: 0x0a0c08, roughness: 0.12, metalness: 0.55, transparent: true, opacity: 0.85, depthWrite: false });
+  const wetMat = new THREE.MeshStandardMaterial({ color: 0x18242a, roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.5, depthWrite: false });
+  for (const [px, pz, pr] of [[cw(14), cw(6.5), 1.1], [cw(19), cw(6.6), 0.8], [cw(17), cw(2.6), 0.9], [cw(14.5), cw(10.8), 1.2], [cw(9), cw(11.5), 0.7]]) {
+    const puddle = new THREE.Mesh(new THREE.CircleGeometry(pr, 14), wetMat);
+    puddle.rotation.x = -Math.PI / 2;
+    puddle.position.set(px, 0.013, pz);
+    worldRoot.add(puddle);
+  }
+  // the three rooms that must burn
+  mkPourSpot('KITCHEN', cw(4.2), cw(2.4));
+  mkPourSpot('LIVING ROOM', cw(20), cw(3));
+  mkPourSpot('WORKSHOP', cw(24), cw(12));
+  // a little mercy on the way through
+  const mk4 = (id, x, y, z) => addItem(id, medkitMesh(), x, y, z, 'Take the first aid kit', () => {
+    INV.medkits++; toast('First Aid Kit (' + INV.medkits + ') — press Q to heal'); updateHud();
+  });
+  mk4('med4a', cw(16.3), 1.0, cw(12.8));
+  mk4('med4b', cw(5.2), 1.0, CELL + 0.42);
+  sealWorld(WH4);
+  // and him, given back by the sea, pacing his old rooms
+  worldRoot = WH4.group;
+  buildDrowned();
+}
+function mkPourSpot(label, x, z) {
+  const spot = { label, x, z, done: false };
+  const it = {
+    x, z, y: 1, spin: false,
+    prompt: 'soak the ' + label + ' in lamp oil',
+    action() { pourOil(spot, it); },
+  };
+  interactables.push(it);
+  spot.mark = { t: '🛢', x, z };
+  WH4.marks.push(spot.mark);
+}
+function pourOil(spot, it) {
+  if (spot.done || chapter !== 4) return;
+  spot.done = true; ch4poured++;
+  const i = interactables.indexOf(it); if (i >= 0) interactables.splice(i, 1);
+  const mi = WH4.marks.indexOf(spot.mark); if (mi >= 0) WH4.marks.splice(mi, 1);
+  // a black slick spreading across the boards
+  const slick = new THREE.Mesh(new THREE.CircleGeometry(1.5, 16), WH4.oilMat);
+  slick.rotation.x = -Math.PI / 2;
+  slick.position.set(spot.x, 0.016, spot.z);
+  worldRoot.add(slick);
+  AU.noise(0.7, 420, 0.28, 0.7, 'bandpass');
+  AU.paper();
+  toast('Soaked: ' + spot.label + ' (' + ch4poured + '/3)');
+  noiseEvent(spot.x, spot.z, 60, true);
+  // every can makes the house angrier — and him faster
+  DROWNED_P.chase = 3.6 + ch4poured * 0.35;
+  DROWNED_P.patrol = 1.35 + ch4poured * 0.4;
+  DROWNED_P.attackCd = Math.max(1.8, 2.7 - ch4poured * 0.3);
+  killer.huntT = Math.min(killer.huntT, 10);
+  if (ch4poured >= 3) {
+    ch4phase = 3;
+    setObjective('GET OUT — through the front door. Strike the match.');
+    caption('The last can gurgles empty. Somewhere in the house, a long wet breath draws in — the whole house, smelling it.', 5.5);
+    // the house kills its own lights and slams every door between you and out
+    for (const fl of flickerLights) fl.offT = 9999;
+    for (const dr of doors) dr.target = 0;
+    AU.slam(); setTimeout(() => AU.slam(), 300); setTimeout(() => { AU.slam(); AU.growl(0, 0.45); }, 600);
+    setTimeout(() => {
+      if (state === 'play' && curWorld === WH4) caption('Every light in the house dies at once. Every door slams. He is done playing.', 5);
+    }, 1500);
+    if (killer.active && killer.state !== 'chase') startChase();
+  } else {
+    setObjective('Soak the marked rooms in oil (' + ch4poured + '/3)');
+    caption(ch4poured === 1
+      ? 'The oil glugs out dark and sweet-smelling across the boards. Somewhere, wet boots stop mid-step… then come faster.'
+      : 'Another room soaked. Behind the walls, something is moving FAST now — toward the smell.', 4.5);
+  }
+}
+
+/* ---------------- oil cans hidden across the estate ---------------- */
+function oilCanMesh() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.3, 10),
+    new THREE.MeshStandardMaterial({ color: 0x7a2a20, roughness: 0.5, metalness: 0.4 }));
+  body.position.y = 0.15; g.add(body);
+  const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.035, 0.16, 6), MAT.metal);
+  spout.position.set(0.09, 0.33, 0); spout.rotation.z = -0.6; g.add(spout);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 10), MAT.metal);
+  handle.position.set(-0.08, 0.3, 0); g.add(handle);
+  return g;
+}
+function addOilCans() {
+  if (WF.oilAdded) return;
+  WF.oilAdded = true;
+  const mkOil = (id, x, y, z, flavor) => addItem(id, oilCanMesh(), x, y, z, 'Take the can of lamp oil', () => {
+    INV.oil++;
+    toast('Lamp oil (' + INV.oil + '/3)');
+    if (flavor) caption(flavor, 4.5);
+    updateHud();
+    if (INV.oil >= 3) {
+      ch4phase = 2;
+      setObjective('Go back into the Hollow House');
+      setTimeout(() => {
+        if (state === 'play' && chapter === 4) caption('Three cans. Enough to soak the old wood to its bones. The dark house on the rise is waiting — door open.', 5.5);
+      }, 4800);
+    } else {
+      setObjective('Find the cans of lamp oil (' + INV.oil + '/3)');
+      if (INV.oil === 2 && !ch4Seen.treeline) {
+        ch4Seen.treeline = true;
+        setTimeout(() => {
+          if (state !== 'play' || chapter !== 4) return;
+          AU.growl(rand(-0.8, 0.8), 0.2);
+          caption('The birds went quiet a while ago. Between two pines at the treeline, something big and wet stands very still — then is not there.', 5.5);
+        }, 5000);
+      }
+    }
+  });
+  mkOil('oilA', 29.4, 0.12, 49.9, 'Under the camper bed all along. Mara really has been planning this for years.');
+  mkOil('oilB', 65.6, 0.32, 64.4, 'Stashed beside the boathouse lamp. The blue glass is cold now.');
+  mkOil('oilC', 83.3, 0.32, 41.3, 'Her porch. No lantern in any window — only the dark, minding its own business at last.');
+}
+
+/* ---------------- doors between worlds, chapter four ---------------- */
+function enterHollowHouse4() {
+  if (chapter !== 4 || ch4phase < 2 || ch4phase >= 4) return;
+  fadeSwap(() => {
+    activateWorld(WH4);
+    player.x = 28; player.z = 26.5; player.yaw = 0; player.pitch = 0;
+    player.vx = player.vz = 0;
+    killer.grace = 8;
+    AU.creak(); AU.slam();
+    setObjective('Soak the marked rooms in oil (' + ch4poured + '/3)');
+    if (!WH4.visited) {
+      WH4.visited = true;
+      caption('The house again. Same hall, same old-blood smell — and under it now, riverwater. Something WET is walking the far rooms.', 5.5);
+      setTimeout(() => {
+        if (state === 'play' && curWorld === WH4) caption('Soak the KITCHEN, the LIVING ROOM and the WORKSHOP (check the map, TAB). Then get out and strike the match.', 6);
+      }, 6000);
+    }
+  });
+}
+
+/* ---------------- the burning ---------------- */
+function igniteHouse() {
+  if (chapter !== 4 || ch4phase !== 3) return;
+  ch4phase = 4;
+  killer.active = false;
+  fadeSwap(() => {
+    activateWorld(WF);
+    applyEnv(ENV4_NIGHT);
+    player.x = 12.4; player.z = 17; player.yaw = -0.12; player.pitch = 0.1;
+    player.vx = player.vz = 0;
+    AU.noise(0.15, 2600, 0.22, 1, 'highpass');       // the match rasps
+    setTimeout(() => AU.noise(1.4, 380, 0.5, 0.5, 'lowpass'), 500); // the oil takes it
+    buildFire();
+    setObjective('It is done. Watch.');
+    caption('The match falls. The oil takes it with a soft, hungry WHUMP.', 4.5);
+    setTimeout(() => {
+      if (state === 'play') playVideoCutscene('burning', () => playCutscene(CS9, endChapter4));
+    }, 3400);
+  });
+}
+function buildFire() {
+  const grp = new THREE.Group();
+  WF.flames = []; WF.smokes = [];
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xff5a10, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, fog: false, blending: THREE.AdditiveBlending });
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide, fog: false, blending: THREE.AdditiveBlending });
+  flameMat.toneMapped = false; coreMat.toneMapped = false;
+  for (let i = 0; i < 16; i++) {
+    const fx = 7.6 + i * 0.85 + rand(-0.2, 0.2);
+    const tall = rand() < 0.35;
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(rand(0.22, 0.45), tall ? rand(1.6, 2.6) : rand(0.7, 1.4), 6), i % 3 ? flameMat : coreMat);
+    fl.position.set(fx, rand(0.5, tall ? 3.4 : 2.2), 8.2 + rand(0.5));
+    grp.add(fl);
+    WF.flames.push({ m: fl, s: rand(6, 11), o: rand(7) });
+  }
+  // heat-glow sheet over the facade
+  const gwMat = new THREE.MeshBasicMaterial({ color: 0xff4a10, transparent: true, opacity: 0.16, depthWrite: false, fog: false, blending: THREE.AdditiveBlending });
+  gwMat.toneMapped = false;
+  const gw = new THREE.Mesh(new THREE.PlaneGeometry(13.6, 4), gwMat);
+  gw.position.set(14, 2.2, 8.35); grp.add(gw);
+  // firelight thrown across the clearing
+  for (const [lx, lz, inten] of [[10, 9.5, 2.4], [14, 9.5, 3.0], [18, 9.5, 2.4], [14, 11.5, 1.5]]) {
+    const li = new THREE.PointLight(0xff7a20, inten, 28, 1.6);
+    li.position.set(lx, 2.6, lz); grp.add(li);
+    flickerLights.push({ light: li, base: inten, flicker: 0.55, t: rand(10), bulb: null });
+  }
+  // smoke rolling up into the dark
+  const smokeM = new THREE.MeshBasicMaterial({ map: TEX.mist, transparent: true, opacity: 0.42, color: 0x1c1c1c, depthWrite: false, fog: false });
+  for (let i = 0; i < 4; i++) {
+    const sm = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), smokeM);
+    sm.position.set(9.5 + i * 3, 5.5 + rand(2.5), 8);
+    grp.add(sm);
+    WF.smokes.push({ m: sm });
+  }
+  worldRoot.add(grp);
+  WF.fireGrp = grp;
+}
+
+/* ---------------- chapter-four flow ---------------- */
+function startChapter4() {
+  chapter = 4; ch4phase = 1; ch4poured = 0;
+  DROWNED_P.chase = 3.6; DROWNED_P.patrol = 1.35; DROWNED_P.attackCd = 2.7;
+  killer.active = false;
+  state = 'chapter';
+  hideOverlays();
+  $('chapterTitle').textContent = 'CHAPTER FOUR';
+  $('chapterSub').textContent = 'ASHES';
+  $('chapterCard').classList.add('show');
+  if (document.exitPointerLock) document.exitPointerLock();
+  setTimeout(() => {
+    if (!WF) {
+      if (!TEX.water) buildTextures2(); // earlier chapters may have been skipped
+      WF = { group: new THREE.Group() };
+      WH2 = { group: new THREE.Group() };
+      buildForest(); buildWidowHouse();
+    }
+    if (!WH4) { WH4 = { group: new THREE.Group() }; buildHollowHouse4(); }
+    activateWorld(WF);
+    applyEnv(ENV4_DUSK);
+    addOilCans();
+    // years of story later: the blue lamp is out, and the fallen pine is long moved
+    if (WF.beacon) { WF.beacon.intensity = 0; WF.beaconGlow.material.color.setHex(0x203040); }
+    const ci = WF.colliders.indexOf(WF.logCollider);
+    if (ci >= 0) {
+      WF.colliders.splice(ci, 1);
+      const ii = WF.interactables.indexOf(WF.logInter);
+      if (ii >= 0) WF.interactables.splice(ii, 1);
+      WF.bridgeLog.position.set(56.2, 0.32, 44.6);
+      WF.bridgeLog.rotation.y = 1.1;
+    }
+    player.x = 63; player.z = 64.5; player.yaw = 0; player.pitch = 0;
+    player.vx = player.vz = 0;
+    player.health = 100; player.stamina = 100;
+    updateHud();
+    setObjective('Find the cans of lamp oil (0/3)');
+  }, 1000);
+  setTimeout(() => {
+    $('chapterCard').classList.remove('show');
+    state = 'play'; lockPointer();
+    playVideoCutscene('return', () => playCutscene(CS8, () => {
+      caption('Dusk. The lantern-posts still burn along the trail — camper, boathouse, her porch. Three cans. Then the house.', 6);
+    }));
+  }, 3400);
+}
+function endChapter4() {
+  state = 'win';
+  const t = Math.floor((performance.now() - startTime) / 1000);
+  $('winTitle').textContent = 'THE HOLLOW HOUSE — THE TRUE END';
+  $('winText').textContent = 'The fire burns until sunrise and takes everything: the hooks, the plates of rot, the writing on the walls, the drowned thing pacing its halls. When it is done there is only a black square of quiet earth — and no lantern light anywhere on the estate, ever again. The three of you walk out along Route 9 as the sun comes up, and this time the road is just a road.';
+  $('winStats').textContent = 'Time: ' + Math.floor(t / 60) + 'm ' + (t % 60) + 's · Deaths: ' + deaths + ' · Thank you for playing — the story is complete';
+  showOverlay('winOv');
+  if (document.exitPointerLock) document.exitPointerLock();
+  AU.thunder();
+}
+
+/* ---------------- chapter-four per-frame ---------------- */
+function ch4Update(dt) {
+  if (chapter !== 4 || state !== 'play') return;
+  if (curWorld === WH4) {
+    dripT4 -= dt;
+    if (dripT4 <= 0) { dripT4 = rand(2.5, 7); AU.drip(rand(-1, 1)); }
+    // once the house is soaked, he never loses you again — outrun him or burn with him
+    if (ch4phase === 3 && killer.active && killer.grace <= 0 && !player.dead) {
+      if (killer.state !== 'chase') startChase();
+      killer.lastSeen = { x: player.x, z: player.z };
+      killer.loseT = 0;
+    }
+    // the first time you step into his hallway again, he is already at the end of it
+    if (!ch4Seen.hall && ch4phase === 2 && killer.state !== 'chase' && roomOf(player.x, player.z) === 'hall') {
+      ch4Seen.hall = true;
+      for (const fl of flickerLights) fl.offT = 1.4;
+      killer.grace = 4; killer.state = 'patrol'; killer.path = null; killer.detect = 0;
+      killer.x = player.x < GW * CELL / 2 ? cw(24) : cw(2);
+      killer.z = cw(6.5);
+      killer.yaw = Math.atan2(player.x - killer.x, player.z - killer.z);
+      killer.grp.position.set(killer.x, 0, killer.z);
+      AU.growl(panTo(killer), 0.4); AU.drip(panTo(killer));
+      setTimeout(() => { L = 1; AU.thunder(); }, 400);
+      setTimeout(() => {
+        if (killer.state !== 'chase') { killer.x = cw(20); killer.z = cw(2); killer.path = null; killer.grp.position.set(killer.x, 0, killer.z); }
+        caption('At the end of the hallway: a dripping shape, head tilted, watching. The lightning passes. The hallway is empty.', 4.5);
+      }, 1700);
+    }
+    if (!ch4Seen.chair && dist2(player.x, player.z, cw(10.3), cw(1.6)) < 5) {
+      ch4Seen.chair = true;
+      caption('The plates of rot are gone from the table. The chair where the old woman rocked sits empty — and it is still warm.', 5.5);
+    }
+    if (!ch4Seen.corner && dist2(player.x, player.z, 48.3, 3.4) < 4.5) {
+      ch4Seen.corner = true;
+      caption('The corner where the whispering woman stood is empty. The wallpaper there is worn through to bare board, in the shape of a person.', 5.5);
+    }
+    if (!ch4Seen.writing && dist2(player.x, player.z, cw(15), cw(12.5)) < 4.5) {
+      ch4Seen.writing = true;
+      caption('By the front door, in letters still wet: WELCOME HOME.', 5);
+    }
+  }
+  if (ch4phase >= 4 && curWorld === WF && WF.fireGrp) {
+    fireT4 -= dt;
+    if (fireT4 <= 0) { fireT4 = rand(0.25, 0.7); AU.noise(0.4, rand(300, 900), 0.13, 0.8, 'bandpass', rand(-0.6, 0.6)); }
+    for (const fl of WF.flames) {
+      fl.m.scale.y = 1 + Math.sin(perfT * fl.s + fl.o) * 0.25;
+      fl.m.scale.x = fl.m.scale.z = 1 + Math.sin(perfT * fl.s * 1.4 + fl.o) * 0.12;
+    }
+    for (const sm of WF.smokes) {
+      sm.m.position.y += dt * 0.7;
+      if (sm.m.position.y > 13) sm.m.position.y = 5;
+      sm.m.lookAt(camera.position);
+    }
+  }
+}
+
+/* ---------------- chapter-four dialogue ---------------- */
+const CS8 = [
+  { who: '', text: 'The fishing boat that answered the beacon asks no questions. It takes you up the coast, up the river — and the whole way, Mara watches the water behind you.' },
+  { who: 'MARA', text: '“The night the beacon burned, the lantern in the crooked house went out. On its own. Nobody left to carry it.”' },
+  { who: 'MARA', text: '“A house like his does not stay empty. It calls its dead home. And the sea…” — she finally looks at you — “…the sea gives back what it is given.”' },
+  { who: 'ASH', text: '“So we burn it. Tonight, before moonrise, down to its bones — and none of us ever dreams about Route 9 again.”' },
+  { who: 'MARA', text: '“Lamp oil. I hid cans all over the estate years ago, back when I still believed I would do it myself. The camper. The boathouse. Her porch.”' },
+  { who: '', text: 'The boat noses against the old dock. The pines have gone black against a bruise-colored sky.', choice: [
+    { label: 'BURN IT DOWN', say: '“Three cans of oil. One match.” Your voice barely shakes at all anymore.' },
+    { label: 'NEVER COME BACK', say: 'You look downriver — toward roads, towns, lit kitchen windows — and you know the house would follow you to every one of them. It has your name now. You step onto the dock.' },
+  ] },
+  { who: 'MARA', text: '“Ash and I hold the dock and keep the boat warm. If anything in there is wearing his face — it is NOT him anymore. Do not stop to look at it.”' },
+];
+const CS9 = [
+  { who: '', text: 'The fire takes the porch first, then climbs the boarded windows like it has been waiting years for permission.' },
+  { who: '', text: 'For one moment, in an upstairs window, a shape stands with both hands flat against the glass. It does not fight the fire. It simply stands there — home at last — until the window is only flame.' },
+  { who: 'ASH', text: '“…it’s over. It feels like — like a hole in the air where a scream used to be.”' },
+  { who: 'MARA', text: '“Houses like his only truly die empty and burning at once. You gave it both. Come away from the heat now.”' },
+  { who: '', text: 'You walk the lantern-post trail one last time, and you do not look back. Behind you the Hollow House folds in on itself with a sound like a long breath out — and the first birds of morning begin to sing.' },
 ];
 
 /* -------------------------------------------------------------- input/lock */
@@ -4587,11 +5064,49 @@ function skipToChapter3Direct() {
   state = 'play';
   startChapter3();
 }
+function skipToChapter4() {
+  if (chapter !== 3) return;
+  hideOverlays();
+  ch3phase = 7;
+  killer.active = false;
+  if (boss) boss.active = false;
+  if (gaffGrp) gaffGrp.visible = false;
+  $('bossBar').style.display = 'none';
+  if (AU.ok) AU.droneGain.gain.value = 0;
+  player.health = 100; player.stamina = 100; player.dead = false;
+  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
+  flashlight.intensity = player.flash ? 2.6 : 0;
+  updateHud();
+  state = 'play';
+  startChapter4();
+}
+function skipToChapter4Direct() {
+  if (chapter >= 4) return;
+  AU.init();
+  if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
+  if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
+  hideOverlays();
+  if (!startTime) startTime = performance.now();
+  // three chapters behind you — take everything you would have earned
+  INV.wolf = INV.owl = INV.serpent = true; INV.emblems = 3;
+  INV.rustyKey = true; noteRead = true;
+  INV.venin = true; INV.remedy = true;
+  INV.medkits = Math.max(INV.medkits, 2);
+  ch2phase = 4; ch3phase = 7;
+  player.health = 100; player.stamina = 100; player.dead = false;
+  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
+  flashlight.intensity = player.flash ? 2.6 : 0;
+  chapter = 3;
+  updateHud();
+  state = 'play';
+  startChapter4();
+}
 function refreshPauseSkip() {
   const sk = $('skipHold2');
-  sk.style.display = chapter <= 2 ? '' : 'none';
+  sk.style.display = chapter <= 3 ? '' : 'none';
   const span = sk.querySelector('span');
-  if (span) span.textContent = chapter === 1 ? 'HOLD 5s — SKIP TO CHAPTER TWO' : 'HOLD 5s — SKIP TO CHAPTER THREE';
+  if (span) span.textContent = chapter === 1 ? 'HOLD 5s — SKIP TO CHAPTER TWO'
+    : chapter === 2 ? 'HOLD 5s — SKIP TO CHAPTER THREE' : 'HOLD 5s — SKIP TO CHAPTER FOUR';
 }
 function startGame() {
   AU.init();
@@ -4642,6 +5157,7 @@ function loop(t) {
       roachUpdate(dt);
       forestUpdate(dt);
       ch3Update(dt);
+      ch4Update(dt);
       scareChecks();
       currentInteract = scanInteract();
       if (mapOpen) drawMap();
@@ -4758,9 +5274,11 @@ $('cutVideo').addEventListener('error', () => videoNext());
 $('videoOv').addEventListener('click', () => videoNext());
 bindHold('skipHold1', 'skipFill1', 5, skipToChapter2);
 bindHold('skipHold3', 'skipFill3', 5, skipToChapter3Direct);
+bindHold('skipHold4', 'skipFill4', 5, skipToChapter4Direct);
 bindHold('skipHold2', 'skipFill2', 5, () => {
   if (chapter === 1) skipToChapter2();
   else if (chapter === 2) skipToChapter3();
+  else if (chapter === 3) skipToChapter4();
 });
 showOverlay('title');
 // debug/testing handle
@@ -4769,7 +5287,8 @@ window.HH = {
   getState: () => state,
   getChapter: () => chapter,
   getPhase: () => ch2phase,
-  getWorld: () => (curWorld === W1 ? 'house1' : curWorld === WF ? 'forest' : 'widow'),
+  getWorld: () => (curWorld === W1 ? 'house1' : curWorld === WF ? 'forest' : curWorld === WH2 ? 'widow'
+    : curWorld === WB ? 'boat' : curWorld === WI ? 'island' : curWorld === WLH ? 'lighthouse' : 'house4'),
   startChapter2, enterWidowHouse2: () => { ch2phase = Math.max(ch2phase, 2); enterWidowHouse(); },
   answerPhone, cutAdvance,
   isRinging: () => phoneRinging,
@@ -4780,6 +5299,9 @@ window.HH = {
   bossObj: () => boss,
   talkAsh, talkMara, enterLighthouse, goFloor, lightBeacon, maraDistract,
   swing: doGaffSwing,
+  startChapter4,
+  getCh4: () => ({ phase: ch4phase, oil: INV.oil, poured: ch4poured }),
+  enterHollowHouse4, igniteHouse,
 };
 requestAnimationFrame((t) => { last = t; requestAnimationFrame(loop); });
 
