@@ -1801,6 +1801,7 @@ function playerUpdate(dt) {
     caption('Not yet. If it does not all burn at once, it comes back. Soak every marked room first.', 4);
   }
   if (chapter === 4 && curWorld === WH4 && ch4phase === 3 && player.z > 28.9) igniteHouse();
+  if (chapter === 5 && curWorld === WH5 && frontDoor.open > 0.5 && player.z > 28.9) endChapter5();
 }
 
 /* ------------------------------------------------------------- hide spots */
@@ -1878,7 +1879,7 @@ function die() {
     $('deathTitle').textContent = killer.P.deathTitle;
     $('deathText').textContent = killer.P.deathText;
   } else {
-    drawScareFace(killer.P.name === 'widow' ? 'wife' : 'butcher');
+    drawScareFace(killer.P.name === 'widow' ? 'wife' : killer.P.name === 'countess' ? 'countess' : 'butcher');
     showScare(0.45);
     $('deathTitle').textContent = killer.P.deathTitle;
     $('deathText').textContent = killer.P.deathText;
@@ -1939,6 +1940,11 @@ function respawn() {
     configureStalker(WH4);
     killer.grace = 6;
     caption('You wake in the foyer, dragged as far as the open door and no further. He wants you to try again.', 4.5);
+  } else if (curWorld === WH5) {
+    player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0;
+    configureStalker(WH5);
+    killer.grace = 6;
+    caption('You wake back in the cold cell, unbled — she likes to keep her guests a while. The relics still wait in the dark.', 4.5);
   } else {
     player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0;
     killer.x = cw(17); killer.z = cw(2); killer.state = 'patrol'; killer.path = null;
@@ -1989,6 +1995,8 @@ function scanInteract() {
   }
   if (chapter === 1 && frontDoor.locked)
     consider(frontDoor.cx, frontDoor.cz - 0.7, { type: 'front' }, 'E — the sealed front door (' + INV.emblems + '/3 emblems)', 3.2);
+  if (chapter === 5 && frontDoor.locked)
+    consider(frontDoor.cx, frontDoor.cz - 0.7, { type: 'front' }, 'E — the great doors, sealed shut (' + ch5relics + '/3 relics)', 3.2);
   for (const h of hideSpots) consider(h.frontX, h.frontZ, { type: 'hide', h }, 'E — hide in the ' + h.label, 1.9);
   setPrompt(best ? bestPrompt : '');
   return best;
@@ -2011,6 +2019,11 @@ function useDoor(d) {
 }
 function useFront() {
   if (!frontDoor.locked) return;
+  if (chapter === 5) {
+    AU.locked();
+    caption('The great doors will not move. Three relics hold her seal on them. (' + ch5relics + '/3)', 3.5);
+    return;
+  }
   if (INV.emblems >= 3) {
     frontDoor.locked = false; frontDoor.target = 1;
     AU.unlock(); AU.slam();
@@ -2052,6 +2065,8 @@ function updateHud() {
   $('emRemedy').className = 'emblem vialR' + (INV.remedy ? ' got' : '');
   $('oilCount').style.display = chapter === 4 && ch4phase === 1 ? '' : 'none';
   $('oilCount').textContent = '🛢 ' + INV.oil + '/3';
+  $('relicCount').style.display = chapter === 5 ? '' : 'none';
+  $('relicCount').textContent = '🩸 ' + ch5relics + '/3';
 }
 const OVERLAYS = ['title', 'pauseOv', 'deathOv', 'winOv', 'noteOv'];
 function showOverlay(id) {
@@ -2275,6 +2290,9 @@ function drawMap() {
     } else if (it.id && it.id.indexOf('oil') === 0) {
       g.font = '16px serif';
       g.fillText('🛢', MX(it.x), MZ(it.z) + 6);
+    } else if (it.id && it.id.indexOf('relic') === 0) {
+      g.font = '16px serif';
+      g.fillText('🩸', MX(it.x), MZ(it.z) + 6);
     } else if (it.id === 'venin' || it.id === 'remedy') {
       g.fillStyle = it.id === 'venin' ? '#c03018' : '#30a050';
       g.beginPath(); g.arc(MX(it.x), MZ(it.z), 5.5, 0, 7); g.fill();
@@ -2351,6 +2369,41 @@ function drawScareFace(kind) {
       g.strokeStyle = 'rgba(0,0,0,' + rand(0.05, 0.35).toFixed(2) + ')';
       g.lineWidth = rand(0.5, 2);
       const x = rand(512);
+      g.beginPath(); g.moveTo(x, rand(512)); g.lineTo(x + rand(-25, 25), rand(512)); g.stroke();
+    }
+    return;
+  }
+  if (kind === 'countess') {
+    // a pale beautiful face too close, mouth open, blood on the teeth
+    const grd3 = g.createRadialGradient(256, 250, 50, 256, 260, 220);
+    grd3.addColorStop(0, '#efe6e6'); grd3.addColorStop(0.7, '#c9bcc0'); grd3.addColorStop(1, '#0a0510');
+    g.fillStyle = grd3;
+    g.beginPath(); g.ellipse(256, 258, 150, 210, 0, 0, 7); g.fill();
+    // black-lidded eyes, red irises
+    g.fillStyle = '#120810';
+    g.beginPath(); g.ellipse(196, 210, 44, 26, 0.05, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(316, 210, 44, 26, -0.05, 0, 7); g.fill();
+    g.fillStyle = '#e01818';
+    g.beginPath(); g.arc(196, 212, 15, 0, 7); g.fill();
+    g.beginPath(); g.arc(316, 212, 15, 0, 7); g.fill();
+    g.fillStyle = '#050203';
+    g.beginPath(); g.arc(196, 212, 6, 0, 7); g.fill();
+    g.beginPath(); g.arc(316, 212, 6, 0, 7); g.fill();
+    // open red mouth with fangs and blood
+    g.fillStyle = '#5a0810';
+    g.beginPath(); g.ellipse(256, 350, 56, 84, 0, 0, 7); g.fill();
+    g.fillStyle = '#efe6e6';
+    for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(214 + i * 17, 280); g.lineTo(224 + i * 17, 280); g.lineTo(219 + i * 17, 300 + (i === 1 || i === 4 ? 34 : 12)); g.closePath(); g.fill(); }
+    for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(220 + i * 18, 420); g.lineTo(230 + i * 18, 420); g.lineTo(225 + i * 18, 400); g.closePath(); g.fill(); }
+    g.fillStyle = 'rgba(150,10,18,0.85)';
+    g.fillRect(236, 300, 6, 60); g.fillRect(276, 302, 5, 44);
+    // a blood-red circlet across the brow
+    g.strokeStyle = '#b89a4a'; g.lineWidth = 6;
+    g.beginPath(); g.moveTo(150, 150); g.quadraticCurveTo(256, 120, 362, 150); g.stroke();
+    g.fillStyle = '#d81020'; g.beginPath(); g.arc(256, 128, 9, 0, 7); g.fill();
+    for (let i = 0; i < 200; i++) {
+      g.strokeStyle = 'rgba(0,0,0,' + rand(0.04, 0.3).toFixed(2) + ')';
+      g.lineWidth = rand(0.5, 2); const x = rand(512);
       g.beginPath(); g.moveTo(x, rand(512)); g.lineTo(x + rand(-25, 25), rand(512)); g.stroke();
     }
     return;
@@ -2455,7 +2508,7 @@ function sealWorld(w) {
   });
 }
 function activateWorld(w) {
-  for (const o of [W1, WF, WH2, WB, WI, WLH, WH4]) if (o && o.group) o.group.visible = (o === w);
+  for (const o of [W1, WF, WH2, WB, WI, WLH, WH4, WH5]) if (o && o.group) o.group.visible = (o === w);
   curWorld = w;
   worldRoot = w.group;
   MAP = w.map; GW = w.gw; GH = w.gh; ROOMS = w.rooms;
@@ -2480,6 +2533,7 @@ function configureStalker(w) {
   else if (w.stalker === 'widow' && widowRig) { Object.assign(killer, widowRig); killer.P = WIDOW_P; killer.active = true; }
   else if (w.stalker === 'ashm' && ashRig) { Object.assign(killer, ashRig); killer.P = ASH_P; killer.active = true; killer.grp.visible = true; }
   else if (w.stalker === 'drowned' && drownedRig) { Object.assign(killer, drownedRig); killer.P = DROWNED_P; killer.active = true; }
+  else if (w.stalker === 'countess' && countessRig) { Object.assign(killer, countessRig); killer.P = COUNTESS_P; killer.active = true; }
   else { killer.active = false; killer.state = 'patrol'; killer.bust = null; killer.attackT = -1; return; }
   killer.x = killer.homeX; killer.z = killer.homeZ;
   killer.state = 'patrol'; killer.path = null; killer.detect = 0; killer.bust = null;
@@ -4731,7 +4785,7 @@ function igniteHouse() {
     setObjective('It is done. Watch.');
     caption('The match falls. The oil takes it with a soft, hungry WHUMP.', 4.5);
     setTimeout(() => {
-      if (state === 'play') playVideoCutscene('burning', () => playCutscene(CS9, endChapter4));
+      if (state === 'play') playVideoCutscene('burning', () => playCutscene(CS9, startChapter5));
     }, 3400);
   });
 }
@@ -4818,16 +4872,6 @@ function startChapter4() {
     }));
   }, 3400);
 }
-function endChapter4() {
-  state = 'win';
-  const t = Math.floor((performance.now() - startTime) / 1000);
-  $('winTitle').textContent = 'THE HOLLOW HOUSE — THE TRUE END';
-  $('winText').textContent = 'The fire burns until sunrise and takes everything: the hooks, the plates of rot, the writing on the walls, the drowned thing pacing its halls. When it is done there is only a black square of quiet earth — and no lantern light anywhere on the estate, ever again. The three of you walk out along Route 9 as the sun comes up, and this time the road is just a road.';
-  $('winStats').textContent = 'Time: ' + Math.floor(t / 60) + 'm ' + (t % 60) + 's · Deaths: ' + deaths + ' · Thank you for playing — the story is complete';
-  showOverlay('winOv');
-  if (document.exitPointerLock) document.exitPointerLock();
-  AU.thunder();
-}
 
 /* ---------------- chapter-four per-frame ---------------- */
 function ch4Update(dt) {
@@ -4904,6 +4948,498 @@ const CS9 = [
   { who: 'ASH', text: '“…it’s over. It feels like — like a hole in the air where a scream used to be.”' },
   { who: 'MARA', text: '“Houses like his only truly die empty and burning at once. You gave it both. Come away from the heat now.”' },
   { who: '', text: 'You walk the lantern-post trail one last time, and you do not look back. Behind you the Hollow House folds in on itself with a sound like a long breath out — and the first birds of morning begin to sing.' },
+];
+
+/* ===================================================================== */
+/*  CHAPTER FIVE — RAVENMOOR: trapped in the Red Countess's castle       */
+/* ===================================================================== */
+let WH5 = null;                 // the castle
+let ch5phase = 0, ch5relics = 0;
+let countessRig = null;
+const ch5Seen = { hall: false, portrait: false, crypt: false };
+let candleT5 = 0.5;
+
+const ROOMS5 = {
+  kitchen: { x0: 1, x1: 7,  z0: 1, z1: 4,  name: 'Scullery' },
+  dining:  { x0: 9, x1: 14, z0: 1, z1: 4,  name: 'Great Hall' },
+  living:  { x0: 16, x1: 25, z0: 1, z1: 4, name: 'Gallery' },
+  hall:    { x0: 1, x1: 25, z0: 6, z1: 7,  name: 'Long Gallery' },
+  bedroom: { x0: 1, x1: 5,  z0: 9, z1: 13, name: 'Cell' },
+  bath:    { x0: 7, x1: 11, z0: 9, z1: 13, name: 'Chapel' },
+  foyer:   { x0: 13, x1: 16, z0: 9, z1: 13, name: 'Entrance Hall' },
+  study:   { x0: 18, x1: 21, z0: 9, z1: 13, name: 'Library' },
+  garage:  { x0: 23, x1: 25, z0: 9, z1: 13, name: 'Dungeon' },
+};
+
+const COUNTESS_TAUNTS = [
+  '“Guests. It has been so very long since I had guests.”',
+  '“Don’t run, sweetling. You’ll spill.”',
+  '“I have tasted kings. You will do.”',
+  '“These walls were red long before you came.”',
+  '“Stay. Stay and be beautiful forever.”',
+];
+const COUNTESS_P = {
+  name: 'countess', patrol: 1.6, invest: 2.5, search: 2.1, chase: 4.0,
+  attackCd: 2.4, dmg: 26, sight: 15, flashBonus: 4, lightLover: false,
+  taunts: COUNTESS_TAUNTS, whistles: false, armBase: -0.6,
+  spotText: 'THE COUNTESS SEES YOU. RUN.',
+  sweepText: 'Silk hushes over stone, somewhere close. She is drifting room to room.',
+  fadeText: 'The cold, sweet perfume thins out. She has lost your scent — for now.',
+  deathTitle: 'SHE DRANK DEEP',
+  deathText: 'Her mouth is at your throat and the castle is very warm now. You will make such a lovely portrait.',
+};
+
+const ENV5_CASTLE = {
+  fog: 0x0a0710, fogD: 0.055, bg: 0x070409,
+  hemiSky: 0x2a1830, hemiGround: 0x0a0608, hemiI: 0.26,
+  sun: 0x40305e, sunI: 0.1, sunPos: [-8, 14, -12],
+  storm: true, rain: 1, wind: 0, birds: false,
+};
+
+/* ---------------- castle textures ---------------- */
+function buildTextures5() {
+  if (TEX.stone) return;
+  TEX.stone = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#2b2630'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 42) {
+      const off = (y / 42) % 2 ? 32 : 0;
+      for (let x = -64; x < w; x += 64) {
+        g.fillStyle = `rgb(${40 + rand(14) | 0},${36 + rand(12) | 0},${44 + rand(12) | 0})`;
+        g.fillRect(x + off + 2, y + 2, 60, 38);
+        g.strokeStyle = 'rgba(10,8,12,0.7)'; g.lineWidth = 2;
+        g.strokeRect(x + off + 2, y + 2, 60, 38);
+      }
+    }
+    // damp and old blood weeping from the joints
+    for (let i = 0; i < 20; i++) {
+      const x = rand(w), y0 = rand(h * 0.6), len = rand(30, 150);
+      const gr = g.createLinearGradient(0, y0, 0, y0 + len);
+      gr.addColorStop(0, 'rgba(60,8,10,0.35)'); gr.addColorStop(1, 'rgba(20,10,14,0)');
+      g.fillStyle = gr; g.fillRect(x, y0, rand(2, 7), len);
+    }
+    grime(g, w, h, 200, 0.2);
+  });
+  TEX.stonefloor = canvasTex(512, 512, (g, w, h) => {
+    g.fillStyle = '#211d26'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 128) for (let x = 0; x < w; x += 128) {
+      g.fillStyle = `rgb(${34 + rand(12) | 0},${30 + rand(10) | 0},${38 + rand(10) | 0})`;
+      g.fillRect(x + 3, y + 3, 122, 122);
+      g.strokeStyle = 'rgba(8,6,10,0.8)'; g.lineWidth = 3; g.strokeRect(x + 3, y + 3, 122, 122);
+    }
+    for (let i = 0; i < 8; i++) {
+      g.fillStyle = 'rgba(70,8,10,' + rand(0.15, 0.4).toFixed(2) + ')';
+      g.beginPath(); g.ellipse(rand(w), rand(h), rand(14, 50), rand(10, 34), rand(3), 0, 7); g.fill();
+    }
+    grime(g, w, h, 260, 0.18);
+  }, GW, GH);
+  TEX.glass = canvasTex(128, 180, (g, w, h) => {
+    g.fillStyle = '#0a0410'; g.fillRect(0, 0, w, h);
+    const cols = ['#7a1420', '#3a1a6a', '#1a4a5a', '#6a5210', '#4a1030'];
+    for (let y = 6; y < h - 6; y += 22) for (let x = 6; x < w - 6; x += 22) {
+      g.fillStyle = cols[(x + y) % cols.length];
+      g.globalAlpha = rand(0.55, 0.95); g.fillRect(x, y, 19, 19); g.globalAlpha = 1;
+      g.strokeStyle = '#05030a'; g.lineWidth = 3; g.strokeRect(x, y, 19, 19);
+    }
+    // a pale figure worked into the window
+    g.fillStyle = 'rgba(210,200,210,0.5)';
+    g.beginPath(); g.ellipse(w / 2, h * 0.36, 12, 16, 0, 0, 7); g.fill();
+    g.fillRect(w / 2 - 12, h * 0.46, 24, 60);
+  });
+  TEX.tapestry = canvasTex(128, 256, (g, w, h) => {
+    g.fillStyle = '#3a0e16'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 30; i++) { g.strokeStyle = 'rgba(20,6,10,' + rand(0.2, 0.5).toFixed(2) + ')'; g.lineWidth = rand(1, 3); const y = rand(h); g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + rand(-4, 4)); g.stroke(); }
+    // faded gold crest
+    g.strokeStyle = 'rgba(150,120,50,0.5)'; g.lineWidth = 3;
+    g.beginPath(); g.arc(w / 2, h * 0.4, 26, 0, 7); g.stroke();
+    g.fillStyle = 'rgba(150,120,50,0.4)';
+    g.beginPath(); g.moveTo(w / 2, h * 0.28); g.lineTo(w / 2 - 14, h * 0.5); g.lineTo(w / 2 + 14, h * 0.5); g.closePath(); g.fill();
+    grime(g, w, h, 80, 0.25);
+  });
+  TEX.countessFace = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#e8dfe0'; g.fillRect(0, 0, w, h);
+    grime(g, w, h, 30, 0.08);
+    // sunken cheeks
+    g.fillStyle = 'rgba(120,90,110,0.35)';
+    g.beginPath(); g.ellipse(34, 84, 12, 22, 0.3, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(94, 84, 12, 22, -0.3, 0, 7); g.fill();
+    // black-lidded eyes with red irises
+    g.fillStyle = '#120810';
+    g.beginPath(); g.ellipse(42, 50, 16, 11, 0.05, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(86, 50, 16, 11, -0.05, 0, 7); g.fill();
+    g.fillStyle = '#c81818';
+    g.beginPath(); g.arc(42, 51, 5, 0, 7); g.fill();
+    g.beginPath(); g.arc(86, 51, 5, 0, 7); g.fill();
+    g.fillStyle = '#050203';
+    g.beginPath(); g.arc(42, 51, 2, 0, 7); g.fill();
+    g.beginPath(); g.arc(86, 51, 2, 0, 7); g.fill();
+    // dark brows
+    g.strokeStyle = '#160a10'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(28, 38); g.quadraticCurveTo(42, 34, 56, 40); g.stroke();
+    g.beginPath(); g.moveTo(72, 40); g.quadraticCurveTo(86, 34, 100, 38); g.stroke();
+    // red mouth, a little open, blood at the corner
+    g.fillStyle = '#8a0e18';
+    g.beginPath(); g.ellipse(64, 98, 15, 9, 0, 0, 7); g.fill();
+    g.fillStyle = '#e8dfe0'; g.fillRect(54, 92, 20, 4); // pale teeth
+    g.fillStyle = 'rgba(120,10,16,0.85)';
+    g.fillRect(74, 100, 4, 22); g.fillRect(52, 101, 3, 16);
+  });
+}
+
+/* ---------------- the Countess (chapter-five stalker rig) ---------------- */
+function buildCountess() {
+  const g = new THREE.Group();
+  const gown = new THREE.MeshStandardMaterial({ color: 0x5a0a16, roughness: 0.7, metalness: 0.1 });
+  const trim = new THREE.MeshStandardMaterial({ color: 0x1a0308, roughness: 0.6 });
+  const pale = new THREE.MeshStandardMaterial({ color: 0xe8dfe0, roughness: 0.55 });
+  const hairD = new THREE.MeshStandardMaterial({ color: 0x0c0810, roughness: 1 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xb89a4a, metalness: 0.8, roughness: 0.3 });
+  // a long crimson gown to the floor
+  const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.58, 1.5, 14), gown);
+  skirt.position.y = 0.75; g.add(skirt);
+  const waist = box(0.32, 0.34, 0.26, gown); waist.position.y = 1.5; g.add(waist);
+  const chest = box(0.42, 0.5, 0.3, gown); chest.position.y = 1.82; chest.rotation.x = 0.06; g.add(chest);
+  const collar = box(0.5, 0.26, 0.34, trim); collar.position.set(0, 2.06, -0.04); g.add(collar); // high gothic collar
+  const headG = new THREE.Group(); headG.position.set(0, 2.24, 0.06); g.add(headG);
+  const head = box(0.24, 0.3, 0.26, pale); headG.add(head);
+  const faceC = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.3),
+    new THREE.MeshStandardMaterial({ map: TEX.countessFace, roughness: 0.6 }));
+  faceC.position.set(0, 0, 0.135); headG.add(faceC);
+  // long black hair
+  const hb = box(0.3, 1.1, 0.1, hairD); hb.position.set(0, -0.5, -0.15); headG.add(hb);
+  for (const s of [-1, 1]) { const hs = box(0.09, 0.8, 0.22, hairD); hs.position.set(s * 0.15, -0.28, 0); headG.add(hs); }
+  // a thin blood-red circlet
+  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.02, 6, 16), gold);
+  crown.rotation.x = Math.PI / 2; crown.position.y = 0.16; headG.add(crown);
+  const gem = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshStandardMaterial({ color: 0xc81020, emissive: 0x6a0810, emissiveIntensity: 0.6 }));
+  gem.position.set(0, 0.15, 0.14); headG.add(gem);
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff1e1e }));
+    eye.position.set(s * 0.058, 0.02, 0.14); headG.add(eye);
+  }
+  const eyeGlow = new THREE.PointLight(0xff2020, 0.4, 3, 2); eyeGlow.position.set(0, 0.02, 0.28); headG.add(eyeGlow);
+  const mkL = (isArm, side) => {
+    const pivot = new THREE.Group();
+    const seg = box(isArm ? 0.11 : 0.15, isArm ? 0.66 : 0.92, isArm ? 0.11 : 0.16, gown);
+    seg.position.y = -(isArm ? 0.33 : 0.46);
+    pivot.add(seg);
+    if (isArm) {
+      const hand = box(0.08, 0.12, 0.05, pale); hand.position.y = -0.7; pivot.add(hand);
+      for (let i = 0; i < 3; i++) { const claw = box(0.012, 0.09, 0.012, pale); claw.position.set(-0.02 + i * 0.02, -0.8, 0.02); pivot.add(claw); }
+    }
+    pivot.position.set(side * (isArm ? 0.33 : 0.14), isArm ? 1.94 : 1.02, 0);
+    g.add(pivot);
+    return pivot;
+  };
+  const lArm = mkL(true, -1), rArm = mkL(true, 1);
+  const lLeg = mkL(false, -1), rLeg = mkL(false, 1);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.scale.setScalar(1.04);
+  worldRoot.add(g);
+  countessRig = { grp: g, lArm, rArm, lLeg, rLeg, headG, lantern: null, homeX: cw(17), homeZ: cw(2) };
+}
+
+/* ---------------- the castle ---------------- */
+function coffin(x, z, ry, label) {
+  const g = new THREE.Group();
+  const body = box(0.85, 2.1, 0.6, MAT.woodDark); body.position.y = 1.05; g.add(body);
+  const lidTop = box(0.7, 0.06, 0.46, new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.7 }));
+  lidTop.position.set(0, 2.06, 0.08); g.add(lidTop);
+  const cross = box(0.06, 0.5, 0.03, MAT.metal); cross.position.set(0, 1.5, 0.32); g.add(cross);
+  const crossB = box(0.28, 0.06, 0.03, MAT.metal); crossB.position.set(0, 1.62, 0.32); g.add(crossB);
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  g.position.set(x, 0, z); g.rotation.y = ry; worldRoot.add(g);
+  const cs = Math.abs(Math.sin(ry)) > 0.5 ? [0.6, 0.85] : [0.85, 0.6];
+  addCollider(x, z, cs[0], cs[1]);
+  hideSpots.push({ x, z, ry, frontX: x + Math.sin(ry) * 0.9, frontZ: z + Math.cos(ry) * 0.9, label: label || 'coffin' });
+}
+function buildCastle() {
+  buildTextures5();
+  beginWorld(WH5, MAP1, ROOMS5);
+  WH5.stalker = 'countess';
+  WH5.patrolKeys = PATROL_KEYS;
+  WH5.envCfg = ENV5_CASTLE;
+  WH5.exitMark = { x: 28, z: 29.4, label: 'GREAT DOORS ⇩' };
+  WH5.marks = [];
+  const stoneMat = new THREE.MeshStandardMaterial({ map: TEX.stone, roughness: 0.95, bumpMap: TEX.stone, bumpScale: 0.03 });
+  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.stonefloor, roughness: 0.8, bumpMap: TEX.stonefloor, bumpScale: 0.02 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), floorMat);
+  floor.rotation.x = -Math.PI / 2; floor.position.set(GW * CELL / 2, 0, GH * CELL / 2);
+  floor.receiveShadow = true; worldRoot.add(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), new THREE.MeshStandardMaterial({ color: 0x14101a, roughness: 1 }));
+  ceil.rotation.x = Math.PI / 2; ceil.position.set(GW * CELL / 2, WALLH, GH * CELL / 2); worldRoot.add(ceil);
+  const wallGeo = new THREE.BoxGeometry(CELL, WALLH, CELL);
+  for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++) {
+    if (cellAt(x, z) !== '#') continue;
+    let vis = false;
+    for (let oz = -1; oz <= 1 && !vis; oz++) for (let ox = -1; ox <= 1; ox++)
+      if (cellAt(x + ox, z + oz) !== '#') { vis = true; break; }
+    if (!vis) continue;
+    const m = new THREE.Mesh(wallGeo, stoneMat);
+    m.position.set(cw(x), WALLH / 2, cw(z));
+    m.castShadow = true; m.receiveShadow = true; worldRoot.add(m);
+  }
+  for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++)
+    if (cellAt(x, z) === '+') makeDoor(x, z, {});
+  makeFrontDoor();
+  frontDoor.locked = true; frontDoor.target = 0;
+
+  // iron chandeliers with candle-light
+  const chand = (x, z, inten) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 6, 16), MAT.metal);
+    ring.rotation.x = Math.PI / 2; ring.position.set(x, WALLH - 0.5, z); worldRoot.add(ring);
+    const chainM = box(0.02, 0.5, 0.02, MAT.metal); chainM.position.set(x, WALLH - 0.25, z); worldRoot.add(chainM);
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * Math.PI * 2;
+      const cnd = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.14, 6), MAT.white);
+      cnd.position.set(x + Math.cos(a) * 0.38, WALLH - 0.42, z + Math.sin(a) * 0.38); worldRoot.add(cnd);
+      const fl = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffd070 }));
+      fl.position.set(x + Math.cos(a) * 0.38, WALLH - 0.33, z + Math.sin(a) * 0.38); worldRoot.add(fl);
+    }
+    const li = new THREE.PointLight(0xffb050, inten, 12, 1.8);
+    li.position.set(x, WALLH - 0.5, z); li.castShadow = false; worldRoot.add(li);
+    flickerLights.push({ light: li, base: inten, flicker: 0.35, t: rand(10), bulb: null });
+  };
+  chand(cw(4), cw(2.5), 0.6); chand(cw(11.5), cw(2.5), 0.7); chand(cw(20.5), cw(2.5), 0.6);
+  chand(cw(7), cw(6.5), 0.6); chand(cw(19), cw(6.5), 0.6);
+  chand(cw(14.5), cw(11), 0.8); chand(cw(19.5), cw(11), 0.55); chand(cw(3), cw(11), 0.5);
+  chand(cw(9), cw(11), 0.55); chand(cw(24), cw(11), 0.45);
+
+  // stained-glass windows on the north wall, glowing with the storm
+  for (const x of [3, 6, 11, 13, 17, 21, 24]) {
+    const m = new THREE.MeshStandardMaterial({ map: TEX.glass, emissive: 0x201028, emissiveIntensity: 0.6, emissiveMap: TEX.glass, roughness: 0.4 });
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), m);
+    win.position.set(cw(x), 2.0, CELL + 0.02); worldRoot.add(win);
+    windowMats.push(m);
+    // pointed arch over each
+    const arch = new THREE.Mesh(new THREE.ConeGeometry(0.85, 0.7, 3), MAT.woodDark);
+    arch.rotation.y = Math.PI / 4; arch.position.set(cw(x), 3.25, CELL + 0.05); worldRoot.add(arch);
+  }
+
+  // tapestries and grim portraits along the walls
+  const tapestry = (x, y, z, ry) => {
+    const t = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 2.2), new THREE.MeshStandardMaterial({ map: TEX.tapestry, roughness: 1 }));
+    t.position.set(x, y, z); t.rotation.y = ry; worldRoot.add(t);
+  };
+  tapestry(cw(6), 1.9, 5 * CELL + CELL + 0.03, 0);
+  tapestry(cw(23), 1.9, 5 * CELL + CELL + 0.03, 0);
+  tapestry(cw(9), 1.9, 8 * CELL - 0.03, Math.PI);
+  const portrait = (x, z, ry) => {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 1.3), new THREE.MeshStandardMaterial({ map: TEX.painting, roughness: 0.85 }));
+    p.position.set(x, 2.0, z); p.rotation.y = ry; worldRoot.add(p);
+    const frame = box(1.05, 1.42, 0.05, new THREE.MeshStandardMaterial({ color: 0x6a5220, metalness: 0.6, roughness: 0.4 }));
+    frame.position.set(x, 2.0, z + (ry === 0 ? -0.02 : 0.02) * (ry === 0 ? 1 : -1)); frame.rotation.y = ry; worldRoot.add(frame);
+  };
+  portrait(cw(3), 5 * CELL + CELL + 0.02, 0);
+  portrait(cw(16), 5 * CELL + CELL + 0.02, 0);
+  portrait(cw(21), 8 * CELL - 0.02, Math.PI);
+
+  // blood down the stone, and warnings in it
+  const bloodAt = (x, z, s) => {
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(s, s), MAT.blood);
+    b.rotation.x = -Math.PI / 2; b.rotation.z = rand(7);
+    b.position.set(x, 0.012 + rand(0.004), z); worldRoot.add(b);
+  };
+  bloodAt(cw(14.5), cw(11), 2.2); bloodAt(cw(11.5), cw(2.5), 1.6); bloodAt(cw(9), cw(11.5), 1.4);
+  bloodAt(cw(20.5), cw(2.5), 1.5); bloodAt(cw(24), cw(12), 1.8);
+  for (let i = 0; i < 8; i++) bloodAt(cw(13) + i * 0.8, cw(7) + Math.sin(i) * 0.2, 0.7);
+
+  // scrawled in dried blood
+  castleScrawl('DRINK OR BE DRUNK', cw(13.5), 2.1, 5 * CELL + CELL + 0.03, 0, 3.6);
+  castleScrawl('NO DAWN HERE', 4.6, 2.0, 8 * CELL + CELL + 0.03, 0, 2.4);
+
+  // hanging chains and worse in the dungeon
+  for (let i = 0; i < 3; i++) {
+    const ch = box(0.03, rand(0.9, 1.5), 0.03, MAT.metal);
+    put(ch, cw(23.6) + i * 0.7, WALLH - ch.geometry.parameters.height / 2, cw(10.5), 0, false);
+    const carc = box(0.32, rand(0.7, 1.0), 0.24, new THREE.MeshStandardMaterial({ map: TEX.gore, roughness: 0.9 }));
+    put(carc, cw(23.6) + i * 0.7, 1.6, cw(10.5), rand(0.6));
+  }
+  // an iron maiden in the dungeon
+  const maiden = box(0.7, 2.0, 0.5, MAT.metal); put(maiden, cw(24.4), 1.0, cw(13.2), 0.3); addCollider(cw(24.4), cw(13.2), 0.8, 0.6);
+
+  // the chapel: an altar of black stone
+  const altar = box(1.4, 0.9, 0.7, stoneMat); put(altar, cw(9), 0.45, cw(12.6)); addCollider(cw(9), cw(12.6), 1.4, 0.7); blockCell(9, 12);
+  for (const sx of [-0.5, 0.5]) {
+    const cnd = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.4, 8), MAT.white);
+    cnd.position.set(cw(9) + sx, 1.1, cw(12.6)); worldRoot.add(cnd);
+    const fl2 = new THREE.PointLight(0xffb050, 0.4, 5, 2); fl2.position.set(cw(9) + sx, 1.35, cw(12.6)); worldRoot.add(fl2);
+    flickerLights.push({ light: fl2, base: 0.4, flicker: 0.5, t: rand(10), bulb: null });
+  }
+
+  // long banquet table in the Great Hall, set for a feast of dust
+  const tbl = box(3.4, 0.1, 1.2, MAT.woodDark); put(tbl, cw(11.5), 0.86, cw(2.5)); addCollider(cw(11.5), cw(2.5), 3.4, 1.2);
+  blockCell(10, 2); blockCell(11, 2); blockCell(12, 2);
+  for (let i = 0; i < 5; i++) {
+    const gob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.14, 8), new THREE.MeshStandardMaterial({ color: 0xb89a4a, metalness: 0.7, roughness: 0.3 }));
+    gob.position.set(cw(10) + i * 0.75, 0.98, cw(2.5)); worldRoot.add(gob);
+  }
+  // library shelves
+  const shelfC = box(3, 2.2, 0.4, MAT.woodDark); put(shelfC, cw(19.5), 1.1, 9 * CELL + 0.25); addCollider(cw(19.5), 9 * CELL + 0.25, 3, 0.5); blockCell(19, 9); blockCell(20, 9);
+
+  // the three relics, on their pedestals
+  const relicSpots = [
+    { key: 'gallery', room: 'Gallery', x: cw(20.5), z: cw(2.5) },
+    { key: 'chapel', room: 'the Chapel altar', x: cw(9), z: cw(11.5) },
+    { key: 'library', room: 'the Library', x: cw(19.7), z: cw(12.3) },
+  ];
+  relicSpots.forEach((r, i) => {
+    if (r.key !== 'chapel') {
+      const ped = box(0.5, 0.9, 0.5, stoneMat); put(ped, r.x, 0.45, r.z); addCollider(r.x, r.z, 0.5, 0.5);
+    }
+    addItem('relic' + i, relicMesh(i), r.x, 1.12, r.z, 'take the blood relic', () => gotRelic(i, r.room));
+    WH5.marks.push({ t: '🩸', x: r.x, z: r.z });
+  });
+
+  // hiding coffins
+  coffin(cw(1.5), cw(13), Math.PI / 2, 'coffin');
+  coffin(cw(21.4), cw(9.4), 0, 'sarcophagus');
+  coffin(cw(2), cw(9.4), 0, 'coffin');
+
+  // a little mercy
+  const mk5 = (id, x, y, z) => addItem(id, medkitMesh(), x, y, z, 'take the first aid kit', () => {
+    INV.medkits++; toast('First Aid Kit (' + INV.medkits + ') — press Q to heal'); updateHud();
+  });
+  mk5('med5a', cw(16.3), 1.0, cw(12.8));
+  mk5('med5b', cw(4.2), 1.0, cw(11.5));
+
+  sealWorld(WH5);
+  // and her, drifting the halls
+  worldRoot = WH5.group;
+  buildCountess();
+}
+function castleScrawl(text, x, y, z, ry, sw) {
+  // reuse the hand-smeared blood lettering look from the house
+  const tex = canvasTex(1024, 384, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    const bloods = ['#6e0d08', '#7d1009', '#570a06', '#8a1a0c'];
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    const step = Math.min(72, (w - 120) / Math.max(1, text.length - 1));
+    for (let i = 0; i < text.length; i++) {
+      const chx = w / 2 + (i - (text.length - 1) / 2) * step, chy = h * 0.4 + rand(-14, 14);
+      g.save(); g.translate(chx, chy); g.rotate(rand(-0.16, 0.16)); g.scale(rand(0.85, 1.2), rand(0.9, 1.35));
+      g.font = 'bold 88px Georgia, serif';
+      for (let p = 0; p < 4; p++) { g.fillStyle = bloods[(i + p) % 4]; g.globalAlpha = p === 0 ? 0.92 : rand(0.25, 0.5); g.fillText(text[i], rand(-3.5, 3.5), rand(-3.5, 3.5)); }
+      g.globalAlpha = 1; g.restore();
+    }
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(sw, sw * 0.375),
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 1, depthWrite: false }));
+  m.position.set(x, y, z); m.rotation.y = ry; worldRoot.add(m);
+}
+function relicMesh(i) {
+  const g = new THREE.Group();
+  const colors = [0x8a1020, 0x6a1030, 0x8a2010];
+  const vial = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12),
+    new THREE.MeshStandardMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: 0.5, roughness: 0.15, metalness: 0.3 }));
+  vial.position.y = 0.06; g.add(vial);
+  const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.08, 8),
+    new THREE.MeshStandardMaterial({ color: 0xb89a4a, metalness: 0.8, roughness: 0.3 }));
+  stand.position.y = -0.04; g.add(stand);
+  return g;
+}
+function gotRelic(i, roomName) {
+  ch5relics++;
+  toast('Blood relic (' + ch5relics + '/3)');
+  updateHud();
+  noiseEvent(player.x, player.z, 60, true);
+  // every relic wakes her further — faster, hungrier
+  COUNTESS_P.chase = 4.0 + ch5relics * 0.3;
+  COUNTESS_P.patrol = 1.6 + ch5relics * 0.4;
+  COUNTESS_P.attackCd = Math.max(1.7, 2.4 - ch5relics * 0.25);
+  killer.huntT = Math.min(killer.huntT, 8);
+  if (killer.active && killer.state !== 'chase') startChase();
+  if (ch5relics >= 3) {
+    frontDoor.locked = false; frontDoor.target = 1;
+    AU.unlock(); AU.slam();
+    setObjective('ESCAPE — through the great doors');
+    caption('The third relic leaves its cradle and every candle in the castle flares blood-red. The great doors groan open. RUN.', 5.5);
+    for (const dr of doors) dr.target = 0;
+  } else {
+    setObjective('Find the blood relics (' + ch5relics + '/3)');
+    caption(ch5relics === 1
+      ? 'The relic is warm, and beats once, like a heart. Far off, silk stops moving — then rushes toward you.'
+      : 'Another relic. The whole castle seems to lean toward you now, listening. She is close.', 4.5);
+  }
+}
+
+/* ---------------- chapter-five flow ---------------- */
+function startChapter5() {
+  chapter = 5; ch5phase = 1; ch5relics = 0;
+  COUNTESS_P.chase = 4.0; COUNTESS_P.patrol = 1.6; COUNTESS_P.attackCd = 2.4;
+  killer.active = false;
+  state = 'chapter';
+  hideOverlays();
+  $('chapterTitle').textContent = 'CHAPTER FIVE';
+  $('chapterSub').textContent = 'RAVENMOOR';
+  $('chapterCard').classList.add('show');
+  if (document.exitPointerLock) document.exitPointerLock();
+  setTimeout(() => {
+    if (!WH5) { WH5 = { group: new THREE.Group() }; buildCastle(); }
+    activateWorld(WH5);
+    player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0; player.pitch = 0;
+    player.vx = player.vz = 0;
+    player.health = 100; player.stamina = 100;
+    killer.grace = 8;
+    updateHud();
+    setObjective('Find a way out of the castle');
+  }, 1000);
+  setTimeout(() => {
+    $('chapterCard').classList.remove('show');
+    state = 'play'; lockPointer();
+    playVideoCutscene('castle', () => playCutscene(CS10, () => {
+      setObjective('Find the blood relics (0/3)');
+      caption('Three relics hold her seal on the doors. Take all three — and whatever you do, do not let her get her mouth to your throat.', 6);
+    }));
+  }, 3400);
+}
+function endChapter5() {
+  state = 'win';
+  const t = Math.floor((performance.now() - startTime) / 1000);
+  $('winTitle').textContent = 'THE HOLLOW HOUSE — DAWN AT LAST';
+  $('winText').textContent = 'The great doors slam behind the three of you and the first real sunrise any of you has seen in a week comes up over the moor. Inside, the Countess shrieks as her stolen night ends — and Ravenmoor, without her, is only an old cold ruin full of rain. You walk down the hill toward a road, and a bus stop, and a life. Nothing is hunting you. Nothing at all.';
+  $('winStats').textContent = 'Time: ' + Math.floor(t / 60) + 'm ' + (t % 60) + 's · Deaths: ' + deaths + ' · Thank you for playing';
+  showOverlay('winOv');
+  if (document.exitPointerLock) document.exitPointerLock();
+  AU.thunder();
+}
+
+/* ---------------- chapter-five per-frame ---------------- */
+function ch5Update(dt) {
+  if (chapter !== 5 || state !== 'play' || curWorld !== WH5) return;
+  candleT5 -= dt;
+  if (candleT5 <= 0) { candleT5 = rand(3, 8); if (dist2(player.x, player.z, killer.x, killer.z) < 22) AU.creak(rand(-1, 1)); }
+  if (!ch5Seen.hall && ch5phase === 1 && killer.state !== 'chase' && roomOf(player.x, player.z) === 'hall') {
+    ch5Seen.hall = true;
+    for (const fl of flickerLights) fl.offT = 1.6;
+    killer.grace = 4; killer.state = 'patrol'; killer.path = null; killer.detect = 0;
+    killer.x = player.x < GW * CELL / 2 ? cw(24) : cw(2); killer.z = cw(6.5);
+    killer.yaw = Math.atan2(player.x - killer.x, player.z - killer.z);
+    killer.grp.position.set(killer.x, 0, killer.z);
+    AU.growl(panTo(killer), 0.3);
+    setTimeout(() => { L = 1; AU.thunder(); }, 400);
+    setTimeout(() => {
+      if (killer.state !== 'chase') { killer.x = cw(20); killer.z = cw(2); killer.path = null; killer.grp.position.set(killer.x, 0, killer.z); }
+      if (state === 'play') caption('At the far end of the gallery a woman in red stands with her back to you. When the lightning passes, she is gone.', 5);
+    }, 1700);
+  }
+  if (!ch5Seen.portrait && dist2(player.x, player.z, cw(3), 5 * CELL + CELL) < 3.5) {
+    ch5Seen.portrait = true;
+    caption('The portrait is of a bride in red, centuries old. The little brass plate reads only: THE COUNTESS — AND HER GUESTS. You are in the painting too.', 6);
+  }
+  if (!ch5Seen.crypt && dist2(player.x, player.z, cw(24), cw(11)) < 3.5) {
+    ch5Seen.crypt = true;
+    caption('The chains still swing a little, as if something just left. The dungeon floor is dark and sticky and very old.', 5);
+  }
+}
+
+/* ---------------- chapter-five dialogue ---------------- */
+const CS10 = [
+  { who: '', text: 'The road home floods in the storm. The three of you run for the only light on the moor — a black castle on the ridge, its doors already open, as if it expected you.' },
+  { who: 'ASH', text: '“Okay. So. A creepy castle. In a storm. After everything. …Sure. Why not. In we go.”' },
+  { who: '', text: 'The moment the last of you is inside, the great doors swing shut on their own. The bolt falls with a sound like a coffin lid.' },
+  { who: 'MARA', text: '“That was not the wind. Somebody shut us in.” She turns slowly, taking in the blood on the stone. “…somebody who has done this before.”' },
+  { who: 'THE COUNTESS', text: 'A voice like cold silk, from everywhere at once: “Welcome, travellers. You are soaked to the bone, and I have such a warm appetite. Do make yourselves… comfortable.”' },
+  { who: '', text: 'Ash and Mara bar themselves in the entrance hall. It falls to you to find the way out — before she finds you.' },
 ];
 
 /* -------------------------------------------------------------- input/lock */
@@ -5101,12 +5637,44 @@ function skipToChapter4Direct() {
   state = 'play';
   startChapter4();
 }
+function skipToChapter5() {
+  if (chapter !== 4) return;
+  hideOverlays();
+  killer.active = false;
+  player.health = 100; player.stamina = 100; player.dead = false;
+  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
+  flashlight.intensity = player.flash ? 2.6 : 0;
+  updateHud();
+  state = 'play';
+  startChapter5();
+}
+function skipToChapter5Direct() {
+  if (chapter >= 5) return;
+  AU.init();
+  if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
+  if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
+  hideOverlays();
+  if (!startTime) startTime = performance.now();
+  INV.wolf = INV.owl = INV.serpent = true; INV.emblems = 3;
+  INV.rustyKey = true; noteRead = true;
+  INV.venin = true; INV.remedy = true;
+  INV.medkits = Math.max(INV.medkits, 2);
+  ch2phase = 4; ch3phase = 7; ch4phase = 4;
+  player.health = 100; player.stamina = 100; player.dead = false;
+  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
+  flashlight.intensity = player.flash ? 2.6 : 0;
+  chapter = 4;
+  updateHud();
+  state = 'play';
+  startChapter5();
+}
 function refreshPauseSkip() {
   const sk = $('skipHold2');
-  sk.style.display = chapter <= 3 ? '' : 'none';
+  sk.style.display = chapter <= 4 ? '' : 'none';
   const span = sk.querySelector('span');
   if (span) span.textContent = chapter === 1 ? 'HOLD 5s — SKIP TO CHAPTER TWO'
-    : chapter === 2 ? 'HOLD 5s — SKIP TO CHAPTER THREE' : 'HOLD 5s — SKIP TO CHAPTER FOUR';
+    : chapter === 2 ? 'HOLD 5s — SKIP TO CHAPTER THREE'
+    : chapter === 3 ? 'HOLD 5s — SKIP TO CHAPTER FOUR' : 'HOLD 5s — SKIP TO CHAPTER FIVE';
 }
 function startGame() {
   AU.init();
@@ -5158,6 +5726,7 @@ function loop(t) {
       forestUpdate(dt);
       ch3Update(dt);
       ch4Update(dt);
+      ch5Update(dt);
       scareChecks();
       currentInteract = scanInteract();
       if (mapOpen) drawMap();
@@ -5219,6 +5788,7 @@ function loop(t) {
         const dkey = dieMode === 'wife' ? null
           : curWorld === WB ? 'deathB'
           : killer.P.name === 'ashm' ? null
+          : killer.P.name === 'countess' ? null
           : killer.P.name === 'widow' ? 'deathW' : 'deathB';
         const showDeath = () => { state = 'dead'; showOverlay('deathOv'); };
         if (dkey) playVideoCutscene(dkey, showDeath);
@@ -5275,10 +5845,12 @@ $('videoOv').addEventListener('click', () => videoNext());
 bindHold('skipHold1', 'skipFill1', 5, skipToChapter2);
 bindHold('skipHold3', 'skipFill3', 5, skipToChapter3Direct);
 bindHold('skipHold4', 'skipFill4', 5, skipToChapter4Direct);
+bindHold('skipHold5', 'skipFill5', 5, skipToChapter5Direct);
 bindHold('skipHold2', 'skipFill2', 5, () => {
   if (chapter === 1) skipToChapter2();
   else if (chapter === 2) skipToChapter3();
   else if (chapter === 3) skipToChapter4();
+  else if (chapter === 4) skipToChapter5();
 });
 showOverlay('title');
 // debug/testing handle
@@ -5288,7 +5860,8 @@ window.HH = {
   getChapter: () => chapter,
   getPhase: () => ch2phase,
   getWorld: () => (curWorld === W1 ? 'house1' : curWorld === WF ? 'forest' : curWorld === WH2 ? 'widow'
-    : curWorld === WB ? 'boat' : curWorld === WI ? 'island' : curWorld === WLH ? 'lighthouse' : 'house4'),
+    : curWorld === WB ? 'boat' : curWorld === WI ? 'island' : curWorld === WLH ? 'lighthouse'
+    : curWorld === WH4 ? 'house4' : curWorld === WH5 ? 'castle' : '?'),
   startChapter2, enterWidowHouse2: () => { ch2phase = Math.max(ch2phase, 2); enterWidowHouse(); },
   answerPhone, cutAdvance,
   isRinging: () => phoneRinging,
@@ -5302,6 +5875,8 @@ window.HH = {
   startChapter4,
   getCh4: () => ({ phase: ch4phase, oil: INV.oil, poured: ch4poured }),
   enterHollowHouse4, igniteHouse,
+  startChapter5, endChapter5,
+  getCh5: () => ({ phase: ch5phase, relics: ch5relics, locked: frontDoor ? frontDoor.locked : null }),
 };
 requestAnimationFrame((t) => { last = t; requestAnimationFrame(loop); });
 

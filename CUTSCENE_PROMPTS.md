@@ -197,11 +197,55 @@ aren't there, the game skips straight to the dialogue.
 > hooded silhouette stands with both hands flat against the glass, not
 > moving, as the flames climb around it.
 
-**23. The true end** (12s)
+**23. Into the storm** (12s)
 > [STYLE] Wide shot at first light: the farmhouse fully ablaze against a
 > paling sky, sparks rising into the last stars, three small figures
 > walking away down a dirt road without looking back. The fire's roar
-> fades under morning birdsong. Slow fade to white — not black, white.
+> fades under morning birdsong. Then hard cut to night again — a car's
+> headlights on a flooded moor road, and a black castle on the ridge.
+
+## CHAPTER FIVE
+
+The game looks for one clip here: `castle` (played as Chapter Five opens).
+Drop it in `assets/cutscenes/` and add it to `CUT_VIDS` in `js/game.js`,
+or via `window.HH_VIDEO_URLS`. If it's missing, the game goes straight to
+the dialogue.
+
+**THE RED COUNTESS:**
+> a tall elegant ancient noblewoman in a floor-length blood-crimson gown
+> with a high black gothic collar, long straight black hair, a pale
+> beautiful gaunt face with black-lidded eyes and glowing red irises, a
+> thin blood-red circlet on her brow, long clawed pale fingers, blood at
+> the corner of her mouth
+
+**24. `castle` — trapped at Ravenmoor** (12s)
+> [STYLE] Night, torrential rain on a bleak moor. Three soaked travellers
+> run up to an enormous black gothic castle whose great iron doors already
+> stand open, warm candlelight within. As the last of them steps inside,
+> the doors swing shut on their own and a heavy bolt drops. Slow push down
+> a vast candlelit stone hall hung with blood-red tapestries and grim
+> portraits, blood streaked down the stonework.
+
+**25. The Countess descends** (10s)
+> [STYLE] A grand gothic staircase lit by iron chandeliers. [THE RED
+> COUNTESS] descends slowly, one pale clawed hand trailing the banister,
+> crimson gown pooling on each step, red eyes fixed on the camera, a small
+> cold smile. Candles gutter as she passes. She stops, tilts her head, and
+> whispers a welcome.
+
+**26. Caught — the Countess feeds** (8s)
+> [STYLE] [THE RED COUNTESS] moves impossibly fast across a stone chamber,
+> gown flaring, and seizes the camera. Her face fills the frame, mouth
+> opening far too wide over pale fangs. The frame floods deep red; a single
+> drip runs down the lens; then black.
+
+**27. Dawn at last — the true ending** (12s)
+> [STYLE] The great iron doors burst open onto a pale gold sunrise over the
+> moor. Three exhausted figures stumble out into real daylight as, behind
+> them in the dark doorway, [THE RED COUNTESS] shrieks and recoils from the
+> light, dissolving into dust and shadow. The doors boom shut on an empty
+> ruin. The three walk down the hill toward a distant road. Slow fade to
+> warm white.
 
 ---
 

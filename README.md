@@ -106,8 +106,27 @@ empty. The sea gives back what it is given.
   house kills its own lights, slams every door, and he stops playing:
   a full-dark, no-escape final chase to the front door.
 - **Strike the match.** Get out onto the porch and end it. Houses like his
-  only truly die empty and burning at once. This time the game shows you the
-  TRUE END.
+  only truly die empty and burning at once.
+
+## Chapter Five — Ravenmoor
+
+The road home floods in a storm, and the only shelter on the moor is a huge
+gothic castle whose doors are already open — and slam shut the moment you're
+inside. You're the guests of the **Red Countess**, an ancient blood-drinker
+who has been lonely for a very long time.
+
+- **Trapped in the castle.** Ash and Mara bar themselves in the entrance hall;
+  it falls to you to find the way out. The great doors are sealed by three
+  **blood relics** hidden across the Gallery, the Chapel altar, and the Library.
+- **The Red Countess.** Pale, crimson-gowned, red-eyed, fast and silent — she
+  drifts room to room on silk and drinks her guests dry. Every relic you take
+  **wakes her further** (faster, hungrier), and the third floods the castle red,
+  throws every door shut, and sends her straight at you for a final chase to the
+  great doors.
+- **Gothic and gory:** stone halls, iron chandeliers, stained-glass storms,
+  tapestries and grim portraits, a banquet of dust in the Great Hall, a blood
+  chapel, and a dungeon of chains and worse. Hide in the **coffins** when she
+  closes in. Reach the doors at dawn and the whole nightmare — finally — ends.
 
 ## The other tenants
 

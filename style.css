@@ -177,6 +177,7 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #cfc8bc; }
 #emKey { opacity: 0.18; transition: opacity .4s; }
 #medCount { font-size: 15px; color: #c46a5a; }
 #oilCount { font-size: 15px; color: #c49a4a; }
+#relicCount { font-size: 15px; color: #c04858; }
 #bossBar {
   position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
   text-align: center;
