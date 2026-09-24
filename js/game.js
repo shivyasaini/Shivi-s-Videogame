@@ -1193,7 +1193,7 @@ function updateFlies(dt) {
 
 /* ------------------------------------------------------------------ items */
 let interactables = [];
-const INV = { emblems: 0, owl: false, wolf: false, serpent: false, rustyKey: false, medkits: 0, venin: false, remedy: false, oil: 0 };
+const INV = { emblems: 0, owl: false, wolf: false, serpent: false, rustyKey: false, medkits: 0, venin: false, remedy: false, oil: 0, ironkey: false };
 let itemMeshes = [];
 
 function emblemMesh(color) {
@@ -1806,7 +1806,6 @@ function playerUpdate(dt) {
     caption('Not yet. If it does not all burn at once, it comes back. Soak every marked room first.', 4);
   }
   if (chapter === 4 && curWorld === WH4 && ch4phase === 3 && player.z > 28.9) igniteHouse();
-  if (chapter === 5 && curWorld === WH5 && frontDoor.open > 0.5 && player.z > 28.9) endChapter5();
 }
 
 /* ------------------------------------------------------------- hide spots */
@@ -2001,7 +2000,7 @@ function scanInteract() {
   if (chapter === 1 && frontDoor.locked)
     consider(frontDoor.cx, frontDoor.cz - 0.7, { type: 'front' }, 'E — the sealed front door (' + INV.emblems + '/3 emblems)', 3.2);
   if (chapter === 5 && frontDoor.locked)
-    consider(frontDoor.cx, frontDoor.cz - 0.7, { type: 'front' }, 'E — the great doors, sealed shut (' + ch5relics + '/3 relics)', 3.2);
+    consider(frontDoor.cx, frontDoor.cz - 0.7, { type: 'front' }, 'E — the great doors, barred from outside', 3.2);
   for (const h of hideSpots) consider(h.frontX, h.frontZ, { type: 'hide', h }, 'E — hide in the ' + h.label, 1.9);
   setPrompt(best ? bestPrompt : '');
   return best;
@@ -2026,7 +2025,7 @@ function useFront() {
   if (!frontDoor.locked) return;
   if (chapter === 5) {
     AU.locked();
-    caption('The great doors will not move. Three relics hold her seal on them. (' + ch5relics + '/3)', 3.5);
+    caption('The great doors are barred from the outside — no way out through here. The only way to end this is the dawn bell.', 4);
     return;
   }
   if (INV.emblems >= 3) {
@@ -2059,7 +2058,7 @@ function caption(t, dur = 3) { const el = $('caption'); el.textContent = t; el.s
 function updateHud() {
   if ($('healthFill')) $('healthFill').style.width = clamp(player.health, 0, 100) + '%';
   if ($('medCount')) { $('medCount').textContent = '✚ ' + INV.medkits; $('medCount').style.opacity = INV.medkits ? 1 : 0.25; }
-  if ($('relicCount')) { $('relicCount').style.display = chapter === 5 ? '' : 'none'; $('relicCount').textContent = '🩸 ' + ch5relics + '/3'; }
+  if ($('relicCount')) { $('relicCount').style.display = chapter === 5 ? '' : 'none'; $('relicCount').textContent = INV.ironkey ? '🗝 iron key' : '🗝 —'; }
   // Hollow-House-only inventory (a page may omit these)
   if ($('emWolf')) {
     $('emWolf').className = 'emblem' + (INV.wolf ? ' got' : '');
@@ -4971,7 +4970,7 @@ const CS9 = [
 /*  CHAPTER FIVE — RAVENMOOR: trapped in the Red Countess's castle       */
 /* ===================================================================== */
 let WH5 = null;                 // the castle
-let ch5phase = 0, ch5relics = 0;
+let ch5phase = 0, ch5rung = false;
 let countessRig = null;
 const ch5Seen = { hall: false, portrait: false, crypt: false };
 let candleT5 = 0.5;
@@ -5394,19 +5393,26 @@ function buildCastle() {
   // library shelves
   const shelfC = box(3, 2.2, 0.4, MAT.woodDark); put(shelfC, cw(19.5), 1.1, 9 * CELL + 0.25); addCollider(cw(19.5), 9 * CELL + 0.25, 3, 0.5); blockCell(19, 9); blockCell(20, 9);
 
-  // the three relics, on their pedestals
-  const relicSpots = [
-    { key: 'gallery', room: 'Gallery', x: cw(20.5), z: cw(2.5) },
-    { key: 'chapel', room: 'the Chapel altar', x: cw(9), z: cw(11.5) },
-    { key: 'library', room: 'the Library', x: cw(19.7), z: cw(12.3) },
-  ];
-  relicSpots.forEach((r, i) => {
-    if (r.key !== 'chapel') {
-      const ped = box(0.5, 0.9, 0.5, stoneMat); put(ped, r.x, 0.45, r.z); addCollider(r.x, r.z, 0.5, 0.5);
-    }
-    addItem('relic' + i, relicMesh(i), r.x, 1.12, r.z, 'take the blood relic', () => gotRelic(i, r.room));
-    WH5.marks.push({ t: '🩸', x: r.x, z: r.z });
+  // the DAWN BELL, hung high in the Gallery — ring it and the shutters burst, and the sun takes her
+  const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.72, 0.95, 18, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x7c5a2a, metalness: 0.85, roughness: 0.35, side: THREE.DoubleSide, envMapIntensity: 1.1 }));
+  bell.position.set(cw(20.5), WALLH - 0.72, cw(2.5)); bell.castShadow = true; worldRoot.add(bell);
+  const yoke = box(1.3, 0.16, 0.16, MAT.woodDark); yoke.position.set(cw(20.5), WALLH - 0.15, cw(2.5)); worldRoot.add(yoke);
+  const bellRope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, WALLH - 1.5, 6),
+    new THREE.MeshStandardMaterial({ color: 0x7a5f34, roughness: 1 }));
+  bellRope.position.set(cw(20.5) + 0.25, (WALLH - 1.5) / 2 + 0.25, cw(2.5)); worldRoot.add(bellRope);
+  WH5.bell = bell;
+  interactables.push({
+    x: cw(20.5) + 0.25, z: cw(2.5), y: 1, spin: false,
+    get prompt() { return INV.ironkey ? 'ring the DAWN BELL' : 'the dawn bell — its rope is chained (find the iron key)'; },
+    action() { ringBell(); },
   });
+  WH5.marks.push({ t: '🔔', x: cw(20.5), z: cw(2.5) });
+
+  // the IRON KEY, deep in the dungeon among the chains — the only thing she still fears you reaching
+  const keyHook = box(0.06, 0.3, 0.06, MAT.metal); put(keyHook, cw(24), 1.35, cw(11.2), 0, false);
+  addItem('ironkey', ironKeyMesh(), cw(24), 1.05, cw(11.2), 'take the iron key', gotKey);
+  WH5.marks.push({ t: '🗝', x: cw(24), z: cw(11.2) });
 
   // hiding coffins
   coffin(cw(1.5), cw(13), Math.PI / 2, 'coffin');
@@ -5454,45 +5460,58 @@ function castleScrawl(text, x, y, z, ry, sw) {
     new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 1, depthWrite: false }));
   m.position.set(x, y, z); m.rotation.y = ry; worldRoot.add(m);
 }
-function relicMesh(i) {
+function ironKeyMesh() {
   const g = new THREE.Group();
-  const colors = [0x8a1020, 0x6a1030, 0x8a2010];
-  const vial = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12),
-    new THREE.MeshStandardMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: 0.5, roughness: 0.15, metalness: 0.3 }));
-  vial.position.y = 0.06; g.add(vial);
-  const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.08, 8),
-    new THREE.MeshStandardMaterial({ color: 0xb89a4a, metalness: 0.8, roughness: 0.3 }));
-  stand.position.y = -0.04; g.add(stand);
+  const m = new THREE.MeshStandardMaterial({ color: 0x2a2a30, metalness: 0.9, roughness: 0.4 });
+  const shaft = box(0.04, 0.34, 0.04, m); g.add(shaft);
+  const bow = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.022, 8, 16), m); bow.position.y = 0.2; g.add(bow);
+  const tooth1 = box(0.09, 0.04, 0.03, m); tooth1.position.set(0.05, -0.12, 0); g.add(tooth1);
+  const tooth2 = box(0.06, 0.04, 0.03, m); tooth2.position.set(0.04, -0.05, 0); g.add(tooth2);
   return g;
 }
-function gotRelic(i, roomName) {
-  ch5relics++;
-  toast('Blood relic (' + ch5relics + '/3)');
+function gotKey() {
+  INV.ironkey = true; ch5phase = 2;
+  toast('The iron key');
   updateHud();
   noiseEvent(player.x, player.z, 60, true);
-  // every relic wakes her further — faster, hungrier
-  COUNTESS_P.chase = 4.0 + ch5relics * 0.3;
-  COUNTESS_P.patrol = 1.6 + ch5relics * 0.4;
-  COUNTESS_P.attackCd = Math.max(1.7, 2.4 - ch5relics * 0.25);
-  killer.huntT = Math.min(killer.huntT, 8);
+  // taking it wakes her for good — the hunt turns relentless and every door slams
+  COUNTESS_P.chase = 4.6; COUNTESS_P.patrol = 2.2; COUNTESS_P.attackCd = 1.8;
+  killer.huntT = Math.min(killer.huntT, 6);
   if (killer.active && killer.state !== 'chase') startChase();
-  if (ch5relics >= 3) {
-    frontDoor.locked = false; frontDoor.target = 1;
-    AU.unlock(); AU.slam();
-    setObjective('ESCAPE — through the great doors');
-    caption('The third relic leaves its cradle and every candle in the castle flares blood-red. The great doors groan open. RUN.', 5.5);
-    for (const dr of doors) dr.target = 0;
-  } else {
-    setObjective('Find the blood relics (' + ch5relics + '/3)');
-    caption(ch5relics === 1
-      ? 'The relic is warm, and beats once, like a heart. Far off, silk stops moving — then rushes toward you.'
-      : 'Another relic. The whole castle seems to lean toward you now, listening. She is close.', 4.5);
-  }
+  for (const dr of doors) dr.target = 0;
+  for (const fl of flickerLights) fl.offT = 1.2;
+  AU.slam(); AU.growl(0, 0.45);
+  setObjective('Ring the DAWN BELL in the Gallery (🔔)');
+  caption('The iron key is cold as a grave in your fist. Above you, silk hisses down the stairs — fast. GET TO THE BELL.', 5.5);
+}
+function ringBell() {
+  if (chapter !== 5 || ch5rung) return;
+  if (!INV.ironkey) { AU.locked(); caption('The bell-rope is bound with heavy chain. You need the iron key from the dungeon.', 4); return; }
+  ch5rung = true; ch5phase = 3;
+  killer.active = false;
+  AU.unlock();
+  AU.tone(120, 1.8, 'sine', 0.5, 0, 88);
+  setTimeout(() => AU.tone(120, 1.8, 'sine', 0.5, 0, 88), 750);
+  setTimeout(() => AU.tone(118, 2.2, 'sine', 0.5, 0, 86), 1500);
+  setObjective('');
+  caption('You haul on the rope with everything left in you. The DAWN BELL tolls — once — twice — three times — and every shutter in the castle bursts wide.', 6.5);
+  setTimeout(() => {
+    if (state !== 'play') return;
+    // the sun pours in and takes her
+    applyEnv({ fog: 0xe6d6bc, fogD: 0.02, bg: 0xf2e6cc, hemiSky: 0xfff0d0, hemiGround: 0xd8c2a2, hemiI: 1.5, sun: 0xffe6b0, sunI: 1.3, sunPos: [10, 20, 12], storm: false, rain: 0, wind: 0, birds: true });
+    renderer.toneMappingExposure = 1.95;
+    for (const m of windowMats) { m.emissive.setHex(0xffffff); m.emissiveIntensity = 3.2; }
+    if (killer.grp) killer.grp.visible = false;
+    const df = $('damageFlash'); if (df) { df.style.background = 'rgba(255,240,210,0.9)'; df.style.opacity = 0.9; setTimeout(() => { df.style.opacity = 0; }, 1400); }
+    AU.scream();
+    caption('The sunrise floods every hall at once. The Countess throws up her hands — and where the light touches her, she comes apart like ash on a windowsill.', 7);
+  }, 1700);
+  setTimeout(() => { if (state === 'play') endChapter5(); }, 5200);
 }
 
 /* ---------------- chapter-five flow ---------------- */
 function startChapter5() {
-  chapter = 5; ch5phase = 1; ch5relics = 0;
+  chapter = 5; ch5phase = 1; ch5rung = false; INV.ironkey = false;
   COUNTESS_P.chase = 4.0; COUNTESS_P.patrol = 1.6; COUNTESS_P.attackCd = 2.4;
   killer.active = false;
   state = 'chapter';
@@ -5515,8 +5534,8 @@ function startChapter5() {
     $('chapterCard').classList.remove('show');
     state = 'play'; lockPointer();
     playVideoCutscene('castle', () => playCutscene(CS10, () => {
-      setObjective('Find the blood relics (0/3)');
-      caption('Three relics hold her seal on the doors. Take all three — and whatever you do, do not let her get her mouth to your throat.', 6);
+      setObjective('Find the iron key (🗝, in the dungeon)');
+      caption('Old vampire, old rules: sunlight ends her. Find the iron key in the dungeon, then ring the DAWN BELL in the Gallery to throw the shutters. Hide in the coffins when she is near.', 7);
     }));
   }, 3400);
 }
@@ -5998,7 +6017,8 @@ window.HH = {
   getCh4: () => ({ phase: ch4phase, oil: INV.oil, poured: ch4poured }),
   enterHollowHouse4, igniteHouse,
   startChapter5, endChapter5,
-  getCh5: () => ({ phase: ch5phase, relics: ch5relics, locked: frontDoor ? frontDoor.locked : null }),
+  getCh5: () => ({ phase: ch5phase, ironkey: INV.ironkey, rung: ch5rung }),
+  ringBell,
 };
 requestAnimationFrame((t) => { last = t; requestAnimationFrame(loop); });
 

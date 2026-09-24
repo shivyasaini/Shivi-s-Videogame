@@ -156,14 +156,17 @@ gothic castle whose doors bolt shut behind you and your two friends. It
 belongs to the **Red Countess** — an ancient blood-drinker, pale and
 crimson-gowned, fast and silent on silk.
 
-- **The goal:** find the three **blood relics** (in the Gallery, the Chapel
-  altar, and the Library) that seal her great doors, then escape into the dawn.
-- **She wakes as you go:** every relic you take makes the Countess faster and
-  hungrier; the third floods the castle blood-red, slams every door, and sends
-  her straight at you for a final chase to the doors.
-- **Gothic and gory:** stone halls, iron chandeliers, stained-glass storms,
-  tapestries and grim portraits, a banquet of dust, a blood chapel, and a
-  dungeon of chains. Hide in the **coffins** when she drifts near.
+- **The goal:** she's a vampire, so **sunlight** ends her. Find the one **iron
+  key** hidden deep in her **dungeon**, then ring the **dawn bell** high in the
+  Gallery — the shutters burst open, the sunrise floods every hall, and she
+  burns. No collect-a-thon: one key, one bell.
+- **Two phases:** the first half is quiet, tense exploration of a dark castle.
+  The moment you take the iron key, she wakes for good — faster, relentless,
+  every door slamming — and the second half is a flat-out chase to the bell.
+- **Gothic and grand:** marble floors, a crimson-and-gold carpeted nave, gilded
+  columns and chandeliers, moonlit stained glass, a vaulted gold-ribbed ceiling,
+  drifting dust, a blood chapel, and a dungeon of chains. Hide in the **coffins**
+  when she drifts near — and never let her mouth reach your throat.
 
 It's its own story with its own characters — nothing to do with the Hollow
 House — just built on the same bones.
