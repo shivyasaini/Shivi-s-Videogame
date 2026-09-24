@@ -197,19 +197,22 @@ aren't there, the game skips straight to the dialogue.
 > hooded silhouette stands with both hands flat against the glass, not
 > moving, as the flames climb around it.
 
-**23. Into the storm** (12s)
+**23. The true end** (12s)
 > [STYLE] Wide shot at first light: the farmhouse fully ablaze against a
 > paling sky, sparks rising into the last stars, three small figures
 > walking away down a dirt road without looking back. The fire's roar
-> fades under morning birdsong. Then hard cut to night again — a car's
-> headlights on a flooded moor road, and a black castle on the ridge.
+> fades under morning birdsong. Slow fade to warm white. This is where
+> The Hollow House ends.
 
-## CHAPTER FIVE
+---
 
-The game looks for one clip here: `castle` (played as Chapter Five opens).
-Drop it in `assets/cutscenes/` and add it to `CUT_VIDS` in `js/game.js`,
-or via `window.HH_VIDEO_URLS`. If it's missing, the game goes straight to
-the dialogue.
+# RAVENMOOR — a separate game
+
+These clips are for **Ravenmoor**, the standalone castle game
+(`ravenmoor.html`), not for The Hollow House. It looks for one clip:
+`castle` (played as the game opens). Drop it in `assets/cutscenes/` and add
+it to `CUT_VIDS` in `js/game.js`, or via `window.HH_VIDEO_URLS`. If it's
+missing, the game goes straight to the dialogue.
 
 **THE RED COUNTESS:**
 > a tall elegant ancient noblewoman in a floor-length blood-crimson gown

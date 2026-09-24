@@ -9,6 +9,11 @@
 
 (function () {
 
+// Which game this page boots: 'hollow' (The Hollow House, 4 chapters) or
+// 'ravenmoor' (the standalone Red Countess castle game). Set by the page
+// before this script loads; defaults to The Hollow House.
+const GAME = (typeof window !== 'undefined' && window.HH_GAME) || 'hollow';
+
 /* ------------------------------------------------------------------ utils */
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -2052,21 +2057,22 @@ let toastT = 0, capT = 0;
 function toast(t) { const el = $('toast'); el.textContent = t; el.style.opacity = 1; toastT = 3; }
 function caption(t, dur = 3) { const el = $('caption'); el.textContent = t; el.style.opacity = 1; capT = dur; }
 function updateHud() {
-  $('healthFill').style.width = clamp(player.health, 0, 100) + '%';
-  $('emWolf').className = 'emblem' + (INV.wolf ? ' got' : '');
-  $('emOwl').className = 'emblem' + (INV.owl ? ' got' : '');
-  $('emSerpent').className = 'emblem' + (INV.serpent ? ' got' : '');
-  $('emKey').style.opacity = INV.rustyKey ? 1 : 0.18;
-  $('medCount').textContent = '✚ ' + INV.medkits;
-  $('medCount').style.opacity = INV.medkits ? 1 : 0.25;
-  $('emVenin').style.display = chapter >= 2 && chapter < 4 ? '' : 'none';
-  $('emRemedy').style.display = chapter >= 2 && chapter < 4 ? '' : 'none';
-  $('emVenin').className = 'emblem vialV' + (INV.venin ? ' got' : '');
-  $('emRemedy').className = 'emblem vialR' + (INV.remedy ? ' got' : '');
-  $('oilCount').style.display = chapter === 4 && ch4phase === 1 ? '' : 'none';
-  $('oilCount').textContent = '🛢 ' + INV.oil + '/3';
-  $('relicCount').style.display = chapter === 5 ? '' : 'none';
-  $('relicCount').textContent = '🩸 ' + ch5relics + '/3';
+  if ($('healthFill')) $('healthFill').style.width = clamp(player.health, 0, 100) + '%';
+  if ($('medCount')) { $('medCount').textContent = '✚ ' + INV.medkits; $('medCount').style.opacity = INV.medkits ? 1 : 0.25; }
+  if ($('relicCount')) { $('relicCount').style.display = chapter === 5 ? '' : 'none'; $('relicCount').textContent = '🩸 ' + ch5relics + '/3'; }
+  // Hollow-House-only inventory (a page may omit these)
+  if ($('emWolf')) {
+    $('emWolf').className = 'emblem' + (INV.wolf ? ' got' : '');
+    $('emOwl').className = 'emblem' + (INV.owl ? ' got' : '');
+    $('emSerpent').className = 'emblem' + (INV.serpent ? ' got' : '');
+    $('emKey').style.opacity = INV.rustyKey ? 1 : 0.18;
+    $('emVenin').style.display = chapter >= 2 && chapter < 4 ? '' : 'none';
+    $('emRemedy').style.display = chapter >= 2 && chapter < 4 ? '' : 'none';
+    $('emVenin').className = 'emblem vialV' + (INV.venin ? ' got' : '');
+    $('emRemedy').className = 'emblem vialR' + (INV.remedy ? ' got' : '');
+    $('oilCount').style.display = chapter === 4 && ch4phase === 1 ? '' : 'none';
+    $('oilCount').textContent = '🛢 ' + INV.oil + '/3';
+  }
 }
 const OVERLAYS = ['title', 'pauseOv', 'deathOv', 'winOv', 'noteOv'];
 function showOverlay(id) {
@@ -4785,7 +4791,7 @@ function igniteHouse() {
     setObjective('It is done. Watch.');
     caption('The match falls. The oil takes it with a soft, hungry WHUMP.', 4.5);
     setTimeout(() => {
-      if (state === 'play') playVideoCutscene('burning', () => playCutscene(CS9, startChapter5));
+      if (state === 'play') playVideoCutscene('burning', () => playCutscene(CS9, endChapter4));
     }, 3400);
   });
 }
@@ -4927,6 +4933,17 @@ function ch4Update(dt) {
       sm.m.lookAt(camera.position);
     }
   }
+}
+
+function endChapter4() {
+  state = 'win';
+  const t = Math.floor((performance.now() - startTime) / 1000);
+  $('winTitle').textContent = 'THE HOLLOW HOUSE — THE TRUE END';
+  $('winText').textContent = 'The fire burns until sunrise and takes everything: the hooks, the plates of rot, the writing on the walls, the drowned thing pacing its halls. When it is done there is only a black square of quiet earth — and no lantern light anywhere on the estate, ever again. The three of you walk out along Route 9 as the sun comes up, and this time the road is just a road.';
+  $('winStats').textContent = 'Time: ' + Math.floor(t / 60) + 'm ' + (t % 60) + 's · Deaths: ' + deaths + ' · Thank you for playing — the story is complete';
+  showOverlay('winOv');
+  if (document.exitPointerLock) document.exitPointerLock();
+  AU.thunder();
 }
 
 /* ---------------- chapter-four dialogue ---------------- */
@@ -5369,8 +5386,8 @@ function startChapter5() {
   killer.active = false;
   state = 'chapter';
   hideOverlays();
-  $('chapterTitle').textContent = 'CHAPTER FIVE';
-  $('chapterSub').textContent = 'RAVENMOOR';
+  $('chapterTitle').textContent = GAME === 'ravenmoor' ? 'RAVENMOOR' : 'CHAPTER FIVE';
+  $('chapterSub').textContent = GAME === 'ravenmoor' ? 'THE RED COUNTESS' : 'RAVENMOOR';
   $('chapterCard').classList.add('show');
   if (document.exitPointerLock) document.exitPointerLock();
   setTimeout(() => {
@@ -5395,8 +5412,8 @@ function startChapter5() {
 function endChapter5() {
   state = 'win';
   const t = Math.floor((performance.now() - startTime) / 1000);
-  $('winTitle').textContent = 'THE HOLLOW HOUSE — DAWN AT LAST';
-  $('winText').textContent = 'The great doors slam behind the three of you and the first real sunrise any of you has seen in a week comes up over the moor. Inside, the Countess shrieks as her stolen night ends — and Ravenmoor, without her, is only an old cold ruin full of rain. You walk down the hill toward a road, and a bus stop, and a life. Nothing is hunting you. Nothing at all.';
+  $('winTitle').textContent = 'RAVENMOOR — DAWN AT LAST';
+  $('winText').textContent = 'The great doors slam behind the three of you and the first light comes up over the moor. Inside, the Countess shrieks as her stolen night ends — and Ravenmoor, without her, is only an old cold ruin full of rain. You walk down the hill toward the road and the morning. Nothing is hunting you. Nothing at all.';
   $('winStats').textContent = 'Time: ' + Math.floor(t / 60) + 'm ' + (t % 60) + 's · Deaths: ' + deaths + ' · Thank you for playing';
   showOverlay('winOv');
   if (document.exitPointerLock) document.exitPointerLock();
@@ -5434,12 +5451,12 @@ function ch5Update(dt) {
 
 /* ---------------- chapter-five dialogue ---------------- */
 const CS10 = [
-  { who: '', text: 'The road home floods in the storm. The three of you run for the only light on the moor — a black castle on the ridge, its doors already open, as if it expected you.' },
-  { who: 'ASH', text: '“Okay. So. A creepy castle. In a storm. After everything. …Sure. Why not. In we go.”' },
-  { who: '', text: 'The moment the last of you is inside, the great doors swing shut on their own. The bolt falls with a sound like a coffin lid.' },
-  { who: 'MARA', text: '“That was not the wind. Somebody shut us in.” She turns slowly, taking in the blood on the stone. “…somebody who has done this before.”' },
+  { who: '', text: 'Your car dies on a flooded moor road at midnight. The only light for miles is a black castle on the ridge — its great doors already standing open, as if it expected you.' },
+  { who: 'ROOK', text: '“A creepy castle. In a storm. At midnight. …I hate that we don’t have a better option. In we go, then.”' },
+  { who: '', text: 'The moment the three of you are inside, the great doors swing shut on their own. The bolt falls with a sound like a coffin lid.' },
+  { who: 'BREE', text: '“That was not the wind. Somebody shut us in.” She turns slowly, taking in the blood on the stone. “…somebody who has done this before.”' },
   { who: 'THE COUNTESS', text: 'A voice like cold silk, from everywhere at once: “Welcome, travellers. You are soaked to the bone, and I have such a warm appetite. Do make yourselves… comfortable.”' },
-  { who: '', text: 'Ash and Mara bar themselves in the entrance hall. It falls to you to find the way out — before she finds you.' },
+  { who: '', text: 'Rook and Bree bar themselves in the entrance hall. It falls to you to find the way out — before she finds you.' },
 ];
 
 /* -------------------------------------------------------------- input/lock */
@@ -5523,6 +5540,7 @@ addEventListener('keyup', (e) => { keys[e.code] = false; });
 /* -------------------------------------------------------------- game flow */
 function bindHold(btnId, fillId, seconds, cb) {
   const btn = $(btnId), fill = $(fillId);
+  if (!btn || !fill) return; // this page may not have every skip button
   let t0 = null, raf = null, lastSec = -1;
   const cancel = () => {
     t0 = null; lastSec = -1;
@@ -5637,50 +5655,24 @@ function skipToChapter4Direct() {
   state = 'play';
   startChapter4();
 }
-function skipToChapter5() {
-  if (chapter !== 4) return;
-  hideOverlays();
-  killer.active = false;
-  player.health = 100; player.stamina = 100; player.dead = false;
-  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
-  flashlight.intensity = player.flash ? 2.6 : 0;
-  updateHud();
-  state = 'play';
-  startChapter5();
-}
-function skipToChapter5Direct() {
-  if (chapter >= 5) return;
-  AU.init();
-  if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
-  if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
-  hideOverlays();
-  if (!startTime) startTime = performance.now();
-  INV.wolf = INV.owl = INV.serpent = true; INV.emblems = 3;
-  INV.rustyKey = true; noteRead = true;
-  INV.venin = true; INV.remedy = true;
-  INV.medkits = Math.max(INV.medkits, 2);
-  ch2phase = 4; ch3phase = 7; ch4phase = 4;
-  player.health = 100; player.stamina = 100; player.dead = false;
-  if (player.hidden) { player.hidden = false; player.hideSpot = null; $('hideSlats').style.opacity = 0; }
-  flashlight.intensity = player.flash ? 2.6 : 0;
-  chapter = 4;
-  updateHud();
-  state = 'play';
-  startChapter5();
-}
 function refreshPauseSkip() {
   const sk = $('skipHold2');
-  sk.style.display = chapter <= 4 ? '' : 'none';
+  if (!sk) return;
+  sk.style.display = chapter <= 3 ? '' : 'none';
   const span = sk.querySelector('span');
   if (span) span.textContent = chapter === 1 ? 'HOLD 5s — SKIP TO CHAPTER TWO'
-    : chapter === 2 ? 'HOLD 5s — SKIP TO CHAPTER THREE'
-    : chapter === 3 ? 'HOLD 5s — SKIP TO CHAPTER FOUR' : 'HOLD 5s — SKIP TO CHAPTER FIVE';
+    : chapter === 2 ? 'HOLD 5s — SKIP TO CHAPTER THREE' : 'HOLD 5s — SKIP TO CHAPTER FOUR';
 }
 function startGame() {
   AU.init();
   if (AU.ok) AU.master.gain.value = muted ? 0 : volume;
   if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
   hideOverlays();
+  if (GAME === 'ravenmoor') {
+    if (!startTime) startTime = performance.now();
+    startChapter5();
+    return;
+  }
   playVideoCutscene('intro', beginPlay);
 }
 function beginPlay() {
@@ -5810,25 +5802,33 @@ applyGfx(false);
 buildEnvMap();
 buildMaterials();
 buildHands();
-W1 = { group: new THREE.Group() };
-beginWorld(W1, MAP1, ROOMS1);
-W1.stalker = 'butcher';
-W1.patrolKeys = PATROL_KEYS;
-W1.envCfg = {
-  fog: 0x04050a, fogD: 0.062, bg: 0x030407,
-  hemiSky: 0x1c2740, hemiGround: 0x0a0806, hemiI: 0.26,
-  sun: 0x30405e, sunI: 0.1, sunPos: [-8, 14, -12],
-  storm: true, rain: 1, wind: 0, birds: false,
-};
-W1.exitMark = { x: 28, z: 29.4, label: 'EXIT ⇩' };
-buildHouse();
-buildItems();
-buildKiller();
-buildNpcs();
-buildFlies();
-sealWorld(W1);
-activateWorld(W1);
-drawScareFace('butcher');
+if (GAME === 'ravenmoor') {
+  // a standalone game: build only the castle and boot into it
+  WH5 = { group: new THREE.Group() };
+  buildCastle();
+  activateWorld(WH5);
+  drawScareFace('countess');
+} else {
+  W1 = { group: new THREE.Group() };
+  beginWorld(W1, MAP1, ROOMS1);
+  W1.stalker = 'butcher';
+  W1.patrolKeys = PATROL_KEYS;
+  W1.envCfg = {
+    fog: 0x04050a, fogD: 0.062, bg: 0x030407,
+    hemiSky: 0x1c2740, hemiGround: 0x0a0806, hemiI: 0.26,
+    sun: 0x30405e, sunI: 0.1, sunPos: [-8, 14, -12],
+    storm: true, rain: 1, wind: 0, birds: false,
+  };
+  W1.exitMark = { x: 28, z: 29.4, label: 'EXIT ⇩' };
+  buildHouse();
+  buildItems();
+  buildKiller();
+  buildNpcs();
+  buildFlies();
+  sealWorld(W1);
+  activateWorld(W1);
+  drawScareFace('butcher');
+}
 grainLoop();
 updateHud();
 camera.position.set(player.x, 1.62, player.z);
@@ -5845,12 +5845,10 @@ $('videoOv').addEventListener('click', () => videoNext());
 bindHold('skipHold1', 'skipFill1', 5, skipToChapter2);
 bindHold('skipHold3', 'skipFill3', 5, skipToChapter3Direct);
 bindHold('skipHold4', 'skipFill4', 5, skipToChapter4Direct);
-bindHold('skipHold5', 'skipFill5', 5, skipToChapter5Direct);
 bindHold('skipHold2', 'skipFill2', 5, () => {
   if (chapter === 1) skipToChapter2();
   else if (chapter === 2) skipToChapter3();
   else if (chapter === 3) skipToChapter4();
-  else if (chapter === 4) skipToChapter5();
 });
 showOverlay('title');
 // debug/testing handle

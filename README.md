@@ -86,7 +86,8 @@ one minute everything is fine. Then a hand closes on the stern rail.
 - **Mara has your back:** press **T** and she pulls Ash's attention so you
   can slip past. Reaching the lamp room and lighting the beacon holds the
   moonlight off until dawn.
-- The pause-menu skip button jumps chapter to chapter (1 → 2 → 3 → 4).
+- The title screen and pause-menu skip buttons jump chapter to chapter
+  (1 → 2 → 3 → 4).
 
 ## Chapter Four — Ashes
 
@@ -106,27 +107,8 @@ empty. The sea gives back what it is given.
   house kills its own lights, slams every door, and he stops playing:
   a full-dark, no-escape final chase to the front door.
 - **Strike the match.** Get out onto the porch and end it. Houses like his
-  only truly die empty and burning at once.
-
-## Chapter Five — Ravenmoor
-
-The road home floods in a storm, and the only shelter on the moor is a huge
-gothic castle whose doors are already open — and slam shut the moment you're
-inside. You're the guests of the **Red Countess**, an ancient blood-drinker
-who has been lonely for a very long time.
-
-- **Trapped in the castle.** Ash and Mara bar themselves in the entrance hall;
-  it falls to you to find the way out. The great doors are sealed by three
-  **blood relics** hidden across the Gallery, the Chapel altar, and the Library.
-- **The Red Countess.** Pale, crimson-gowned, red-eyed, fast and silent — she
-  drifts room to room on silk and drinks her guests dry. Every relic you take
-  **wakes her further** (faster, hungrier), and the third floods the castle red,
-  throws every door shut, and sends her straight at you for a final chase to the
-  great doors.
-- **Gothic and gory:** stone halls, iron chandeliers, stained-glass storms,
-  tapestries and grim portraits, a banquet of dust in the Great Hall, a blood
-  chapel, and a dungeon of chains and worse. Hide in the **coffins** when she
-  closes in. Reach the doors at dawn and the whole nightmare — finally — ends.
+  only truly die empty and burning at once. This is where **The Hollow House**
+  ends — four chapters, and the road is finally just a road.
 
 ## The other tenants
 
@@ -156,3 +138,32 @@ woman in a nightgown, whispering to the wall. **Do not go near her.**
   the windows, film grain, and fear vignettes.
 - Grid-based A* pathfinding and a sight/sound/detection AI state machine
   (patrol → investigate → chase → search).
+
+---
+
+# RAVENMOOR — a second game 🩸
+
+**Ravenmoor** is a separate, standalone game that reuses the same engine.
+Open **`ravenmoor.html`** (instead of `index.html`) to play it:
+
+```
+python3 -m http.server
+# then visit http://localhost:8000/ravenmoor.html
+```
+
+Your car dies on a flooded moor at midnight and the only shelter is a huge
+gothic castle whose doors bolt shut behind you and your two friends. It
+belongs to the **Red Countess** — an ancient blood-drinker, pale and
+crimson-gowned, fast and silent on silk.
+
+- **The goal:** find the three **blood relics** (in the Gallery, the Chapel
+  altar, and the Library) that seal her great doors, then escape into the dawn.
+- **She wakes as you go:** every relic you take makes the Countess faster and
+  hungrier; the third floods the castle blood-red, slams every door, and sends
+  her straight at you for a final chase to the doors.
+- **Gothic and gory:** stone halls, iron chandeliers, stained-glass storms,
+  tapestries and grim portraits, a banquet of dust, a blood chapel, and a
+  dungeon of chains. Hide in the **coffins** when she drifts near.
+
+It's its own story with its own characters — nothing to do with the Hollow
+House — just built on the same bones.
