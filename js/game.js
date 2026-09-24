@@ -5007,15 +5007,57 @@ const COUNTESS_P = {
 };
 
 const ENV5_CASTLE = {
-  fog: 0x0a0710, fogD: 0.055, bg: 0x070409,
-  hemiSky: 0x2a1830, hemiGround: 0x0a0608, hemiI: 0.26,
-  sun: 0x40305e, sunI: 0.1, sunPos: [-8, 14, -12],
-  storm: true, rain: 1, wind: 0, birds: false,
+  fog: 0x140c22, fogD: 0.04, bg: 0x0b0716,
+  hemiSky: 0x5a4a7a, hemiGround: 0x241826, hemiI: 0.5,
+  sun: 0x8a90c8, sunI: 0.28, sunPos: [6, 16, 14],
+  storm: false, rain: 0.5, wind: 0.3, birds: false,
 };
 
 /* ---------------- castle textures ---------------- */
 function buildTextures5() {
   if (TEX.stone) return;
+  // polished black-and-ivory marble for the castle floor
+  TEX.marble = canvasTex(512, 512, (g, w, h) => {
+    const tile = 128;
+    for (let y = 0; y < h; y += tile) for (let x = 0; x < w; x += tile) {
+      const dark = ((x / tile) + (y / tile)) % 2 === 0;
+      g.fillStyle = dark ? '#171420' : '#e7e2d6';
+      g.fillRect(x, y, tile, tile);
+      // veining
+      g.strokeStyle = dark ? 'rgba(90,90,120,0.25)' : 'rgba(120,110,130,0.35)';
+      for (let k = 0; k < 5; k++) {
+        g.lineWidth = rand(0.6, 2);
+        g.beginPath();
+        let px = x + rand(tile), py = y + rand(tile);
+        g.moveTo(px, py);
+        for (let s = 0; s < 4; s++) { px += rand(-30, 30); py += rand(-30, 30); g.lineTo(px, py); }
+        g.stroke();
+      }
+      g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, tile - 2, tile - 2);
+    }
+  }, GW / 2, GH / 2);
+  // a vaulted ceiling: deep indigo panels ribbed with gold
+  TEX.vault = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#0e0c1c'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(30,26,54,' + rand(0.1, 0.3).toFixed(2) + ')'; g.beginPath(); g.arc(rand(w), rand(h), rand(6, 24), 0, 7); g.fill(); }
+    g.strokeStyle = '#8a6f30'; g.lineWidth = 6;
+    g.strokeRect(3, 3, w - 6, h - 6);
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(w, h); g.moveTo(w, 0); g.lineTo(0, h); g.stroke();
+    g.fillStyle = '#b89a4a';
+    g.beginPath(); g.arc(w / 2, h / 2, 10, 0, 7); g.fill();
+  }, GW, GH);
+  // a crimson carpet runner edged in gold
+  TEX.carpet5 = canvasTex(128, 256, (g, w, h) => {
+    g.fillStyle = '#5a0c18'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 120; i++) { g.fillStyle = 'rgba(0,0,0,' + rand(0.06, 0.16).toFixed(2) + ')'; g.fillRect(rand(w), rand(h), rand(2, 6), rand(2, 6)); }
+    g.strokeStyle = '#b89a4a'; g.lineWidth = 8; g.strokeRect(10, 6, w - 20, h - 12);
+    g.strokeStyle = 'rgba(184,154,74,0.6)'; g.lineWidth = 3; g.strokeRect(20, 14, w - 40, h - 28);
+    // a repeating gold diamond motif
+    g.strokeStyle = 'rgba(184,154,74,0.5)'; g.lineWidth = 2;
+    for (let y = 40; y < h - 20; y += 56) {
+      g.beginPath(); g.moveTo(w / 2, y - 16); g.lineTo(w / 2 + 18, y); g.lineTo(w / 2, y + 16); g.lineTo(w / 2 - 18, y); g.closePath(); g.stroke();
+    }
+  });
   TEX.stone = canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = '#2b2630'; g.fillRect(0, 0, w, h);
     for (let y = 0; y < h; y += 42) {
@@ -5177,13 +5219,27 @@ function buildCastle() {
   WH5.envCfg = ENV5_CASTLE;
   WH5.exitMark = { x: 28, z: 29.4, label: 'GREAT DOORS ⇩' };
   WH5.marks = [];
-  const stoneMat = new THREE.MeshStandardMaterial({ map: TEX.stone, roughness: 0.95, bumpMap: TEX.stone, bumpScale: 0.03 });
-  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.stonefloor, roughness: 0.8, bumpMap: TEX.stonefloor, bumpScale: 0.02 });
+  const stoneMat = new THREE.MeshStandardMaterial({ map: TEX.stone, roughness: 0.9, bumpMap: TEX.stone, bumpScale: 0.035, envMapIntensity: 0.5 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xc9a54e, metalness: 0.9, roughness: 0.28, envMapIntensity: 1.1 });
+  // polished marble floor that catches the candlelight
+  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.marble, roughness: 0.24, metalness: 0.18, envMapIntensity: 1.1 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.position.set(GW * CELL / 2, 0, GH * CELL / 2);
   floor.receiveShadow = true; worldRoot.add(floor);
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), new THREE.MeshStandardMaterial({ color: 0x14101a, roughness: 1 }));
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL),
+    new THREE.MeshStandardMaterial({ map: TEX.vault, roughness: 0.9, emissive: 0x0a0820, emissiveIntensity: 0.3 }));
   ceil.rotation.x = Math.PI / 2; ceil.position.set(GW * CELL / 2, WALLH, GH * CELL / 2); worldRoot.add(ceil);
+
+  // crimson carpet runners: down the long gallery and up the nave to the doors
+  const carpetMat = new THREE.MeshStandardMaterial({ map: TEX.carpet5, roughness: 0.95 });
+  const runner = (x, z, w, d) => {
+    const t = TEX.carpet5.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, Math.max(1, Math.round(d / 2)));
+    const r = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 }));
+    r.rotation.x = -Math.PI / 2; r.position.set(x, 0.02, z); r.receiveShadow = true; worldRoot.add(r);
+  };
+  runner(cw(13), cw(6.5), 2.2, 24);         // the long gallery, east–west
+  runner(14 * CELL, cw(11.5), 2.4, 9);      // the nave, down to the great doors
+
   const wallGeo = new THREE.BoxGeometry(CELL, WALLH, CELL);
   for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++) {
     if (cellAt(x, z) !== '#') continue;
@@ -5200,36 +5256,81 @@ function buildCastle() {
   makeFrontDoor();
   frontDoor.locked = true; frontDoor.target = 0;
 
-  // iron chandeliers with candle-light
+  // grand gilded chandeliers, brighter and warmer, with glowing candle flames
+  const flameSprite = new THREE.MeshBasicMaterial({ color: 0xffcf70, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+  flameSprite.toneMapped = false;
   const chand = (x, z, inten) => {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 6, 16), MAT.metal);
-    ring.rotation.x = Math.PI / 2; ring.position.set(x, WALLH - 0.5, z); worldRoot.add(ring);
-    const chainM = box(0.02, 0.5, 0.02, MAT.metal); chainM.position.set(x, WALLH - 0.25, z); worldRoot.add(chainM);
-    for (let i = 0; i < 5; i++) {
-      const a = i / 5 * Math.PI * 2;
-      const cnd = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.14, 6), MAT.white);
-      cnd.position.set(x + Math.cos(a) * 0.38, WALLH - 0.42, z + Math.sin(a) * 0.38); worldRoot.add(cnd);
-      const fl = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffd070 }));
-      fl.position.set(x + Math.cos(a) * 0.38, WALLH - 0.33, z + Math.sin(a) * 0.38); worldRoot.add(fl);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 8, 20), gold);
+    ring.rotation.x = Math.PI / 2; ring.position.set(x, WALLH - 0.55, z); ring.castShadow = false; worldRoot.add(ring);
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.03, 8, 18), gold);
+    ring2.rotation.x = Math.PI / 2; ring2.position.set(x, WALLH - 0.42, z); worldRoot.add(ring2);
+    const chainM = box(0.02, 0.55, 0.02, gold); chainM.position.set(x, WALLH - 0.27, z); worldRoot.add(chainM);
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      const cnd = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.16, 6), MAT.white);
+      cnd.position.set(x + Math.cos(a) * 0.48, WALLH - 0.5, z + Math.sin(a) * 0.48); worldRoot.add(cnd);
+      const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 7, 7), new THREE.MeshBasicMaterial({ color: 0xffd070 }));
+      fl.material.toneMapped = false;
+      fl.position.set(x + Math.cos(a) * 0.48, WALLH - 0.4, z + Math.sin(a) * 0.48); worldRoot.add(fl);
+      const halo = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), flameSprite);
+      halo.position.copy(fl.position); worldRoot.add(halo);
+      if (!WH5.halos) WH5.halos = [];
+      WH5.halos.push(halo);
     }
-    const li = new THREE.PointLight(0xffb050, inten, 12, 1.8);
+    const li = new THREE.PointLight(0xffbf6a, inten, 15, 1.7);
     li.position.set(x, WALLH - 0.5, z); li.castShadow = false; worldRoot.add(li);
-    flickerLights.push({ light: li, base: inten, flicker: 0.35, t: rand(10), bulb: null });
+    flickerLights.push({ light: li, base: inten, flicker: 0.28, t: rand(10), bulb: null });
   };
-  chand(cw(4), cw(2.5), 0.6); chand(cw(11.5), cw(2.5), 0.7); chand(cw(20.5), cw(2.5), 0.6);
-  chand(cw(7), cw(6.5), 0.6); chand(cw(19), cw(6.5), 0.6);
-  chand(cw(14.5), cw(11), 0.8); chand(cw(19.5), cw(11), 0.55); chand(cw(3), cw(11), 0.5);
-  chand(cw(9), cw(11), 0.55); chand(cw(24), cw(11), 0.45);
+  chand(cw(4), cw(2.5), 1.0); chand(cw(11.5), cw(2.5), 1.2); chand(cw(20.5), cw(2.5), 1.0);
+  chand(cw(7), cw(6.5), 1.0); chand(cw(19), cw(6.5), 1.0);
+  chand(cw(14.5), cw(11), 1.3); chand(cw(19.5), cw(11), 0.9); chand(cw(3), cw(11), 0.85);
+  chand(cw(9), cw(11), 0.9); chand(cw(24), cw(11), 0.8);
 
-  // stained-glass windows on the north wall, glowing with the storm
+  // gilded stone columns lining the grand rooms and the nave
+  const column = (x, z) => {
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, WALLH - 0.5, 14), stoneMat);
+    shaft.position.set(x, (WALLH - 0.5) / 2 + 0.25, z); shaft.castShadow = true; shaft.receiveShadow = true; worldRoot.add(shaft);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.28, 0.28, 14), gold);
+    cap.position.set(x, WALLH - 0.35, z); worldRoot.add(cap);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 0.25, 14), stoneMat);
+    base.position.set(x, 0.12, z); worldRoot.add(base);
+    addCollider(x, z, 0.6, 0.6);
+  };
+  column(cw(9.6), cw(1.4)); column(cw(13.4), cw(1.4)); column(cw(9.6), cw(3.6)); column(cw(13.4), cw(3.6)); // great hall
+  column(cw(17.4), cw(1.4)); column(cw(24), cw(1.4)); column(cw(17.4), cw(3.6)); column(cw(24), cw(3.6));   // gallery
+
+  // wall sconces down the long gallery — pools of warm light on the stone
+  const sconce = (x, z, ry) => {
+    const br = box(0.08, 0.2, 0.08, gold); br.position.set(x, 1.7, z); worldRoot.add(br);
+    const fl = new THREE.Mesh(new THREE.SphereGeometry(0.05, 7, 7), new THREE.MeshBasicMaterial({ color: 0xffd070 }));
+    fl.material.toneMapped = false; fl.position.set(x, 1.85, z); worldRoot.add(fl);
+    const halo = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.36), flameSprite);
+    halo.position.set(x, 1.9, z); halo.rotation.y = ry; worldRoot.add(halo);
+    if (!WH5.halos) WH5.halos = []; WH5.halos.push(halo);
+    const li = new THREE.PointLight(0xffb060, 0.7, 8, 2); li.position.set(x, 1.85, z); worldRoot.add(li);
+    flickerLights.push({ light: li, base: 0.7, flicker: 0.45, t: rand(10), bulb: null });
+  };
+  sconce(cw(4), 6 * CELL + 0.15, 0); sconce(cw(11), 6 * CELL + 0.15, 0); sconce(cw(21), 6 * CELL + 0.15, 0);
+  sconce(cw(7), 8 * CELL - 0.15, Math.PI); sconce(cw(17), 8 * CELL - 0.15, Math.PI);
+
+  // tall stained-glass windows on the north wall, lit from behind by the moon
+  const shaftMat = new THREE.MeshBasicMaterial({ color: 0x6a78b0, transparent: true, opacity: 0.06, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+  shaftMat.toneMapped = false;
   for (const x of [3, 6, 11, 13, 17, 21, 24]) {
-    const m = new THREE.MeshStandardMaterial({ map: TEX.glass, emissive: 0x201028, emissiveIntensity: 0.6, emissiveMap: TEX.glass, roughness: 0.4 });
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), m);
-    win.position.set(cw(x), 2.0, CELL + 0.02); worldRoot.add(win);
+    const m = new THREE.MeshStandardMaterial({ map: TEX.glass, emissive: 0xffffff, emissiveIntensity: 1.15, emissiveMap: TEX.glass, roughness: 0.35, metalness: 0.1 });
+    m.toneMapped = false;
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.4), m);
+    win.position.set(cw(x), 2.05, CELL + 0.02); worldRoot.add(win);
     windowMats.push(m);
-    // pointed arch over each
-    const arch = new THREE.Mesh(new THREE.ConeGeometry(0.85, 0.7, 3), MAT.woodDark);
-    arch.rotation.y = Math.PI / 4; arch.position.set(cw(x), 3.25, CELL + 0.05); worldRoot.add(arch);
+    // a gothic pointed arch of gilded stone
+    const arch = new THREE.Mesh(new THREE.ConeGeometry(0.9, 0.8, 3), gold);
+    arch.rotation.y = Math.PI / 4; arch.position.set(cw(x), 3.4, CELL + 0.05); worldRoot.add(arch);
+    // a cool shaft of light spilling into the room
+    const shaft = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 4.2), shaftMat);
+    shaft.position.set(cw(x), 1.6, CELL + 1.6); shaft.rotation.x = -0.5; worldRoot.add(shaft);
+    // a faint colored glow-light in front of the glass
+    const gl = new THREE.PointLight(0x8090c0, 0.35, 6, 2); gl.position.set(cw(x), 2.0, CELL + 0.6); worldRoot.add(gl);
+    flickerLights.push({ light: gl, base: 0.35, flicker: 0.05, t: rand(10), bulb: null });
   }
 
   // tapestries and grim portraits along the walls
@@ -5318,6 +5419,16 @@ function buildCastle() {
   });
   mk5('med5a', cw(16.3), 1.0, cw(12.8));
   mk5('med5b', cw(4.2), 1.0, cw(11.5));
+
+  // drifting dust motes, catching the candlelight
+  const dustGeo = new THREE.BufferGeometry();
+  const dpos = [], N = 260;
+  for (let i = 0; i < N; i++) dpos.push(rand(2, GW * CELL - 2), rand(0.4, WALLH - 0.3), rand(2, GH * CELL - 2));
+  dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(dpos, 3));
+  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xffe6b0, size: 0.03, sizeAttenuation: true, transparent: true, opacity: 0.5, depthWrite: false }));
+  dust.material.toneMapped = false;
+  worldRoot.add(dust);
+  WH5.dust = dust;
 
   sealWorld(WH5);
   // and her, drifting the halls
@@ -5423,6 +5534,18 @@ function endChapter5() {
 /* ---------------- chapter-five per-frame ---------------- */
 function ch5Update(dt) {
   if (chapter !== 5 || state !== 'play' || curWorld !== WH5) return;
+  // dust drifts slowly upward and resets; candle halos face the camera and pulse
+  if (WH5.dust) {
+    const p = WH5.dust.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      let y = p.getY(i) + dt * 0.12;
+      if (y > WALLH - 0.2) y = 0.4;
+      p.setY(i, y);
+      p.setX(i, p.getX(i) + Math.sin(perfT * 0.3 + i) * dt * 0.06);
+    }
+    p.needsUpdate = true;
+  }
+  if (WH5.halos) { const s = 0.9 + Math.sin(perfT * 7) * 0.12; for (const h of WH5.halos) { h.quaternion.copy(camera.quaternion); h.scale.setScalar(s); } }
   candleT5 -= dt;
   if (candleT5 <= 0) { candleT5 = rand(3, 8); if (dist2(player.x, player.z, killer.x, killer.z) < 22) AU.creak(rand(-1, 1)); }
   if (!ch5Seen.hall && ch5phase === 1 && killer.state !== 'chase' && roomOf(player.x, player.z) === 'hall') {
@@ -5433,10 +5556,10 @@ function ch5Update(dt) {
     killer.yaw = Math.atan2(player.x - killer.x, player.z - killer.z);
     killer.grp.position.set(killer.x, 0, killer.z);
     AU.growl(panTo(killer), 0.3);
-    setTimeout(() => { L = 1; AU.thunder(); }, 400);
+    setTimeout(() => AU.thunder(), 400);
     setTimeout(() => {
       if (killer.state !== 'chase') { killer.x = cw(20); killer.z = cw(2); killer.path = null; killer.grp.position.set(killer.x, 0, killer.z); }
-      if (state === 'play') caption('At the far end of the gallery a woman in red stands with her back to you. When the lightning passes, she is gone.', 5);
+      if (state === 'play') caption('At the far end of the gallery a woman in red stands with her back to you. You blink — and the gallery is empty.', 5);
     }, 1700);
   }
   if (!ch5Seen.portrait && dist2(player.x, player.z, cw(3), 5 * CELL + CELL) < 3.5) {
@@ -5804,6 +5927,7 @@ buildMaterials();
 buildHands();
 if (GAME === 'ravenmoor') {
   // a standalone game: build only the castle and boot into it
+  renderer.toneMappingExposure = 1.42; // richer, brighter grade for the castle
   WH5 = { group: new THREE.Group() };
   buildCastle();
   activateWorld(WH5);
