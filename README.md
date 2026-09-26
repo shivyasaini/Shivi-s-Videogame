@@ -159,7 +159,7 @@ eat this or drink that, go to bed or keep exploring. **Every choice turns into
 something you play.**
 
 - **Make your character first:** name; girl, boy or neither; skin tone; face;
-  marks; hair style and colour; eye colour; outfit; extras. Your look then
+  marks; hair style (12 styles, including braids, locs, curls and an afro) and colour; eye colour; outfit; extras. Your look then
   changes as you play: you get paler, your eyes turn gold and then red as your
   Humanity drops, your fangs grow each time you bite, your clothes wear, and
   burns from the sun stay.

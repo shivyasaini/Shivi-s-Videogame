@@ -22,7 +22,7 @@ const OPT = (RM.LOOK = {
   hair: [
     { id: 'long', label: 'Long' }, { id: 'short', label: 'Short' }, { id: 'curly', label: 'Curly' }, { id: 'braids', label: 'Braids' },
     { id: 'buzz', label: 'Buzz cut' }, { id: 'bun', label: 'Bun' }, { id: 'messy', label: 'Messy' }, { id: 'locs', label: 'Locs' },
-    { id: 'ponytail', label: 'Ponytail' }, { id: 'bob', label: 'Bob' }, { id: 'bald', label: 'Bald' },
+    { id: 'ponytail', label: 'Ponytail' }, { id: 'bob', label: 'Bob' }, { id: 'afro', label: 'Afro' }, { id: 'bald', label: 'Bald' },
   ],
   hairColor: [
     { id: 'black', hex: '#15110f' }, { id: 'darkbrown', hex: '#35200f' }, { id: 'brown', hex: '#5c3a20' }, { id: 'blonde', hex: '#d6b067' },
@@ -125,6 +125,52 @@ const sph = (r, m, ws = 14, hs = 10, ps, pl, ts, tl) => new THREE.Mesh(new THREE
 const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
 const shade = (hex, k) => { _c1.set(hex); _c1.multiplyScalar(k); return '#' + _c1.getHexString(); };
 
+/* ---------------------------------------------------------------- hair */
+// strands, painted once in grey; each character tints it with their own hair colour
+let _hairTex = null;
+function hairTex() {
+  if (_hairTex) return _hairTex;
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256; const g = c.getContext('2d');
+  g.fillStyle = '#a8a8a8'; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 1400; i++) {
+    const x = Math.random() * 256, v = 120 + Math.random() * 135 | 0;
+    g.strokeStyle = `rgba(${v},${v},${v},${0.25 + Math.random() * 0.5})`; g.lineWidth = Math.random() * 1.6 + 0.4;
+    g.beginPath(); g.moveTo(x, -10); g.bezierCurveTo(x + rand(-6, 6), 80, x + rand(-6, 6), 170, x + rand(-4, 4), 266); g.stroke();
+  }
+  // a soft sheen band, like light catching real hair
+  const sh = g.createLinearGradient(0, 60, 0, 120); sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.18)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = sh; g.fillRect(0, 60, 256, 60);
+  _hairTex = new THREE.CanvasTexture(c); _hairTex.encoding = THREE.sRGBEncoding; _hairTex.wrapS = _hairTex.wrapT = THREE.RepeatWrapping; _hairTex.repeat.set(5, 1.5);
+  return _hairTex;
+}
+// how far down from the crown the hair reaches, in degrees, at a direction round the head (0 = front)
+function hairline(az, o) {
+  const c = Math.cos(az);
+  let line = c > 0 ? lerp(o.side, o.front, Math.pow(c, 1.4)) : lerp(o.side, o.back, Math.pow(-c, 1.2));
+  if (o.sweep) line += Math.sin(az) * o.sweep * Math.max(0, c); // a side-swept fringe
+  return line;
+}
+function scalpGeo(o) {
+  const R = 0.126, g = new THREE.SphereGeometry(1, 48, 32), p = g.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const polar = Math.acos(clamp(v.y, -1, 1)) * 180 / Math.PI, az = Math.atan2(v.x, -v.z), c = Math.cos(az);
+    const line = hairline(az, o);
+    // fade the hair in over a few degrees so it grows out of the skin instead of ending in a hard ledge
+    let t = clamp((polar - (line + 4)) / -8, 0, 1); t = t * t * (3 - 2 * t);
+    let th = o.thick;
+    if (o.afro) th *= (0.5 + 0.5 * Math.min(1, polar / 60)) * (1 - 0.45 * Math.max(0, c)) + 0.35;
+    if (o.lift) th += o.lift * Math.max(0, c) * Math.max(0, 1 - Math.abs(polar - 30) / 25);
+    if (o.part) th += Math.abs(Math.sin(az * 0.5)) * 0.004;
+    if (o.sleek) th *= 0.7 + 0.3 * (1 - Math.max(0, c));
+    const bump = o.bump ? (Math.sin(v.x * 41 + v.y * 23) * Math.sin(v.z * 37 - v.y * 19) + Math.sin(v.x * 13 - v.z * 17) * 0.5) * o.bump : 0;
+    const r = lerp(R * 0.97, R + (th + bump) * t, t);
+    p.setXYZ(i, v.x * r, v.y * r, v.z * r);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
 /* ----------------------------------------------------------- the builder */
 // Returns { group, head, armL, armR, legL, legR, update(dt, speed), setPose(name) }
 RM.buildFigure = (look, vamp = {}, opts = {}) => {
@@ -211,22 +257,90 @@ RM.buildFigure = (look, vamp = {}, opts = {}) => {
   if (look.face === 'square') { const jaw = add(box(0.17, 0.07, 0.15, skinM), head); jaw.position.set(0, -0.07, -0.01); }
   for (const s of [-1, 1]) add(sph(0.026, skinM, 8, 6), head).position.set(s * 0.122, 0, 0.005);
 
-  // hair
+  // hair: a scalp shell with a real hairline (high on the forehead, above the ears,
+  // lower at the nape) so it never covers the eyes, plus the pieces each style needs
   const hs = look.hair;
-  const cap = (r = 0.133, tl = 0.56, tilt = 0.32) => { const m = add(sph(r, hairM, 24, 12, 0, TAU, 0, Math.PI * tl), head); m.rotation.x = tilt; m.position.set(0, 0.012, 0.01); return m; };
-  const backShell = (h, r0, r1, y) => { const m = add(cyl(r0, r1, h, hairM, 20, true, 1.0, TAU - 2.0), head); m.material.side = THREE.DoubleSide; m.position.y = y; m.rotation.y = Math.PI; return m; };
-  if (hs === 'buzz') { const m = cap(0.128, 0.55, 0.3); m.material = mat(look.hairColor, 0.95); m.material.transparent = true; m.material.opacity = 0.9; }
-  else if (hs === 'short') { cap(0.136, 0.58, 0.3); const fr = add(box(0.16, 0.035, 0.05, hairM), head); fr.position.set(0, 0.085, -0.1); fr.rotation.x = 0.4; }
-  else if (hs === 'bob') { cap(0.138, 0.6, 0.28); backShell(0.16, 0.14, 0.15, -0.02); }
-  else if (hs === 'long') { cap(0.138, 0.6, 0.28); backShell(0.5, 0.145, 0.17, -0.18); }
-  else if (hs === 'curly') { cap(0.14, 0.62, 0.25); for (let i = 0; i < 40; i++) { const a = rand(-0.8, 0.8) * Math.PI, y = rand(-0.1, 0.14), r = 0.14 + rand(0.012); if (Math.cos(a) < -0.2 && y < 0.07) continue; add(sph(rand(0.035, 0.05), hairM, 8, 6), head).position.set(Math.sin(a) * r, y, Math.cos(a) * r); } }
-  else if (hs === 'braids') { cap(0.137, 0.6, 0.28); for (const s of [-1, 1]) for (let i = 0; i < 7; i++) add(sph(0.032 - i * 0.002, hairM, 8, 6), head).position.set(s * (0.12 - i * 0.004), -0.05 - i * 0.055, -0.02 + i * 0.012); }
-  else if (hs === 'bun') { cap(0.136, 0.58, 0.28); add(sph(0.068, hairM, 12, 10), head).position.set(0, 0.12, 0.08); }
-  else if (hs === 'messy') { cap(0.14, 0.6, 0.3); for (let i = 0; i < 14; i++) { const t = add(new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.09, 5), hairM), head); const a = rand(TAU); t.position.set(Math.cos(a) * 0.1, 0.08 + rand(0.05), Math.sin(a) * 0.1 + 0.02); t.rotation.set(rand(-0.9, 0.9), 0, rand(-0.9, 0.9)); } }
-  else if (hs === 'locs') { cap(0.138, 0.6, 0.28); for (let i = 0; i < 16; i++) { const a = (i / 15 - 0.5) * Math.PI * 1.35; const m = add(cyl(0.015, 0.013, 0.42, hairM, 6), head); m.position.set(Math.sin(a) * 0.14, -0.15, Math.max(-0.05, Math.cos(a) * 0.14)); } }
-  else if (hs === 'ponytail') { cap(0.137, 0.6, 0.28); add(sph(0.03, hairM, 8, 6), head).position.set(0, 0.03, 0.14); const t = add(new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.36, 10), hairM), head); t.position.set(0, -0.14, 0.17); t.rotation.x = Math.PI + 0.2; }
+  const hairMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(look.hairColor).convertSRGBToLinear(), map: hairTex(), bumpMap: hairTex(), bumpScale: 0.004, roughness: 0.5, metalness: 0.06, side: THREE.DoubleSide });
+  const hmesh = (geo) => { const m = add(new THREE.Mesh(geo, hairMat), head); return m; };
+  const scalp = (o) => { const m = hmesh(scalpGeo(o)); m.scale.set(fs[0], fs[1], fs[2]); return m; };
+  const onHead = (polar, az, r) => { const pr = polar * Math.PI / 180; return new THREE.Vector3(Math.sin(pr) * Math.sin(az) * r * fs[0], Math.cos(pr) * r * fs[1], -Math.sin(pr) * Math.cos(az) * r * fs[2]); };
+  const back = (L, rTop, rBot, spread = 4.1, curl = 0) => { // a curtain of hair around the back and sides
+    const g = new THREE.CylinderGeometry(rTop, rBot, L, 32, 8, true, -spread / 2, spread);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const y = p.getY(i), k = 1 - (y + L / 2) / L; p.setZ(i, p.getZ(i) + k * k * 0.035); if (curl) { const f = 1 - k * curl; p.setX(i, p.getX(i) * f); p.setZ(i, p.getZ(i) * f + k * 0.01); } p.setX(i, p.getX(i) + Math.sin(y * 40 + p.getX(i) * 30) * 0.003); }
+    g.computeVertexNormals();
+    const m = hmesh(g); m.position.y = -L / 2 + 0.03; m.scale.set(fs[0], 1, fs[2]); return m;
+  };
+  const tube = (pts, r, taper = 0.4) => {
+    const curve = new THREE.CatmullRomCurve3(pts.map((q) => new THREE.Vector3(q[0], q[1], q[2])));
+    const g = new THREE.TubeGeometry(curve, 24, r, 10, false);
+    const p = g.attributes.position, n = 24 + 1, rs = 10 + 1;
+    for (let i = 0; i <= 24; i++) { const c = curve.getPointAt(i / 24), k = 1 - (i / 24) * (1 - taper); for (let j = 0; j < rs; j++) { const idx = i * rs + j; p.setXYZ(idx, c.x + (p.getX(idx) - c.x) * k, c.y + (p.getY(idx) - c.y) * k, c.z + (p.getZ(idx) - c.z) * k); } }
+    void n; g.computeVertexNormals(); return hmesh(g);
+  };
+  if (hs === 'buzz') scalp({ front: 44, side: 80, back: 102, thick: 0.0035 });
+  else if (hs === 'short') { scalp({ front: 46, side: 80, back: 104, thick: 0.016, bump: 0.003, lift: 0.012 }); }
+  else if (hs === 'bob') { scalp({ front: 60, side: 88, back: 100, thick: 0.017, sweep: 10 }); back(0.2, 0.135, 0.132, 4.0, 0.35); }
+  else if (hs === 'long') {
+    scalp({ front: 50, side: 88, back: 100, thick: 0.014, part: true });
+    back(0.52, 0.134, 0.165, 4.2);
+    for (const sd of [-1, 1]) tube([[sd * 0.105, 0.05, -0.055], [sd * 0.128, -0.06, -0.05], [sd * 0.14, -0.2, -0.03], [sd * 0.15, -0.34, -0.02]], 0.022, 0.6);
+  }
+  else if (hs === 'curly') {
+    const o = { front: 52, side: 86, back: 106, thick: 0.022, bump: 0.006 };
+    scalp(o);
+    for (let i = 0; i < 90; i++) {
+      const az = rand(-Math.PI, Math.PI), polar = rand(4, 110);
+      if (polar > hairline(az, o) - 4) continue;
+      const m = hmesh(new THREE.SphereGeometry(rand(0.02, 0.032), 8, 6)); m.position.copy(onHead(polar, az, 0.126 + o.thick + 0.004));
+    }
+  }
+  else if (hs === 'afro') scalp({ front: 50, side: 86, back: 106, thick: 0.085, bump: 0.01, afro: true });
+  else if (hs === 'braids') {
+    scalp({ front: 50, side: 86, back: 100, thick: 0.011, part: true });
+    for (const sd of [-1, 1]) {
+      const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(sd * 0.1, -0.02, 0.07), new THREE.Vector3(sd * 0.14, -0.15, 0.03), new THREE.Vector3(sd * 0.14, -0.3, -0.04), new THREE.Vector3(sd * 0.13, -0.43, -0.08)]);
+      for (let i = 0; i < 14; i++) {
+        const t = i / 13, q = curve.getPointAt(t), m = hmesh(new THREE.SphereGeometry(0.024 - t * 0.008, 10, 8));
+        m.position.copy(q); m.scale.set(1, 1.55, 0.85); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), curve.getTangentAt(t).negate()); m.rotateY(i % 2 ? 0.6 : -0.6); m.rotateZ(i % 2 ? 0.5 : -0.5);
+      }
+      const tie = add(sph(0.012, mat('#b0142a', 0.5), 8, 6), head); tie.position.copy(curve.getPointAt(1));
+    }
+  }
+  else if (hs === 'bun') {
+    scalp({ front: 47, side: 82, back: 96, thick: 0.011, sleek: true });
+    const bn = hmesh(new THREE.SphereGeometry(0.058, 16, 12)); bn.position.set(0, 0.105, 0.085); bn.scale.set(1, 0.85, 1);
+    const wrap = hmesh(new THREE.TorusGeometry(0.05, 0.012, 8, 20)); wrap.position.set(0, 0.085, 0.07); wrap.rotation.x = -0.9;
+  }
+  else if (hs === 'messy') {
+    const o = { front: 52, side: 82, back: 102, thick: 0.02, bump: 0.009 };
+    scalp(o);
+    for (let i = 0; i < 26; i++) {
+      const az = rand(-Math.PI, Math.PI), polar = i < 5 ? rand(46, 52) : rand(5, 70);
+      if (i < 5 && Math.abs(az) > 0.8) continue;
+      if (polar > hairline(az, o) - 1) continue;
+      const pos = onHead(polar, az, 0.14), m = hmesh(new THREE.ConeGeometry(0.018, i < 5 ? 0.045 : 0.07, 6));
+      m.position.copy(pos); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos.clone().normalize().add(new THREE.Vector3(rand(-0.5, 0.5), i < 5 ? -0.6 : rand(-0.2, 0.4), rand(-0.5, 0.5))).normalize());
+    }
+  }
+  else if (hs === 'locs') {
+    const o = { front: 50, side: 84, back: 102, thick: 0.014 };
+    scalp(o);
+    for (let i = 0; i < 22; i++) {
+      const az = (i / 21) * 2 * Math.PI - Math.PI; if (Math.abs(az) < 1.1) continue;
+      const pos = onHead(hairline(az, o) - 6, az, 0.135), L = rand(0.3, 0.44);
+      const out = new THREE.Vector3(pos.x, 0, pos.z).normalize();
+      tube([[pos.x, pos.y, pos.z], [pos.x + out.x * 0.03, pos.y - L * 0.35, pos.z + out.z * 0.03], [pos.x + out.x * 0.045, pos.y - L, pos.z + out.z * 0.045]], 0.013, 0.7);
+    }
+    for (let i = 0; i < 10; i++) { const az = rand(-1, 1) * Math.PI, polar = rand(8, 55); const q = onHead(polar, az, 0.142); tube([[q.x, q.y, q.z], [q.x * 1.3, q.y - 0.05, q.z * 1.3 + 0.03], [q.x * 1.5, q.y - 0.2, q.z * 1.2 + 0.08]], 0.012, 0.7); }
+  }
+  else if (hs === 'ponytail') {
+    scalp({ front: 48, side: 80, back: 98, thick: 0.011, sleek: true });
+    const tie = add(new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.009, 8, 16), mat('#1a1a1a', 0.5)), head); tie.position.set(0, 0.02, 0.132);
+    tube([[0, 0.03, 0.13], [0, -0.02, 0.18], [0, -0.15, 0.2], [0, -0.32, 0.17]], 0.042, 0.3);
+  }
   else if (hs === 'hood') { const hd = add(sph(0.16, mainM, 20, 12, 0, TAU, 0, Math.PI * 0.7), head); hd.rotation.x = 0.55; hd.position.set(0, 0.01, 0.02); hd.material.side = THREE.DoubleSide; }
-  else if (hs === 'beard') { cap(0.134, 0.5, 0.45); const b = add(sph(0.12, hairM, 14, 10, Math.PI, Math.PI, Math.PI * 0.45, Math.PI * 0.5), head); b.position.set(0, -0.02, -0.01); }
+  else if (hs === 'beard') { scalp({ front: 40, side: 78, back: 100, thick: 0.007 }); const b = add(sph(0.12, hairMat, 14, 10, Math.PI, Math.PI, Math.PI * 0.45, Math.PI * 0.5), head); b.position.set(0, -0.02, -0.01); }
 
   // extras
   const ex = look.extras || [];
