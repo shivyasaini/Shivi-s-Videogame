@@ -10,7 +10,7 @@ what you chose.
 
 ## 1. The big idea
 
-You wake up in a coffin under the cursed moor town of **Ravenmoor**. You don't remember who you
+You make your character, then you wake up in a coffin under the cursed moor town of **Ravenmoor**. You don't remember who you
 were, you're *so* thirsty, and a sarcastic raven called **Corvin** is sitting on your chest.
 
 The game plays over **5 nights**. On each night you:
@@ -24,7 +24,49 @@ The game plays over **5 nights**. On each night you:
 
 ---
 
-## 2. Every choice is a playable scene
+## 2. Make your character 🎨
+
+Before the game starts, you make who you were **before** you became a vampire.
+
+**The screen:** your character stands in a moonlit crypt next to an open coffin. Corvin sits on the coffin lid and comments on
+everything you pick (*"Bold hair choice for someone about to be dead."*). You can spin the character around to see every side.
+
+### What you can choose
+
+| Option | Choices |
+|---|---|
+| **Name** | Type any name. Everyone in the game calls you by it, and it's carved on your coffin |
+| **Girl / boy / neither** | Changes how people talk about you (she / he / they) |
+| **Skin tone** | A wide range from very light to very dark |
+| **Face** | A few face shapes, plus freckles, a beauty mark, or a scar |
+| **Hair style** | Long, short, curly, braids, buzz cut, bun, messy, locs, ponytail and more |
+| **Hair color** | Black, brown, blonde, ginger, white, plus unusual colors like silver, deep red and midnight blue |
+| **Eye color** | Your human eye color (see "your look changes" below) |
+| **Outfit** | What you were wearing the night you were bitten: a traveller's coat, a nightgown, a farm outfit, a posh party outfit, or a hoodie and jeans (Corvin: *"What IS that?"*) |
+| **Extras** | A necklace, earrings, a hair ribbon, glasses, or a scarf |
+
+### Your look changes as you play 🩸
+
+Your character doesn't stay the same. The choices you make **show on your body**:
+
+- **Your skin turns paler** the longer you're a vampire. It keeps your skin tone, just with less life in it.
+- **Your eyes change with your Humanity.** They stay your chosen color while your Humanity is high, turn **gold** in the middle, and glow **red** when you're close to becoming the Beast.
+- **Your fangs get longer** each time you bite someone.
+- **Your clothes get worn** over the nights, torn and muddy and splashed with blood.
+- **Scars and burns stay.** Survive a sunrise with burns, and they're still there on the last night.
+
+### Where you see yourself
+
+It's a first-person game, and vampires have no reflection, so seeing yourself matters:
+
+- **Your hands and arms** on screen match your skin tone, sleeves and nails.
+- **Dream scenes** show your human self exactly as you made them, with no vampire changes.
+- **Cutscenes and choice screens** show your character.
+- **The painting of you** in the Portrait Hall, and in ending #28, looks exactly like your character. That's what makes it so creepy.
+- **The Mirror Room.** Your reflection looks like you, but a little *wrong*, and in ending #30 it steals your look.
+- **Every ending** shows your character in the final scene, looking however your choices changed them.
+
+## 3. Every choice is a playable scene
 
 These are the scene types. One engine, lots of different ways to play:
 
@@ -41,7 +83,7 @@ These are the scene types. One engine, lots of different ways to play:
 
 ---
 
-## 3. Hidden stats (what your choices secretly change)
+## 4. Hidden stats (what your choices secretly change)
 
 You never see these numbers directly. The game *shows* them instead:
 
@@ -55,7 +97,7 @@ You never see these numbers directly. The game *shows* them instead:
 
 ---
 
-## 4. How to make the choices SUPER hard
+## 5. How to make the choices SUPER hard
 
 1. **No "good" button.** Every option gives you something *and* costs you something.
 2. **You don't know everything.** The red chalice could be wine or blood or poison. You find out after.
@@ -66,7 +108,7 @@ You never see these numbers directly. The game *shows* them instead:
 
 ---
 
-## 5. Friends, rivals & relationships 💬
+## 6. Friends, rivals & relationships 💬
 
 Everyone you meet has a **Bond** with you that moves between four levels:
 
@@ -97,7 +139,7 @@ Everyone you meet has a **Bond** with you that moves between four levels:
 
 ---
 
-## 6. The super scary bits 😱
+## 7. The super scary bits 😱
 
 It's not all choices and chatting. Some parts are there to properly scare you.
 The rhythm goes **calm → creepy → SCARE → relief**:
@@ -119,7 +161,7 @@ The rhythm goes **calm → creepy → SCARE → relief**:
 
 ---
 
-## 7. The 5 nights (the choice map)
+## 8. The 5 nights (the choice map)
 
 ### 🌑 Night 0: The Crypt (tutorial)
 You wake in the coffin. Corvin talks.
@@ -229,7 +271,7 @@ if you did certain things earlier:
 
 ---
 
-## 8. The endings (41 in total)
+## 9. The endings (41 in total)
 
 | # | Ending | How you get it (roughly) |
 |---|---|---|
@@ -306,7 +348,7 @@ so there are **14 ways to die** in total.
 
 ---
 
-## 9. Replay features (so people want to find every ending)
+## 10. Replay features (so people want to find every ending)
 
 - **Ending Gallery.** All 41 slots, locked ones shown as dark silhouettes with a one-line hint.
 - **"Your choices" screen** at the end showing your path through the choice map.
@@ -315,7 +357,7 @@ so there are **14 ways to die** in total.
 
 ---
 
-## 10. Look & feel (NOT the Hollow House)
+## 11. Look & feel (NOT the Hollow House)
 
 - **Night:** cold **moonlit silver-blue** + deep **crimson**, with gold lanterns, glowing fog, and ravens everywhere.
 - **Dream scenes:** **bright warm daylight**, a big contrast that makes them feel special.
@@ -325,7 +367,7 @@ so there are **14 ways to die** in total.
 
 ---
 
-## 11. How we build it
+## 12. How we build it
 
 1. **Choice engine first.** A `story.js` file where every choice, scene and ending is written as
    data, so adding endings later is easy.
@@ -333,5 +375,6 @@ so there are **14 ways to die** in total.
 3. **First playable slice: Night 0 + Night 1.**
    - 4 choices, about 6 playable scenes (rats, chalice vision, gate fight, bone tunnels, Pip, dream or sunrise race)
    - 3 endings (Sunburnt, Starved, and "to be continued")
+   - the character creator (name, girl/boy/neither, skin, hair, eyes, outfit)
    - the new look, the Thirst system, and the choice screen
 4. Then add one night at a time until all 5 nights and the endings are in.

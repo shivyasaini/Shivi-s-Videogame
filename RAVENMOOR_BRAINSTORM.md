@@ -106,7 +106,7 @@ and the *humans* are hunting **you**.
 
 | Character | Who they are | Vibe |
 |---|---|---|
-| **You: "The Sleeper" (real name: Elowen Marsh)** | Woke up as a vampire, no memory | Quiet, clever, scary when you need to be |
+| **You: "The Sleeper" (you choose your name and look — see the design doc)** | Woke up as a vampire, no memory | Quiet, clever, scary when you need to be |
 | **Corvin** | A sarcastic talking raven who knows more than he says; your guide | Funny and a little shady |
 | **Magistrate Aldous Vane** | Runs the town, preaches that the vampire is why it's dark | Calm, polite, the real villain |
 | **Sister Imelda** | A nun who runs the bell tower and secretly helps "monsters" | Kind but tough |
