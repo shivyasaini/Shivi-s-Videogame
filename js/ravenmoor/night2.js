@@ -271,6 +271,7 @@ function victim() {
   return { id: 'baker', name: 'the baker', look: RM.LOOKS.baker, scale: 1, head: 1 };
 }
 
+RM.fight = fight;
 /* ================================================================ SCENES */
 const N2 = (RM.N2 = {});
 
@@ -432,7 +433,7 @@ N2.tobias = () => RM.play(async (done) => {
       RM.sceneTick = (dt) => {
         const f = RM.forward(); tob.x = P.x - f.x * 1.1; tob.z = P.z - f.z * 1.1; tob.update(dt);
         if (Math.random() < dt * 1.5) AU.noise(0.3, 0.2, 'lowpass', 500, 1, 0, 0.2);
-        if (P.z < -2.6 && RM.dist(P.x, P.z, -2.5, -3) < 2.5) { RM.sceneTick = null; res(); }
+        if (P.z < -2.3 && RM.dist(P.x, P.z, -2.5, -3) < 2.8) { RM.sceneTick = null; res(); }
       };
     });
     RM.setMarker(null); RM.control = false; tob.fig.setPose('kneel'); tob.face(P.x, P.z);
@@ -503,6 +504,7 @@ N2.choirSave = () => RM.play(async (done) => {
   RM.control = true; RM.lockPointer(); RM.bloodSightAllowed = true;
   RM.setObjective(`Reach <b>${v.name}</b> (hiding by the south-west stall), then lead them out of the market.<br><span class="dim">Crouch (C) · hold R for Blood Sight · stay out of the lanterns</span>`);
   let following = false, busy = false, silence = 0;
+  RM.setMarker(vic.x, vic.z);
   RM.addInteract({ x: () => vic.x, z: () => vic.z, r: 1.8, when: () => !following, label: `Take ${v.name}'s hand`, use: (o) => {
     o.off = true; following = true; vic.fig.setPose('stand'); vic.ghost = true;
     RM.caption(`${v.name}: <i>"${v.id === 'pip' ? 'I KNEW you\'d come!' : 'Oh thank heaven. Or... whoever.'}"</i> Now get out, south, back up the main street.`, 4);
@@ -814,6 +816,7 @@ N2.hang_imelda = () => RM.play(async (done) => {
   RM.bar('burn', 0, 'HOLY GROUND');
   await new Promise((res) => {
     RM.sceneTick = (dt) => {
+      const next = stands.find((q) => !q.lit); if (next && (!RM.marker || RM.marker.x !== next.x * 0.8 || RM.marker.z !== next.z)) RM.setMarker(next.x * 0.8, next.z);
       const onHoly = P.z < -3;
       if (onHoly) burn = Math.min(92, burn + holyBurn(0.3) * dt); else burn = Math.max(0, burn - dt * 8);
       smokeFromHands(smoke, dt, onHoly);
@@ -861,7 +864,7 @@ N2.sleepChurch = () => RM.play(async (done) => {
     RM.bar('burn', burn, 'HOLY GROUND');
     RM.canvasFilter(onHoly ? `brightness(${1 + burn / 300}) sepia(${burn / 300})` : '');
     if (burn >= 100) { RM.control = false; AU.sizzleN.set(0.5, 0.05); AU.sting(0.8); RM.flash('rgba(255,245,220,1)', 3000); done('ash'); return; }
-    if (P.z < -25.3 && RM.control) {
+    if (P.z < -24.8 && RM.control) {
       RM.control = false; AU.sizzleN.set(0, 0.5); RM.canvasFilter(''); RM.setMarker(null);
       await RM.say('Imelda', burn > 55 ? '"You made it." <i>She is crying, a little.</i> "Oh, child. There is more of you left than you think."' : '"You made it. And barely a blister." <i>She looks almost proud.</i> "There is a great deal of you left in there."');
       await RM.say('Imelda', '"Sleep behind the altar. No hunter crosses this floor. Not Vane\'s, not Crook\'s. Not while I\'m breathing."');
@@ -870,26 +873,34 @@ N2.sleepChurch = () => RM.play(async (done) => {
     }
   };
 });
-N2.sleepCoffin = () => RM.play(async (done) => {
+// Sleeping somewhere a hunter can find you. place: 'coffin' or 'sewers'. hunter: 'tobias' or 'agnes'
+N2.sleepCoffinRule = (hunted, hunter, place = 'coffin') => RM.play(async (done) => {
   const s = S();
-  const hunted = !s.flags.tobiasDead && !s.flags.tobiasTurned && s.choices.dawn === 'bed' && !(s.flags.tobiasSpared && s.humanity >= 45);
   const w = RM.useWorld('crypt'); RM.setEnv('crypt');
   RM.camMode = 'free'; RM.hands.visible = false;
   const cam = RM.camera; cam.position.set(0, 0.62, -28); cam.rotation.set(Math.PI / 2 - 0.02, Math.PI, 0);
   w.data.coffinLid.rotation.z = 0;
   RM.$('fade').style.opacity = 0.92;
-  await RM.say('You', '<i>You climb into your coffin. The same coffin, the same place, the same pillow of red velvet. It\'s nice to have something that stays the same.</i>');
+  if (place === 'sewers') { RM.$('fade').style.opacity = 1; await RM.say('You', '<i>The same dry ledge in the sewers as last time. The same rats. It\'s nice to have something that stays the same.</i>'); }
+  else await RM.say('You', '<i>You climb into your coffin. The same coffin, the same place, the same pillow of red velvet. It\'s nice to have something that stays the same.</i>');
   if (!hunted) { await RM.sleep(1); await RM.fade(1, 1.5); done('ok'); return; }
   await RM.sleep(1.5); AU.scratch(0.3); await RM.sleep(1);
-  RM.caption('The lid is moving. It\'s not you moving it.', 3);
-  for (let i = 0; i <= 25; i++) { w.data.coffinLid.rotation.z = lerp(0, -0.9, i / 25); RM.$('fade').style.opacity = 0.92 - i * 0.03; await RM.sleep(0.04); }
-  const t = RM.npc({ ...RM.LOOKS.tobias, extras: ['hat', 'stake'] }, 0.9, -28.1, Math.PI / 2); t.face(0, -28); t.fig.setPose('raise');
-  cam.rotation.set(Math.PI / 2 - 0.35, Math.PI, 0.35);
-  await RM.say('Tobias', s.flags.tobiasSpared ? '"You spared me. I know. I lay awake all day hating that." <i>The stake comes up.</i> "But you slept in the same place twice, Sleeper. Hunters are patient."' : '"Same place twice, Sleeper. Didn\'t anyone ever tell you?" <i>The stake comes up.</i> "Hunters are patient."');
+  if (place === 'sewers') {
+    RM.caption('Footsteps in the water. A lantern, coming closer.', 3); await RM.sleep(2.5);
+  } else {
+    RM.caption('The lid is moving. It\'s not you moving it.', 3);
+    for (let i = 0; i <= 25; i++) { w.data.coffinLid.rotation.z = lerp(0, -0.9, i / 25); RM.$('fade').style.opacity = 0.92 - i * 0.03; await RM.sleep(0.04); }
+  }
+  const look = hunter === 'agnes' ? RM.LOOKS.agnes : RM.LOOKS.tobias;
+  const t = RM.npc({ ...look, extras: ['hat', 'stake'] }, 0.9, -28.1, Math.PI / 2); t.face(0, -28); t.fig.setPose('raise');
+  cam.rotation.set(Math.PI / 2 - 0.35, Math.PI, 0.35); RM.$('fade').style.opacity = 0.2;
+  if (hunter === 'agnes') await RM.say('Agnes', '"You killed my brother in a river." <i>The stake comes up.</i> "Same place twice, Sleeper. Tobias always said they get lazy in the end."');
+  else await RM.say('Tobias', s.flags.tobiasSpared ? '"You spared me. I know. I lay awake all day hating that." <i>The stake comes up.</i> "But you slept in the same place twice, Sleeper. Hunters are patient."' : '"Same place twice, Sleeper. Didn\'t anyone ever tell you?" <i>The stake comes up.</i> "Hunters are patient."');
   AU.sting(1); RM.shake(0.1, 0.4); RM.$('fade').style.transition = 'none'; RM.$('fade').style.opacity = 1; AU.thud(1);
   await RM.sleep(1.5);
-  done('stake');
+  done(hunter === 'agnes' ? 'sister' : 'stake');
 });
+N2.sleepCoffin = () => N2.sleepCoffinRule(false, null);
 N2.sleepSewers = () => RM.play(async (done) => {
   const w = RM.useWorld('town'); RM.setEnv(RM.blendEnv('night', 'dawn', 0.15)); RM.spawnTownRavens(w); RM.fade(0, 0.8);
   RM.placePlayer(15, 0, -Math.PI / 2);
@@ -909,6 +920,7 @@ N2.sleepSewers = () => RM.play(async (done) => {
 /* ============================================================ THE NIGHT */
 RM.nightTwo = async function () {
   const s = S(); s.night = 2;
+  if (!s.lastSleep) s.lastSleep = s.choices.dawn === 'bed' ? 'coffin' : 'stairs';
   RM.store.set('ckpt2', JSON.parse(JSON.stringify(s)));
   RM.applyLook();
   await RM.card('NIGHT TWO', 'THE WITCH-FINDER');
@@ -964,15 +976,9 @@ RM.nightTwo = async function () {
   await N2.imelda();
   await N2.hangout();
   await RM.fade(1, 0.8); RM.fade(0, 1);
-  const where = await N2.sleep();
-  if (where === 'church') {
-    const r = await N2.sleepChurch();
-    if (r === 'ash') { await RM.sleep(2); await RM.fade(1, 1); RM.fade(0, 1); return RM.showEnding('altar'); }
-  } else if (where === 'coffin') {
-    const r = await N2.sleepCoffin();
-    if (r === 'stake') { RM.fade(0, 1); return RM.showEnding('stake'); }
-  } else await N2.sleepSewers();
+  const sl = await RM.sleepFor();
+  if (sl === 'stake' || sl === 'sister' || sl === 'altar') { RM.fade(0, 1); return RM.showEnding(sl); }
   await RM.fade(1, 1);
-  return RM.showEnding('tbc');
+  return 'next';
 };
 })();

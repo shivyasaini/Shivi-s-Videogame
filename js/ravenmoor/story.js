@@ -42,7 +42,7 @@ RM.fmt = (t) => {
 };
 
 /* ------------------------------------------------------------ dialogue */
-const SPEAKER = { Tobias: '#d8b080', Imelda: '#ece4ff', Corvin: '#9fb4ff', Pip: '#f0a860', Gideon: '#d8c898', You: '#bdb6c8', '???': '#e02040', Thief: '#c89070', 'Old woman': '#c8b0c0', Baker: '#e0c090' };
+const SPEAKER = { Mirela: '#d890e8', Agnes: '#e0a070', Vane: '#e8d8a0', Rosalind: '#a8c8f0', Grandma: '#e0c8a8', Footman: '#b0b0b0', Guest: '#c8b8d0', Tobias: '#d8b080', Imelda: '#ece4ff', Corvin: '#9fb4ff', Pip: '#f0a860', Gideon: '#d8c898', You: '#bdb6c8', '???': '#e02040', Thief: '#c89070', 'Old woman': '#c8b0c0', Baker: '#e0c090' };
 let dlg = null;
 RM.say = (speaker, text) => new Promise((resolve) => {
   const box = $('dialog'), wasC = RM.control;
@@ -278,9 +278,9 @@ function showTitle() {
   let a = 0;
   RM.sceneTick = (dt) => { a += dt * 0.03; RM.camera.position.set(Math.sin(a) * 26, 14 + Math.sin(a * 2) * 2, 34 + Math.cos(a) * 18); RM.camera.lookAt(-10, 12, 10); P.x = RM.camera.position.x; P.z = RM.camera.position.z; };
   $('title').classList.add('show');
-  const c = RM.store.get('ckpt2', null) || RM.store.get('ckpt1', null);
+  const c = latestCkpt();
   $('contBtn').style.display = c ? '' : 'none';
-  $('contBtn').textContent = RM.store.get('ckpt2', null) ? 'CONTINUE FROM NIGHT TWO' : 'CONTINUE FROM NIGHT ONE';
+  if (c) $('contBtn').textContent = 'CONTINUE FROM NIGHT ' + ['ONE', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'][Math.max(1, c.night)];
   $('titleCount').textContent = `${RM.foundEndings().length} / ${RM.ENDINGS.length} endings found`;
   AU.setMusic('title', 0.5);
 }
@@ -293,8 +293,7 @@ async function begin(fromCkpt) {
     RM.S = snap(fromCkpt);
     RM.clearScene(); RM.hands.visible = true;
     RM.fade(0, 1);
-    if (RM.S.night < 2) await nightOne();
-    await RM.nightTwo();
+    await runFrom(Math.max(1, RM.S.night));
     return;
   }
   AU.setMusic('title', 0.25);
@@ -308,20 +307,27 @@ async function begin(fromCkpt) {
   RM.worlds.crypt && RM.worlds.crypt.data.chaliceWine && (RM.worlds.crypt.data.chaliceWine.visible = true);
   await nightZero();
   saveCheckpoint(1);
-  await nightOne();
-  await RM.nightTwo();
+  await runFrom(1);
 }
+// play from a given night to the end (each night returns 'next', or shows an ending and stops)
+async function runFrom(n) {
+  const nights = [null, nightOne, RM.nightTwo, RM.nightThree, RM.nightFour, RM.nightFive];
+  for (let i = n; i <= 5; i++) { const r = await nights[i](); if (r !== 'next') return; }
+}
+
+// the furthest night you've reached
+function latestCkpt() { for (let n = 5; n >= 1; n--) { const c = RM.store.get('ckpt' + n, null); if (c) return c; } return null; }
 
 /* ---------------------------------------------------------------- boot */
 function wire() {
   $('startBtn').onclick = () => begin(null);
-  $('contBtn').onclick = () => begin(RM.store.get('ckpt2', null) || RM.store.get('ckpt1', null));
+  $('contBtn').onclick = () => begin(latestCkpt());
   $('galBtn').onclick = () => RM.openGallery();
   $('galClose').onclick = () => $('gallery').classList.remove('show');
   $('resumeBtn').onclick = () => togglePause(false);
   $('quitBtn').onclick = () => location.reload();
   $('endAgain').onclick = () => location.reload();
-  $('endRetry').onclick = () => { const c = RM.store.get('ckpt' + Math.max(1, Math.min(2, RM.S.night)), null) || RM.store.get('ckpt1', null); $('endingOv').classList.remove('show'); RM.fade(1, 0.01); begin(c); };
+  $('endRetry').onclick = () => { const c = RM.store.get('ckpt' + Math.max(1, RM.S.night), null) || RM.store.get('ckpt1', null); $('endingOv').classList.remove('show'); RM.fade(1, 0.01); begin(c); };
   $('endGallery').onclick = () => RM.openGallery();
   $('volSlider').value = AU.vol; $('volSlider').oninput = (e) => AU.setVolume(parseFloat(e.target.value));
   $('sensSlider').value = RM.store.get('sens', 1); $('sensSlider').oninput = (e) => RM.store.set('sens', parseFloat(e.target.value));

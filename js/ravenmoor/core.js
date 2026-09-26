@@ -314,7 +314,7 @@ RM.clearLine = (ax, az, bx, bz) => {
 
 /* ------------------------------------------------------------- player */
 const player = (RM.player = { x: 0, z: 0, yaw: 0, pitch: 0, eye: 1.62, crouch: false, speedMul: 1, vx: 0, vz: 0, bob: 0, dashT: 0, dashCd: 0, iframes: 0, moving: 0, sprinting: false, roll: 0, fovKick: 0 });
-RM.placePlayer = (x, z, yaw = 0) => { player.x = x; player.z = z; player.yaw = yaw; player.pitch = 0; player.vx = player.vz = 0; };
+RM.placePlayer = (x, z, yaw = 0) => { player.x = x; player.z = z; player.yaw = yaw; player.pitch = 0; player.vx = player.vz = 0; player.eye = 1.62; };
 let stepAcc = 0;
 function updatePlayer(dt) {
   const p = player;

@@ -169,21 +169,20 @@ something you play.**
   you*. If you're too thirsty, the Beast scratches the gentle options out.
 - **41 endings**, collected in the **Ending Gallery** (locked ones show hints).
 
-### What's playable now: Night Zero and Night One
+### All five nights are playable
 
-| Choice | What you play |
-|---|---|
-| Drink the rats / the red chalice / nothing | Hunt rats in the crypt · drink and see a memory · walk past the chalice while it whispers to you |
-| Smash the gate / crawl through the bone tunnels | Break the gate and fight the watchmen · explore skull-lined tunnels (and a chained coffin that **breathes**) |
-| Break a chain / walk away | Pull the chain apart yourself · back away while the breathing follows you |
-| Gideon the gravedigger: kill / make him forget / talk | Chase him down · hold his gaze to mesmerise him · help him dig a grave |
-| ⏱ Pip: bite / don't bite / take the bread | Drink, and try to let go in time · sneak through the market and hunt · a dizzy, sick walk to Pip's hideout |
-| The thief: kill / sip / servant | Drink until the end · let go early · enthral him |
-| Pip: friend / send home | Follow Pip to a secret spot · walk Pip home safely |
-| Dawn: go to bed / keep exploring | A sunny dream of your human past (it turns into a nightmare if you sleep thirsty) · race the sunrise through the shadows |
+| Night | What happens | Some of the choices you play |
+|---|---|---|
+| **Zero: The Crypt** | Wake in your coffin, meet Corvin | Rats / chalice / nothing · smash the gate / bone tunnels · Gideon: kill, mesmerise, or dig |
+| **One: The Town at Twilight** | Pip finds you in an alley | ⏱ Bite / don't bite / bread · the market hunt · the thief · dream or race the sunrise |
+| **Two: The Witch-finder** | Tobias hunts you on the moor | Lure him onto the rotten bridge · kill / spare / turn him · the Hollow Choir · hangouts · where to sleep |
+| **Three: The Cellar** | Down into Vane's cellar | Fields (hounds!) or sewers · trust / cast out / eat Corvin · the vial · free / leave / end Mirela · the Mirror Room |
+| **Four: The Masquerade** | Vane's masked ball | Sneak / mesmerise / fly in as ravens · the portrait of you · Rosalind · join Vane, or fight him |
+| **Five: The Longest Night** | The Drowned Chapel and the ritual | Up to 15 final choices, depending on everything you did before |
 
-Endings you can already reach: **Sunburnt**, **Starved**, **The Crowd**,
-**Buried Alive**, and "End of Night One". Nights Two to Five are designed in
+**All 41 endings can be reached.** Some happen during a night (the Stake, Holy Fire, the Hounds, Garlic Supper, Drowned, Swarm...),
+and the big ones come from the last choice on Night Five. The Ending Gallery shows hints for the ones you
+haven't found, and **Continue** starts you at the latest night you reached. The full plan is in
 [`RAVENMOOR_DESIGN.md`](RAVENMOOR_DESIGN.md).
 
 **Controls:** WASD move · mouse look · Shift run · C crouch · E use / talk ·
@@ -196,7 +195,12 @@ on) · P pause · M mute · G graphics.
 core.js       renderer, sky and moon, lighting moods, input, player, hands, ravens, HUD, sound
 character.js  the 3D person builder, vampire changes, the character creator
 worlds.js     the crypt and bone tunnels, the town, graveyard, church and market
-scenes.js     every playable scene (one per choice outcome)
+scenes.js     Night Zero and Night One: every playable scene
+night2.js     Night Two, plus the moor and the church
+worlds2.js    Vane Manor (ballroom, portrait hall, study, cellar, Mirror Room) and the Drowned Chapel
+night3.js     Night Three, and the rules for where you sleep
+night4.js     Night Four: the Masquerade
+night5.js     Night Five: the Drowned Chapel and the final choice
 endings.js    all 41 endings, the ending screen and the gallery
-story.js      stats, dialogue, the choice screen, Thirst, and the story order
+story.js      stats, dialogue, the choice screen, Thirst, and the order of the nights
 ```

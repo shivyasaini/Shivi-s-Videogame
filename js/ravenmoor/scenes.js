@@ -246,6 +246,7 @@ RM.SCENES.wake = () => RM.play(async (done) => {
   AU.setHeart(44, 0.35);
   await RM.sleep(0.8);
   await RM.say('Corvin', '"Oh good. You\'re awake. I was about to start eating you, and frankly I\'m relieved I don\'t have to."');
+  if ((S().runs || 1) >= 2) await RM.say('Corvin', (S().runs >= 3 ? '<i>He squints at you.</i> "We\'ve done this before. Haven\'t we? More than once. I\'m <b>sure</b> of it this time."' : '<i>He tilts his head.</i> "...Funny. I\'ve got the strangest feeling we\'ve done this before."'));
   await RM.say('Corvin', '"Don\'t scream. Everybody screams. It echoes terribly down here."');
   await RM.say('You', '<i>You try to breathe. Your lungs don\'t seem interested.</i>');
   await RM.say('Corvin', '"Ah. Yes. About that. You\'re dead, {name}. Mostly. The rest of you is... something else now."');
