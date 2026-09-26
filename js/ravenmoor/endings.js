@@ -72,6 +72,21 @@ const TEXT = {
     'They come out of every door on the street with torches, pitchforks, lanterns, and one very determined baker with a rolling pin. The Lantern Guard is singing that terrible hymn.',
     'You are fast. There are more of them. By dawn Ravenmoor has a bonfire in the market square, and a new song about the night they got the Sleeper.',
   ],
+  stake: [
+    'You slept in the same place twice.',
+    'The lid opened slowly, and the last thing you saw was a wide-brimmed hat against the candlelight, and the point of a wooden stake coming down.',
+    'Tobias Crook collects his fee from the Magistrate the next morning. He doesn\'t spend it. He keeps the coins in a box, and some nights he takes them out and looks at them, and doesn\'t know why.',
+  ],
+  altar: [
+    'Halfway up the aisle, you understand: there isn\'t enough of you left.',
+    'The holy ground doesn\'t hate you. It just knows exactly what you are. The fire starts in your hands and walks up your arms, quiet and bright as candlelight.',
+    'Sister Imelda sweeps the grey ash from her altar steps with her own hands, and says a prayer over it, and writes one more line in the parish register: <i>Came home, at the end.</i>',
+  ],
+  holyfire: [
+    'You were still inside when the bell spoke.',
+    'The sound doesn\'t come through your ears. It comes through your bones, holy bronze ringing through every part of you that the curse touched, and it turns out that is every part of you.',
+    'The Hollow Choir wakes up in the market with no memory of why they are lying in the street. Across the town, the bell is still humming. It hums for a whole day.',
+  ],
   buried: [
     'You wake in the dark with your nails already scratching at the lid.',
     'Six blessed iron nails. Six feet of cold Ravenmoor clay. Gideon remembered, the way old men remember things: slowly, and then all at once.',
@@ -92,7 +107,7 @@ RM.showEnding = (id, opts = {}) => new Promise(() => {
   const ov = $('endingOv'); ov.className = 'overlay show ' + (e ? 'k-' + e.k : 'k-tbc');
   RM.fade(0, 1.2);
   $('endNum').textContent = e ? `ENDING ${e.n} / ${RM.ENDINGS.length}` + (isNew ? ' · NEW' : '') : 'TO BE CONTINUED';
-  $('endTitle').textContent = e ? e.t : 'End of Night One';
+  $('endTitle').textContent = e ? e.t : (s.night >= 2 ? 'End of Night Two' : 'End of Night One');
   const lines = e ? TEXT[id] : tbcText(s);
   $('endText').innerHTML = lines.map((l) => '<p>' + RM.fmt(l) + '</p>').join('');
   try { $('endPortrait').src = RM.portrait(s.look, RM.vampState(), 'stand'); } catch (err) { $('endPortrait').removeAttribute('src'); }
@@ -120,6 +135,7 @@ function statsHTML(s) {
 }
 function tbcText(s) {
   const f = s.flags, out = [];
+  if (s.night >= 2) return tbc2(s);
   out.push('Night One is over, and Ravenmoor has a new story to whisper about.');
   if (f.pipDead) out.push('There is a small, still shape in an alley that nobody has found yet. You will see it every time you close your eyes.');
   else if (f.pipFriend) out.push('Pip is curled up asleep on the crypt steps, guarding you, with a sharpened stick and absolutely no fear.');
@@ -132,6 +148,24 @@ function tbcText(s) {
   if (f.secretDoor) out.push('Behind Vane\'s iron door: stairs, going up, towards the manor. And voices. You heard your name.');
   if (f.nightmare) out.push('The faceless dream is still with you. You don\'t think it was only a dream.');
   out.push('<b>Nights Two to Five are coming:</b> the Witch-finder, the bell tower, Mirela in the cellar, the Masquerade at Vane Manor, and the Longest Night.');
+  return out;
+}
+
+function tbc2(s) {
+  const f = s.flags, c = s.choices, out = ['Night Two is over. The witch-finder came for you, and the town will never be quite the same.'];
+  if (f.tobiasDead) out.push('Tobias Crook\'s hat washed up three miles downriver. Somewhere on the road to Ravenmoor, his sister Agnes has heard the news.');
+  else if (f.tobiasTurned) out.push('Tobias sleeps in the coffin next to yours now. He snores. Vampires aren\'t supposed to snore.');
+  else if (f.tobiasSpared) out.push('Tobias limped home on a leg you set yourself. He hasn\'t told anyone who pulled him from the river.' + (f.warnedAgnes ? ' He warned you about his sister. That has to mean something.' : ''));
+  const v = f.pipDead ? (f.gideonDead ? 'the baker' : 'Gideon') : 'Pip';
+  if (c.choir === 'save') out.push(`You walked into the Hollow Choir and walked out holding ${v}'s hand.`);
+  else if (c.choir === 'hide') out.push(`The Choir took ${v} up the hill to the Manor. You heard every note of the hymn, and the moment it stopped.`);
+  else if (c.choir === 'kill') out.push('Four porcelain masks lie cracked in the market square. Nobody has dared to pick them up.');
+  else if (c.choir === 'bell') out.push('You rang the bell of St. Corvina\'s for the first time in forty years, and lived. The whole town heard it.');
+  if (c.hangout === 'corvin') out.push('Corvin told you his secret on the top of the bell tower: he used to be a man. Vane\'s messenger.');
+  if (f.sanctuary) out.push('You sleep behind Sister Imelda\'s altar. Your hands are still smoking a little. It was worth it.');
+  else if (f.sewers) out.push('You sleep in the sewers, with the rats. Nobody will ever look for you there.');
+  else if (c.sleep2 === 'coffin') out.push('You sleep in your coffin. Nobody comes. This time.');
+  out.push('<b>Night Three is coming:</b> the bell tower, Corvin\'s secret, Mirela in Vane\'s cellar, and the Mirror Room.');
   return out;
 }
 

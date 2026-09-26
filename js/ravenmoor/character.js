@@ -77,6 +77,14 @@ function drawFace(look, vamp, skinHex) {
   sh.addColorStop(0, 'rgba(255,255,255,0.06)'); sh.addColorStop(1, 'rgba(0,0,0,0.18)');
   g.fillStyle = sh; g.fillRect(0, 0, 512, 256);
   if (vamp.faceless) return c;
+  if (vamp.mask) { // the Hollow Choir's porcelain masks
+    const cx2 = 128; g.fillStyle = '#ece6dc'; g.beginPath(); g.ellipse(cx2, 132, 40, 58, 0, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(120,100,90,0.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(cx2 + 20, 95); g.lineTo(cx2 + 8, 120); g.lineTo(cx2 + 14, 138); g.stroke();
+    g.fillStyle = '#050304'; for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(cx2 + sd * 15, 120, 9, 4.5, sd * 0.25, 0, TAU); g.fill(); }
+    g.strokeStyle = '#8a0a14'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx2 - 12, 158); g.quadraticCurveTo(cx2, 166, cx2 + 12, 158); g.stroke();
+    g.fillStyle = 'rgba(140,10,20,0.7)'; g.fillRect(cx2 - 1, 128, 2, 12);
+    return c;
+  }
   const pale = vamp.pale || 0;
   // under-eye shadows deepen as you turn
   if (pale > 0.2) { g.fillStyle = `rgba(60,20,50,${pale * 0.25})`; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(cx + s * 17, 128, 11, 5, 0, 0, TAU); g.fill(); } }
@@ -339,6 +347,12 @@ RM.buildFigure = (look, vamp = {}, opts = {}) => {
     const tie = add(new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.009, 8, 16), mat('#1a1a1a', 0.5)), head); tie.position.set(0, 0.02, 0.132);
     tube([[0, 0.03, 0.13], [0, -0.02, 0.18], [0, -0.15, 0.2], [0, -0.32, 0.17]], 0.042, 0.3);
   }
+  else if (hs === 'veil') { // a nun's coif and veil
+    const coif = add(new THREE.Mesh(scalpGeo({ front: 38, side: 100, back: 115, thick: 0.014 }), mat('#ece8e0', 0.9)), head); coif.scale.set(fs[0], fs[1], fs[2]);
+    const vm = mat('#0e0c12', 0.85, { side: THREE.DoubleSide });
+    const cap = add(new THREE.Mesh(scalpGeo({ front: 30, side: 70, back: 95, thick: 0.03 }), vm), head); cap.scale.set(fs[0], fs[1], fs[2]);
+    const vg = new THREE.CylinderGeometry(0.15, 0.24, 0.62, 28, 4, true, -2.1, 4.2); const veil = add(new THREE.Mesh(vg, vm), head); veil.position.y = -0.27;
+  }
   else if (hs === 'hood') { const hd = add(sph(0.16, mainM, 20, 12, 0, TAU, 0, Math.PI * 0.7), head); hd.rotation.x = 0.55; hd.position.set(0, 0.01, 0.02); hd.material.side = THREE.DoubleSide; }
   else if (hs === 'beard') { scalp({ front: 40, side: 78, back: 100, thick: 0.007 }); const b = add(sph(0.12, hairMat, 14, 10, Math.PI, Math.PI, Math.PI * 0.45, Math.PI * 0.5), head); b.position.set(0, -0.02, -0.01); }
 
@@ -355,6 +369,10 @@ RM.buildFigure = (look, vamp = {}, opts = {}) => {
     const glass = add(box(0.1, 0.12, 0.1, new THREE.MeshBasicMaterial({ color: 0xffc070 })), lg); glass.position.y = -0.1;
     G.userData.lantern = lg;
   }
+  if (ex.includes('hat')) { const hm = mat('#1a1410', 0.8); const brim = add(cyl(0.23, 0.23, 0.015, hm, 24), head); brim.position.y = 0.075; const crown = add(cyl(0.1, 0.12, 0.14, hm, 18), head); crown.position.y = 0.15; const band = add(cyl(0.121, 0.121, 0.025, mat('#5a4a30', 0.5, { metalness: 0.5 }), 18), head); band.position.y = 0.095; }
+  if (ex.includes('crossbow')) { const cg = new THREE.Group(); cg.position.set(0, -0.6, -0.1); cg.rotation.x = -1.2; arms[1].add(cg); add(box(0.05, 0.05, 0.55, mat('#3a2616')), cg); const bow = add(box(0.62, 0.025, 0.03, mat('#2a2a30', 0.4, { metalness: 0.7 })), cg); bow.position.z = -0.24; add(box(0.012, 0.012, 0.32, mat('#c0c4cc', 0.3, { metalness: 0.9 })), cg).position.set(0, 0.035, -0.08); G.userData.crossbow = cg; }
+  if (ex.includes('stake')) { const sg = new THREE.Group(); sg.position.set(0, -0.62, 0); arms[1].add(sg); const st = add(new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.45, 6), mat('#6a4a2a')), sg); st.rotation.x = Math.PI; st.position.y = -0.1; }
+  if (ex.includes('cross')) { const gm2 = mat('#c9a24a', 0.3, { metalness: 0.85 }); add(box(0.018, 0.09, 0.01, gm2)).position.set(0, 1.36, -0.16); add(box(0.055, 0.016, 0.01, gm2)).position.set(0, 1.38, -0.16); }
   if (ex.includes('shovel')) { const sg = new THREE.Group(); sg.position.set(0, -0.6, 0); arms[0].add(sg); add(cyl(0.015, 0.015, 1.1, mat('#5a3a20')), sg).position.y = -0.1; const bl = add(box(0.16, 0.2, 0.02, mat('#6a6a70', 0.4, { metalness: 0.7 })), sg); bl.position.y = -0.7; }
 
   if (opts.scale) G.scale.setScalar(opts.scale);

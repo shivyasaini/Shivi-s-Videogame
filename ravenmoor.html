@@ -6,7 +6,7 @@
   <title>Ravenmoor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
-  <link rel="stylesheet" href="ravenmoor.css?v=3">
+  <link rel="stylesheet" href="ravenmoor.css?v=4">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -15,6 +15,7 @@
   <div id="bloodVig"></div>
   <div id="vignette"></div>
   <div id="flash"></div>
+  <div id="hideSlats"></div>
 
   <!-- HUD -->
   <div id="hud">
@@ -113,7 +114,7 @@
         <p id="endHint"></p>
         <p id="endCount" class="tiny"></p>
         <div class="tBtns">
-          <button id="endRetry">TRY NIGHT ONE AGAIN</button>
+          <button id="endRetry">TRY THIS NIGHT AGAIN</button>
           <button id="endAgain" class="ghost">START OVER</button>
           <button id="endGallery" class="ghost">ENDING GALLERY</button>
         </div>
@@ -132,12 +133,13 @@
   <div id="loading">RAVENMOOR<br><span>the dead are waking...</span></div>
 
   <script src="js/lib/three.min.js"></script>
-  <script src="js/ravenmoor/core.js?v=3"></script>
-  <script src="js/ravenmoor/character.js?v=3"></script>
-  <script src="js/ravenmoor/worlds.js?v=3"></script>
-  <script src="js/ravenmoor/scenes.js?v=3"></script>
-  <script src="js/ravenmoor/endings.js?v=3"></script>
-  <script src="js/ravenmoor/story.js?v=3"></script>
+  <script src="js/ravenmoor/core.js?v=4"></script>
+  <script src="js/ravenmoor/character.js?v=4"></script>
+  <script src="js/ravenmoor/worlds.js?v=4"></script>
+  <script src="js/ravenmoor/scenes.js?v=4"></script>
+  <script src="js/ravenmoor/endings.js?v=4"></script>
+  <script src="js/ravenmoor/night2.js?v=4"></script>
+  <script src="js/ravenmoor/story.js?v=4"></script>
   <script>window.addEventListener('load', () => RM.boot());</script>
 </body>
 </html>

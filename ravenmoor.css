@@ -21,6 +21,8 @@ button.ghost:hover { background: rgba(30, 40, 80, 0.7); box-shadow: 0 0 20px rgb
 #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 4; background: radial-gradient(ellipse at center, transparent 50%, rgba(2, 3, 10, 0.55) 85%, rgba(0, 0, 0, 0.9) 100%); }
 #thirstVig { position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0; background: radial-gradient(ellipse at center, transparent 38%, rgba(140, 0, 20, 0.55) 80%, rgba(90, 0, 10, 0.9) 100%); }
 #bloodVig { position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0; background: radial-gradient(ellipse at center, rgba(80, 0, 10, 0.05) 30%, rgba(100, 0, 10, 0.55) 100%); }
+#hideSlats { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; transition: opacity .4s; background: repeating-linear-gradient(180deg, rgba(0,0,0,0.95) 0 6vh, rgba(0,0,0,0.3) 6vh 9vh); }
+#hideSlats.show { opacity: 1; }
 #flash { position: fixed; inset: 0; pointer-events: none; z-index: 40; opacity: 0; }
 #fade { position: fixed; inset: 0; pointer-events: none; z-index: 45; background: #000; opacity: 0; }
 

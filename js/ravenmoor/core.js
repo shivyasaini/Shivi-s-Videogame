@@ -707,6 +707,7 @@ AU.init = () => {
   AU.choir = makePad('sawtooth', [[700, 7], [1150, 9], [2500, 12]], 0);
   AU.organ = makePad('triangle', [[1600, 0.5]], 0);
   AU.setMusic(AU._music || null);
+  AU.wind.set(AU._wind || 0.05, 1);
   if (AU.onReady) AU.onReady();
 };
 function out(node, reverb = 0.25) {
@@ -807,6 +808,7 @@ function updateMusic(dt) {
   }
   AU.choir.set(AU.choirLevel, 0.4);
 }
+AU.setWind = (v) => { AU._wind = v; AU.wind.set(v, 1.5); };
 AU.setVolume = (v) => { AU.vol = clamp(v, 0, 1); RM.store.set('vol', AU.vol); if (AU.master) AU.master.gain.value = AU.muted ? 0 : AU.vol; RM.toast('Volume ' + Math.round(AU.vol * 100) + '%'); };
 AU.toggleMute = () => { AU.muted = !AU.muted; if (AU.master) AU.master.gain.value = AU.muted ? 0 : AU.vol; RM.toast(AU.muted ? 'Muted' : 'Sound on'); };
 

@@ -109,7 +109,7 @@ RM.npc = (look, x, z, yaw = 0, o = {}) => {
         n.yaw += RM.angDiff(n.yaw, Math.atan2(-dx, -dz)) * Math.min(1, dt * 8);
       }
     }
-    n.fig.group.position.set(n.x, n.fig.group.userData.baseY || 0, n.z);
+    n.fig.group.position.set(n.x, (n.fig.group.userData.baseY || 0) + (RM.world && RM.world.groundAt && !n.noGround ? RM.world.groundAt(n.x, n.z) : 0), n.z);
     n.fig.group.rotation.y = n.yaw;
     n.fig.update(dt, moving);
     n.col.x = n.x; n.col.z = n.z;
@@ -1162,4 +1162,6 @@ RM.SCENES.buried = () => RM.play(async (done) => {
   await RM.fade(1, 2);
   done('ok');
 });
+// shared with later nights
+Object.assign(RM, { holdAction, watcher, detectHook, wisp, holdMeter, spiralHook, posters });
 })();
