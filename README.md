@@ -1,81 +1,177 @@
-# ⚔️ Emberfall
+# THE HOLLOW HOUSE 🔪
 
-*A knight errant, a dying land, a crown that would not rust.*
+A first-person 3D survival horror game that runs in your browser. You are
+trapped inside the farmhouse of **Silas Crane** — the Butcher of Marrow
+County — and he is *always* hunting you. Inspired by classic
+stalked-in-a-house survival horror, tuned to be a little more forgiving.
 
-A dark fantasy action-RPG that runs entirely in your browser — no installs, no
-dependencies — and plays **entirely in first person**, rendered with a
-raycasting engine: starlit forests, a lantern-lit road, and the moon hanging
-over the north to guide you. Press **M** any time for a top-down map view.
+## How to play
 
-**The quest is simple:** draw the sword from the stone, walk the scenic North
-Road, defeat the Fallen King, and watch the dawn come back.
+Open `index.html` in a modern browser (Chrome, Edge, Firefox). For best
+results serve the folder locally:
 
-## ▶️ How to Play
+```
+python3 -m http.server
+# then visit http://localhost:8000
+```
 
-Open `index.html` in any browser. That's it.
+Click **ENTER THE HOUSE**, and the game grabs your mouse.
+🎧 Headphones strongly recommended — every sound is procedural and spatial.
 
-(Or serve it locally: `python3 -m http.server` in this folder, then visit
-http://localhost:8000)
-
-## 🎮 Controls
+## Controls
 
 | Key | Action |
-|---|---|
-| W / S | Walk forward / back |
-| A / D | Turn |
-| Click or Space | Strike with the sword up close, shoot an arrow at range |
-| Shift | Dash (brief invincibility) |
-| E | Talk · read stones · draw the sword |
-| Q | Drink a health potion |
-| J | Quest journal |
-| M | Toggle the top-down map view |
+| --- | --- |
+| `WASD` / arrows | Move |
+| Mouse or `←` `→` | Look / turn |
+| `↑` `↓` | Walk |
+| `Shift` | Sprint (drains stamina, makes noise!) |
+| `C` | Crouch (quiet + harder to spot) |
+| `E` | Interact — doors, items, notes, hide in wardrobes |
+| `F` | Flashlight (light helps you see, but helps *him* see you) |
+| `Q` | Use a first aid kit |
+| `Tab` / `X` | Map of the house |
+| `P` / `Esc` | Pause |
+| `−` / `+` | Volume down / up |
+| `G` | Graphics quality (HIGH / MEDIUM / LOW — auto-drops if the game lags) |
+| Hold a SKIP button 5s | Jump straight to Chapter Two, Three or Four (title screen has all three; the pause menu skips one chapter ahead) |
+| `M` | Mute |
 
-## 🗺️ The World
+## The goal
 
-Seven regions, each with its own look — **Emberside Village**, the **Weeping
-Woods**, the **Mirefen** marshes, the **Gravehills**, the **Old Road**, the
-**Ashen Approach**, and **Castle Maldrich**. Region banners announce each land
-as you cross into it, and the compass ribbon at the top keeps you pointed north.
+You wake in a guest bedroom. The front door is sealed by three emblems —
+**Wolf**, **Owl**, and **Serpent** — scattered through the house. One is
+behind a locked bathroom door; the rusty key is on the fireplace mantel.
+Slot all three into the front door in the foyer and escape.
 
-## 📜 The Quest
+## Chapter Two — The Estate
 
-1. **Take Up the Sword** — draw the old blade from the stone east of the
-   village fire. The castle gate opens the moment it slides free.
-2. **The North Road** — follow the lantern-lit road north under the moon.
-   A scenic walk with a lone wraith to keep you honest.
-3. **The Fallen King** — Maldrich waits on his throne. Charges, shadow-bolt
-   volleys, and a crown that needs breaking.
-4. **The End** — the first dawn in a hundred years, and a knight walking home.
+Escaping the house is only the beginning. The estate's fence has no gate you
+can open — but there is a cozy campervan in a clearing, a telephone that
+knows your name, and terrible news: your best friend Ash was caught by Crane
+and is turning. The antidote takes two vials — **VENIN** and **REMEDY** —
+brewed by Crane's wife in her crooked, rotting house across the river.
 
-Track progress with **J**; the current step also shows in the top bar.
+- **The Widow** — Crane's wife — hunts her halls like her husband, but slower,
+  and she carries a burning lantern everywhere; you can track her by its warm
+  glow. She *loves light*: turn your **flashlight OFF (F)** when she's near.
+  With your light off she can barely see you — and if she's chasing you, seven
+  full seconds in the dark and she loses you completely.
+- Her house is worse than his: hoarded junk, collapsing beams, moss, glowing
+  fungus, roaches scuttling across the floor.
+- The campervan is a real safe room you walk into — string lights, a warm
+  stove, posters, a rumpled bed, and the telephone on the desk. A fallen pine
+  blocks the river bridge until you've answered the first call.
+- Between the houses lies a misty dawn forest — pines, a river with a wooden
+  bridge, birdsong, lantern-posts marking the trail. Nothing hunts you out
+  here. Breathe.
+- Phone-call cutscenes drive the story: answer the phone at the camper,
+  choose your path, and deliver the finished serum to the boathouse when the
+  blue lamp lights.
 
-## 🧭 Tips
+## Chapter Three — The Full Moon
 
-- The **moon hangs over the north** — walk toward it and you'll find the castle.
-- One button fights: enemies in reach get the sword, everything else gets an arrow.
-- Standing still out of combat slowly regenerates health.
-- Dying returns you to the campfire — minus a fifth of your gold.
-- Trader Osric sells a potion + five arrows for 15 gold.
+The serum is delivered, the boat is on open water, the moon is full, and for
+one minute everything is fine. Then a hand closes on the stern rail.
 
-## 🛠️ Code Tour (for learning)
+- **The boss fight:** Crane swam after you. Waterlogged and slow, he boards
+  the boat — and for the first time in the game you can fight back. Swing the
+  boat hook (click / Space), dodge his long windups, and put him down. He
+  sinks the boat out of spite on his way into the sea.
+- **The island:** shipwrecked under the moon, the only way to call for help
+  is the old lighthouse. Climb it floor by floor.
+- **Ash turns:** the full moon calls the bite before the serum can finish.
+  On the second landing your best friend stops being your best friend — and
+  you CANNOT fight them. Run, hide, climb.
+- **Mara has your back:** press **T** and she pulls Ash's attention so you
+  can slip past. Reaching the lamp room and lighting the beacon holds the
+  moonlight off until dawn.
+- The title screen and pause-menu skip buttons jump chapter to chapter
+  (1 → 2 → 3 → 4).
 
-Plain HTML5 canvas + vanilla JavaScript, no engine, no build step:
+## Chapter Four — Ashes
+
+The beacon saved you. It did not finish anything. The night it burned, the
+Widow's lantern went out on its own — and a house like Crane's does not stay
+empty. The sea gives back what it is given.
+
+- **Return at dusk.** The fishing boat drops the three of you at the old
+  boathouse dock. Mara hid cans of **lamp oil** across the estate years ago:
+  the camper, the boathouse, her porch. Find all three before moonrise.
+- **The Hollow House stands open.** The front door that was sealed by three
+  emblems now hangs wide, like a held breath. Go back in and **soak three
+  rooms** — the kitchen, the living room, the workshop.
+- **The Drowned Man.** Crane came home along the riverbed. Waterlogged,
+  pale-eyed, dripping — and every can you pour makes him **faster and
+  angrier**. You can track him by the drip… until the third can, when the
+  house kills its own lights, slams every door, and he stops playing:
+  a full-dark, no-escape final chase to the front door.
+- **Strike the match.** Get out onto the porch and end it. Houses like his
+  only truly die empty and burning at once. This is where **The Hollow House**
+  ends — four chapters, and the road is finally just a road.
+
+## The other tenants
+
+You are not alone in there with him. An old woman rocks at the dining table,
+humming to plates of rotten food — she is harmless, as long as you don't
+count the way she looks at you. And in a corner of the living room stands a
+woman in a nightgown, whispering to the wall. **Do not go near her.**
+
+## The Butcher
+
+- He **patrols** the whole house, and periodically sweeps toward wherever you are.
+- He **hears** sprinting, doors, and the emblem mechanism. Crouch-walk to stay quiet.
+- He **sees** you if you're in his view cone with a clear line of sight — a
+  detection meter gives you a moment to break away before it becomes a chase.
+- If he chases you: **run**, break line of sight, and **hide in a wardrobe** —
+  but if he watches you climb in, hiding won't save you.
+- If he catches you, you don't lose your items — he just puts you back in the
+  bedroom. He wants to play.
+
+## Tech
+
+- Pure JavaScript + [Three.js](https://threejs.org) (vendored in `js/lib/`, MIT license).
+- Every texture is generated procedurally on canvas — no image assets.
+- Every sound (rain, thunder, heartbeat, footsteps, the chase drone, his
+  whistling) is synthesized with the Web Audio API — no audio assets.
+- Dynamic shadow-casting flashlight, flickering room lights, lightning through
+  the windows, film grain, and fear vignettes.
+- Grid-based A* pathfinding and a sight/sound/detection AI state machine
+  (patrol → investigate → chase → search).
+
+---
+
+# RAVENMOOR — a second game 🩸
+
+**Ravenmoor** is a separate, standalone game that reuses the same engine.
+Open **`ravenmoor.html`** (instead of `index.html`) to play it:
 
 ```
-index.html      — page shell and script loading order
-style.css       — fullscreen canvas styling
-js/util.js      — seeded RNG, angles, math helpers
-js/world.js     — deterministic world generation (regions, road, castle, shrine)
-js/entities.js  — player and enemy stat definitions
-js/fpworld.js   — the first-person view: DDA raycaster over the world map,
-                  night sky and moon, billboard sprites, FP combat, viewmodel
-js/dungeon.js   — a spare raycast dungeon system (unused by the simple quest)
-js/main.js      — game loop, input, quests, enemy AI, ending scene, map view, UI
+python3 -m http.server
+# then visit http://localhost:8000/ravenmoor.html
 ```
 
-Good places to start tinkering:
-- **Enemy stats** — `ENEMY_TYPES` in `js/entities.js`
-- **World layout** — structure positions and the lantern road in `js/world.js`
-- **Combat feel** — reach, cooldowns, dash speed in `js/fpworld.js`
-- **The mood** — fog falloff and sky colors in `fpDraw()`
-- **The ending** — every beat of the cinematic lives in `drawEnding()` in `js/main.js`
+Your car dies on a flooded moor at midnight and the only shelter is a huge
+gothic castle whose doors bolt shut behind you and your two friends. It
+belongs to the **Red Countess** — an ancient blood-drinker, pale and
+crimson-gowned, fast and silent on silk.
+
+- **Its own floor plan:** a long **cathedral nave** running the length of the
+  castle, with six side chambers off it — Crypt, Chapel, Dungeon, Belfry,
+  Library, Great Hall. Nothing like the farmhouse's little grid of rooms.
+- **The goal:** she's a vampire, so **sunlight** ends her. Get the one **iron
+  key** from the **Dungeon**, then ring the **dawn bell** in the **Belfry** — the
+  shutters burst open, the sunrise floods in, and she burns. One key, one bell.
+- **Fight back with holy water:** you carry **vials of holy water** (more are in
+  the Chapel and Library). Press **Space / click** to fling one in her face and
+  drive her back, breaking her chase — a real counter, not just running like in
+  The Hollow House.
+- **Two phases:** quiet, tense exploration until you grab the iron key — then she
+  wakes for good, faster and relentless, every door slamming, for a flat-out
+  chase to the bell.
+- **Gothic and grand:** marble floors, a crimson-and-gold carpeted nave, gilded
+  columns and chandeliers, moonlit stained glass, a vaulted gold-ribbed ceiling,
+  and drifting dust. Hide in the **coffins** when she drifts near.
+
+It's its own story with its own characters — nothing to do with the Hollow
+House — just built on the same bones.

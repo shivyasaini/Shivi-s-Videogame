@@ -3,16 +3,157 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Emberfall — A Dark Fantasy Tale</title>
-  <link rel="stylesheet" href="style.css">
+  <title>The Hollow House</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <canvas id="game"></canvas>
-  <script src="js/util.js"></script>
-  <script src="js/world.js"></script>
-  <script src="js/entities.js"></script>
-  <script src="js/dungeon.js"></script>
-  <script src="js/fpworld.js"></script>
-  <script src="js/main.js"></script>
+  <canvas id="grain"></canvas>
+  <div id="vignette"></div>
+  <div id="dangerVig"></div>
+  <div id="damageFlash"></div>
+  <div id="hideSlats"></div>
+  <canvas id="killfx"></canvas>
+  <div id="scare"><canvas id="scareCanvas"></canvas></div>
+
+  <div id="mapOv">
+    <div id="mapCard">
+      <div id="mapTitle">HIS HOUSE — as the last guest remembered it</div>
+      <canvas id="mapCanvas"></canvas>
+      <div id="mapLegend">🐺 🦉 🐍 emblems · 🗝️ key · ✚ first aid · 📜 note · 🛢 lamp oil ·
+        brown squares = places to HIDE · ▲ you · <span class="redDot">●</span> him, when he's close ·
+        👵 harmless, probably · <span class="warnMark">⚠</span> do NOT go near her ·
+        TAB closes the map</div>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div id="objBox">
+      <div id="objTitle">OBJECTIVE</div>
+      <div id="objText">Wake up.</div>
+    </div>
+    <div id="ctrlPanel">
+      <b>CONTROLS</b>
+      <div><span>WASD / ↑↓</span> move</div>
+      <div><span>Mouse / ← →</span> look</div>
+      <div><span>SHIFT</span> run · <span>C</span> crouch</div>
+      <div><span>E</span> use / hide</div>
+      <div><span>F</span> light · <span>Q</span> heal</div>
+      <div><span>TAB</span> map · <span>P</span> pause</div>
+      <div><span>G</span> graphics quality</div>
+    </div>
+    <div id="bars">
+      <div class="barwrap"><div class="bar"><div id="healthFill"></div></div><span class="barlabel">HEALTH</span></div>
+      <div class="barwrap"><div class="bar stam"><div id="stamFill"></div></div><span class="barlabel">STAMINA</span></div>
+    </div>
+    <div id="inv">
+      <span class="emblem" id="emWolf" title="Wolf emblem">🐺</span>
+      <span class="emblem" id="emOwl" title="Owl emblem">🦉</span>
+      <span class="emblem" id="emSerpent" title="Serpent emblem">🐍</span>
+      <span id="emKey" title="Rusty key">🗝️</span>
+      <span class="emblem vialV" id="emVenin" style="display:none" title="Venin vial">🧪</span>
+      <span class="emblem vialR" id="emRemedy" style="display:none" title="Remedy vial">🧪</span>
+      <span id="oilCount" style="display:none" title="Lamp oil">🛢 0/3</span>
+      <span id="medCount">✚ 0</span>
+    </div>
+    <div id="bossBar" style="display:none">
+      <span id="bossName">SILAS CRANE</span>
+      <div class="bbTrack"><div id="bossFill"></div></div>
+    </div>
+    <div id="crosshair"></div>
+    <div id="prompt"></div>
+    <div id="toast"></div>
+    <div id="caption"></div>
+  </div>
+
+  <div id="title" class="overlay show">
+    <h1>THE HOLLOW HOUSE</h1>
+    <p class="sub">a survival horror in four chapters</p>
+    <p class="story">
+      October 3rd. Your car died on Route 9, and the only light for miles came
+      from an old farmhouse. You remember knocking. You remember his smile.<br><br>
+      You wake in a guest bedroom that locks from the outside. The man who lives
+      here — the one the papers call the Butcher of Marrow County — is somewhere
+      below, and he is always, <em>always</em> hunting.<br><br>
+      Find the three emblems that seal his front door. Stay quiet. Hide when you
+      must. And whatever you hear in the dark… keep moving.
+    </p>
+    <div class="controls">
+      <span><b>WASD</b> move</span><span><b>Mouse</b> or <b>←&thinsp;→</b> look</span><span><b>↑&thinsp;↓</b> walk</span><span><b>Shift</b> sprint</span>
+      <span><b>C</b> crouch</span><span><b>E</b> interact / hide</span><span><b>F</b> flashlight</span>
+      <span><b>Q</b> use first aid</span><span><b>Tab</b> map</span><span><b>P</b> pause</span>
+      <span><b>−&thinsp;/&thinsp;+</b> volume</span><span><b>M</b> mute</span><span><b>G</b> graphics</span>
+    </div>
+    <button id="startBtn">ENTER THE HOUSE</button>
+    <div class="skipRow">
+      <div class="skipHold" id="skipHold1"><div class="fill" id="skipFill1"></div><span>HOLD 5s — CHAPTER TWO</span></div>
+      <div class="skipHold" id="skipHold3"><div class="fill" id="skipFill3"></div><span>HOLD 5s — CHAPTER THREE</span></div>
+      <div class="skipHold" id="skipHold4"><div class="fill" id="skipFill4"></div><span>HOLD 5s — CHAPTER FOUR</span></div>
+    </div>
+    <p class="tip">🎧 headphones recommended · click the button, then keep the mouse in the window · build 9</p>
+  </div>
+
+  <div id="pauseOv" class="overlay">
+    <h1>PAUSED</h1>
+    <p class="story">The house waits for you.</p>
+    <button id="resumeBtn">RESUME</button>
+    <div class="skipHold" id="skipHold2"><div class="fill" id="skipFill2"></div><span>HOLD 5s — SKIP TO CHAPTER TWO</span></div>
+  </div>
+
+  <div id="deathOv" class="overlay red">
+    <h1 id="deathTitle">HE FOUND YOU</h1>
+    <p class="story" id="deathText">Everything goes dark… but he isn't done playing with you yet.</p>
+    <button id="retryBtn">WAKE UP AGAIN</button>
+  </div>
+
+  <div id="winOv" class="overlay">
+    <h1 id="winTitle">YOU ESCAPED</h1>
+    <p class="story" id="winText">Cold rain has never felt so good. Behind you, a scream of rage
+      shakes the windows of the Hollow House.</p>
+    <p id="winStats" class="sub"></p>
+    <button id="restartBtn">PLAY AGAIN</button>
+  </div>
+
+  <div id="fadeBlack"></div>
+
+  <div id="chapterCard">
+    <div id="chapterTitle">CHAPTER TWO</div>
+    <div id="chapterSub">THE ESTATE</div>
+  </div>
+
+  <div id="videoOv">
+    <video id="cutVideo" playsinline preload="auto"></video>
+    <div id="videoSkipHint">E / click — skip</div>
+  </div>
+
+  <div id="cutOv">
+    <div class="cutBar top"></div>
+    <div id="cutBox">
+      <div id="cutSpeaker"></div>
+      <div id="cutLine"></div>
+      <div id="cutChoices"></div>
+      <div id="cutHint">click or press E to continue</div>
+    </div>
+    <div class="cutBar bottom"></div>
+  </div>
+
+  <div id="noteOv" class="overlay">
+    <div class="note">
+      <p><em>To whoever wakes up in this room —</em></p>
+      <p>He sealed the front door with a lock of his own making. Three emblems:
+        a <b>WOLF</b>, an <b>OWL</b>, a <b>SERPENT</b>. Slot all three into the
+        front door in the foyer and it will open.</p>
+      <p>I found the wolf in the <b>kitchen</b>. I saw the owl on his desk in the
+        <b>study</b>. The serpent is in the <b>bathroom</b> — he keeps it locked;
+        look for a rusty key on the <b>fireplace mantel</b>.</p>
+      <p>He hears running. He sees light. The wardrobes are deep enough to hide in.</p>
+      <p><em>Don't end up like me.</em></p>
+    </div>
+    <button id="noteClose">PUT THE NOTE DOWN&nbsp;&nbsp;(E)</button>
+  </div>
+
+  <script src="js/lib/three.min.js"></script>
+  <script src="js/game.js?v=9"></script>
 </body>
 </html>
