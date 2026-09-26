@@ -141,37 +141,62 @@ woman in a nightgown, whispering to the wall. **Do not go near her.**
 
 ---
 
-# RAVENMOOR — a second game 🩸
+# RAVENMOOR: a second game 🐦‍⬛🩸
 
-**Ravenmoor** is a separate, standalone game that reuses the same engine.
-Open **`ravenmoor.html`** (instead of `index.html`) to play it:
+**Ravenmoor** is a completely separate game with its own engine code in
+`js/ravenmoor/`. Nothing is shared with the Hollow House except Three.js.
+Open **`ravenmoor.html`** to play it:
 
 ```
 python3 -m http.server
 # then visit http://localhost:8000/ravenmoor.html
 ```
 
-Your car dies on a flooded moor at midnight and the only shelter is a huge
-gothic castle whose doors bolt shut behind you and your two friends. It
-belongs to the **Red Countess** — an ancient blood-drinker, pale and
-crimson-gowned, fast and silent on silk.
+**You are the vampire.** You wake up in a coffin under a cursed moor town with
+no memory, a terrible thirst, and a sarcastic talking raven called **Corvin**
+sitting on your chest. It's a choices game: bite or don't bite, kill or spare,
+eat this or drink that, go to bed or keep exploring. **Every choice turns into
+something you play.**
 
-- **Its own floor plan:** a long **cathedral nave** running the length of the
-  castle, with six side chambers off it — Crypt, Chapel, Dungeon, Belfry,
-  Library, Great Hall. Nothing like the farmhouse's little grid of rooms.
-- **The goal:** she's a vampire, so **sunlight** ends her. Get the one **iron
-  key** from the **Dungeon**, then ring the **dawn bell** in the **Belfry** — the
-  shutters burst open, the sunrise floods in, and she burns. One key, one bell.
-- **Fight back with holy water:** you carry **vials of holy water** (more are in
-  the Chapel and Library). Press **Space / click** to fling one in her face and
-  drive her back, breaking her chase — a real counter, not just running like in
-  The Hollow House.
-- **Two phases:** quiet, tense exploration until you grab the iron key — then she
-  wakes for good, faster and relentless, every door slamming, for a flat-out
-  chase to the bell.
-- **Gothic and grand:** marble floors, a crimson-and-gold carpeted nave, gilded
-  columns and chandeliers, moonlit stained glass, a vaulted gold-ribbed ceiling,
-  and drifting dust. Hide in the **coffins** when she drifts near.
+- **Make your character first:** name; girl, boy or neither; skin tone; face;
+  marks; hair style and colour; eye colour; outfit; extras. Your look then
+  changes as you play: you get paler, your eyes turn gold and then red as your
+  Humanity drops, your fangs grow each time you bite, your clothes wear, and
+  burns from the sun stay.
+- **Hidden stats:** Thirst (the vial, top right), Humanity, Dread, Memories and
+  Bonds decide what happens and which ending you get.
+- **Hard choices:** some are timed, and when time runs out *the Thirst picks for
+  you*. If you're too thirsty, the Beast scratches the gentle options out.
+- **41 endings**, collected in the **Ending Gallery** (locked ones show hints).
 
-It's its own story with its own characters — nothing to do with the Hollow
-House — just built on the same bones.
+### What's playable now: Night Zero and Night One
+
+| Choice | What you play |
+|---|---|
+| Drink the rats / the red chalice / nothing | Hunt rats in the crypt · drink and see a memory · walk past the chalice while it whispers to you |
+| Smash the gate / crawl through the bone tunnels | Break the gate and fight the watchmen · explore skull-lined tunnels (and a chained coffin that **breathes**) |
+| Break a chain / walk away | Pull the chain apart yourself · back away while the breathing follows you |
+| Gideon the gravedigger: kill / make him forget / talk | Chase him down · hold his gaze to mesmerise him · help him dig a grave |
+| ⏱ Pip: bite / don't bite / take the bread | Drink, and try to let go in time · sneak through the market and hunt · a dizzy, sick walk to Pip's hideout |
+| The thief: kill / sip / servant | Drink until the end · let go early · enthral him |
+| Pip: friend / send home | Follow Pip to a secret spot · walk Pip home safely |
+| Dawn: go to bed / keep exploring | A sunny dream of your human past (it turns into a nightmare if you sleep thirsty) · race the sunrise through the shadows |
+
+Endings you can already reach: **Sunburnt**, **Starved**, **The Crowd**,
+**Buried Alive**, and "End of Night One". Nights Two to Five are designed in
+[`RAVENMOOR_DESIGN.md`](RAVENMOOR_DESIGN.md).
+
+**Controls:** WASD move · mouse look · Shift run · C crouch · E use / talk ·
+click to claw or pounce · Space dash · hold R for Blood Sight (from the market
+on) · P pause · M mute · G graphics.
+
+**Code tour** (`js/ravenmoor/`):
+
+```
+core.js       renderer, sky and moon, lighting moods, input, player, hands, ravens, HUD, sound
+character.js  the 3D person builder, vampire changes, the character creator
+worlds.js     the crypt and bone tunnels, the town, graveyard, church and market
+scenes.js     every playable scene (one per choice outcome)
+endings.js    all 41 endings, the ending screen and the gallery
+story.js      stats, dialogue, the choice screen, Thirst, and the story order
+```

@@ -4,173 +4,140 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ravenmoor</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Special+Elite&display=swap">
-  <link rel="stylesheet" href="style.css?v=9">
-  <style>
-    /* --- Ravenmoor's own crimson-and-gold gothic skin (overrides the shared theme) --- */
-    #title, #pauseOv, #winOv {
-      background:
-        radial-gradient(ellipse at 50% 30%, rgba(90,10,26,0.55), rgba(10,4,14,0.96) 70%),
-        linear-gradient(180deg, #140816, #05030a);
-    }
-    #title h1, #winTitle {
-      font-family: 'Cinzel', Georgia, serif; font-weight: 800;
-      color: #e8c96a; letter-spacing: 10px;
-      text-shadow: 0 0 22px rgba(200,20,40,0.55), 0 2px 2px #000;
-    }
-    #title .sub, #winOv .sub { color: #b48a4a; font-family: 'Cinzel', Georgia, serif; letter-spacing: 6px; }
-    #title .story, #pauseOv .story, #winOv .story { color: #d8c2b0; }
-    #title .story em, #winOv .story em { color: #e0728a; font-style: italic; }
-    #title .controls b { color: #e8c96a; }
-    #chapterTitle { color: #e8c96a; font-family: 'Cinzel', Georgia, serif; text-shadow: 0 0 24px rgba(200,20,40,0.6); }
-    #chapterSub { color: #b48a4a; }
-    .overlay button {
-      font-family: 'Cinzel', Georgia, serif; letter-spacing: 4px;
-      color: #f0dca0; border: 1px solid #a8802e;
-      background: linear-gradient(180deg, rgba(120,16,30,0.75), rgba(60,6,16,0.85));
-      box-shadow: 0 0 18px rgba(150,20,30,0.35), inset 0 0 12px rgba(0,0,0,0.5);
-    }
-    .overlay button:hover {
-      background: linear-gradient(180deg, rgba(160,26,44,0.9), rgba(90,10,22,0.95));
-      box-shadow: 0 0 28px rgba(200,30,40,0.6); color: #fff2d0;
-    }
-    /* a faint gilded frame around the whole title screen */
-    #title::after {
-      content: ''; position: absolute; inset: 18px; pointer-events: none;
-      border: 2px solid rgba(168,128,46,0.35); border-radius: 3px;
-      box-shadow: inset 0 0 60px rgba(120,10,24,0.25);
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
+  <link rel="stylesheet" href="ravenmoor.css?v=2">
 </head>
 <body>
   <canvas id="game"></canvas>
-  <canvas id="grain"></canvas>
+  <canvas id="fx"></canvas>
+  <div id="thirstVig"></div>
+  <div id="bloodVig"></div>
   <div id="vignette"></div>
-  <div id="dangerVig"></div>
-  <div id="damageFlash"></div>
-  <div id="hideSlats"></div>
-  <canvas id="killfx"></canvas>
-  <div id="scare"><canvas id="scareCanvas"></canvas></div>
+  <div id="flash"></div>
 
-  <div id="mapOv">
-    <div id="mapCard">
-      <div id="mapTitle">RAVENMOOR — the castle, as far as you have crept</div>
-      <canvas id="mapCanvas"></canvas>
-      <div id="mapLegend">🗝 iron key · 🔔 dawn bell · ✚ first aid ·
-        brown squares = coffins to HIDE in · ▲ you · <span class="redDot">●</span> the Countess, when she's close ·
-        TAB closes the map</div>
-    </div>
-  </div>
-
+  <!-- HUD -->
   <div id="hud">
-    <div id="objBox">
-      <div id="objTitle">OBJECTIVE</div>
-      <div id="objText">Get out of the castle.</div>
-    </div>
-    <div id="ctrlPanel">
-      <b>CONTROLS</b>
-      <div><span>WASD / ↑↓</span> move</div>
-      <div><span>Mouse / ← →</span> look</div>
-      <div><span>SHIFT</span> run · <span>C</span> crouch</div>
-      <div><span>E</span> use / hide</div>
-      <div><span>F</span> light · <span>Q</span> heal</div>
-      <div><span>TAB</span> map · <span>P</span> pause</div>
-      <div><span>G</span> graphics quality</div>
-    </div>
-    <div id="bars">
-      <div class="barwrap"><div class="bar"><div id="healthFill"></div></div><span class="barlabel">HEALTH</span></div>
-      <div class="barwrap"><div class="bar stam"><div id="stamFill"></div></div><span class="barlabel">STAMINA</span></div>
-    </div>
-    <div id="inv">
-      <span id="relicCount" title="Iron key">🗝 —</span>
-      <span id="holyCount" title="Holy water">✚ holy 0</span>
-      <span id="medCount">✚ 0</span>
-    </div>
-    <div id="bossBar" style="display:none">
-      <span id="bossName">THE COUNTESS</span>
-      <div class="bbTrack"><div id="bossFill"></div></div>
-    </div>
+    <div id="objective"></div>
+    <div id="thirstWrap" title="Thirst"><div class="vial"><div id="thirstFill"></div></div><span>THIRST</span></div>
+    <div class="barWrap" id="hpWrap"><span id="hpLabel">YOU</span><div class="bar"><div id="hpFill"></div></div></div>
+    <div class="barWrap" id="burnWrap"><span id="burnLabel">SUNLIGHT</span><div class="bar sun"><div id="burnFill"></div></div></div>
+    <div class="barWrap" id="meterWrap"><span id="meterLabel"></span><div class="bar meter"><div class="zone"></div><div id="meterFill"></div></div></div>
     <div id="crosshair"></div>
     <div id="prompt"></div>
-    <div id="toast"></div>
     <div id="caption"></div>
+    <div id="toast"></div>
+    <div id="clickHint">Click to keep playing (the game needs your mouse)</div>
   </div>
 
-  <div id="title" class="overlay show">
-    <h1>RAVENMOOR</h1>
-    <p class="sub">a gothic vampire horror</p>
-    <p class="story">
-      Your car dies on a flooded moor road at midnight. The only light for miles
-      is a black castle on the ridge — its great doors already open, as if it
-      were expecting you.<br><br>
-      The moment you and your two friends step inside, the doors bolt shut behind
-      you. This is the house of the <em>Red Countess</em>, and she has been
-      lonely, and hungry, for a very long time.<br><br>
-      She is a vampire, and the old rules still bind her: the sunrise will end
-      her. Find the iron key in her dungeon, ring the dawn bell to throw open
-      every shutter — and let the morning in. Hide in the coffins when she drifts
-      near, and whatever you do, do not let her mouth reach your throat.
-    </p>
-    <div class="controls">
-      <span><b>WASD</b> move</span><span><b>Mouse</b> or <b>←&thinsp;→</b> look</span><span><b>↑&thinsp;↓</b> walk</span><span><b>Shift</b> sprint</span>
-      <span><b>C</b> crouch</span><span><b>E</b> interact / hide</span><span><b>F</b> flashlight</span>
-      <span><b>Q</b> use first aid</span><span><b>Tab</b> map</span><span><b>P</b> pause</span>
-      <span><b>−&thinsp;/&thinsp;+</b> volume</span><span><b>M</b> mute</span><span><b>G</b> graphics</span>
+  <!-- dialogue -->
+  <div id="dialog"><div id="dlgName"></div><div id="dlgText"></div><div class="dlgHint">click · E · Space</div></div>
+
+  <!-- choices -->
+  <div id="choice" class="overlay">
+    <div id="choiceQ"></div>
+    <div id="choiceTimer"><div id="choiceTimerFill"></div></div>
+    <div id="choiceCards"></div>
+    <div class="choiceHint">click a card, or press its number</div>
+  </div>
+
+  <!-- memory flash -->
+  <div id="memory" class="overlay"><div class="memCard"><div id="memTitle"></div><div id="memText"></div><div class="dlgHint">click · E</div></div></div>
+
+  <!-- night title card -->
+  <div id="card"><div id="cardTitle"></div><div id="cardSub"></div></div>
+  <div id="fade"></div>
+
+  <!-- title -->
+  <div id="title" class="overlay">
+    <div class="tWrap">
+      <div class="crest">🐦‍⬛</div>
+      <h1>RAVENMOOR</h1>
+      <p class="sub">you are the vampire</p>
+      <p class="blurb">You wake in a coffin beneath a cursed moor town, with no memory, a terrible thirst, and a raven sitting on your chest.<br>
+        Every choice is yours: bite or don't bite, kill or spare, sleep or explore. And <b>every choice is something you play</b>.<br>
+        41 endings. Some of them are happy.</p>
+      <div class="tBtns">
+        <button id="startBtn">RISE</button>
+        <button id="contBtn" class="ghost">CONTINUE FROM NIGHT ONE</button>
+        <button id="galBtn" class="ghost">ENDING GALLERY</button>
+      </div>
+      <p id="titleCount" class="tiny"></p>
+      <div class="keys">
+        <span><b>WASD</b> move</span><span><b>Mouse</b> look</span><span><b>Shift</b> run</span><span><b>C</b> crouch</span>
+        <span><b>E</b> use · talk</span><span><b>Click</b> claw · pounce</span><span><b>Space</b> dash</span><span><b>R</b> Blood Sight (later)</span>
+        <span><b>P</b> pause</span><span><b>M</b> mute</span><span><b>G</b> graphics</span>
+      </div>
+      <p class="tiny">🎧 headphones recommended · all sound and graphics are made in code</p>
     </div>
-    <button id="startBtn">ENTER THE CASTLE</button>
-    <p class="tip">🎧 headphones recommended · click the button, then keep the mouse in the window · build 9</p>
   </div>
 
-  <div id="pauseOv" class="overlay">
-    <h1>PAUSED</h1>
-    <p class="story">The castle waits for you.</p>
-    <button id="resumeBtn">RESUME</button>
-  </div>
-
-  <div id="deathOv" class="overlay red">
-    <h1 id="deathTitle">SHE DRANK DEEP</h1>
-    <p class="story" id="deathText">Her mouth is at your throat and the castle is very warm now.</p>
-    <button id="retryBtn">WAKE AGAIN</button>
-  </div>
-
-  <div id="winOv" class="overlay">
-    <h1 id="winTitle">DAWN AT LAST</h1>
-    <p class="story" id="winText">The great doors slam behind you and the first light comes up over the moor.</p>
-    <p id="winStats" class="sub"></p>
-    <button id="restartBtn">PLAY AGAIN</button>
-  </div>
-
-  <div id="fadeBlack"></div>
-
-  <div id="chapterCard">
-    <div id="chapterTitle">RAVENMOOR</div>
-    <div id="chapterSub">THE RED COUNTESS</div>
-  </div>
-
-  <div id="videoOv">
-    <video id="cutVideo" playsinline preload="auto"></video>
-    <div id="videoSkipHint">E / click — skip</div>
-  </div>
-
-  <div id="cutOv">
-    <div class="cutBar top"></div>
-    <div id="cutBox">
-      <div id="cutSpeaker"></div>
-      <div id="cutLine"></div>
-      <div id="cutChoices"></div>
-      <div id="cutHint">click or press E to continue</div>
+  <!-- character creator -->
+  <div id="creator" class="overlay">
+    <div class="crLeft">
+      <h2>WHO WERE YOU?</h2>
+      <p class="dim">Before the bite. Before the coffin.</p>
+      <div id="creatorOptions"></div>
     </div>
-    <div class="cutBar bottom"></div>
+    <div class="crRight">
+      <canvas id="preview"></canvas>
+      <div id="corvinSays"></div>
+      <div class="crHint">drag to spin · scroll to zoom</div>
+      <div class="crBtns"><button id="rndBtn" class="ghost">🎲 RANDOM</button><button id="riseBtn">THIS IS ME</button></div>
+    </div>
   </div>
 
-  <!-- unused here, but the engine wires a few of these ids -->
-  <div id="noteOv" class="overlay">
-    <div class="note"><p><em>—</em></p></div>
-    <button id="noteClose">CLOSE&nbsp;&nbsp;(E)</button>
+  <!-- pause -->
+  <div id="pause" class="overlay">
+    <div class="panel">
+      <h2>PAUSED</h2>
+      <div id="pauseStats" class="stats"></div>
+      <label>Volume <input id="volSlider" type="range" min="0" max="1" step="0.05"></label>
+      <label>Mouse speed <input id="sensSlider" type="range" min="0.3" max="2.5" step="0.1"></label>
+      <button id="qualBtn" class="ghost">GRAPHICS</button>
+      <button id="resumeBtn">RESUME</button>
+      <button id="quitBtn" class="ghost">QUIT TO TITLE</button>
+    </div>
   </div>
 
-  <script>window.HH_GAME = 'ravenmoor';</script>
+  <!-- ending -->
+  <div id="endingOv" class="overlay">
+    <div class="endWrap">
+      <div class="endLeft"><img id="endPortrait" alt="Your character"><div id="endName"></div></div>
+      <div class="endRight">
+        <div id="endNum"></div>
+        <h1 id="endTitle"></h1>
+        <div id="endText"></div>
+        <div id="endStats" class="stats"></div>
+        <details><summary>Your choices</summary><ol id="endPath"></ol></details>
+        <p id="endHint"></p>
+        <p id="endCount" class="tiny"></p>
+        <div class="tBtns">
+          <button id="endRetry">TRY NIGHT ONE AGAIN</button>
+          <button id="endAgain" class="ghost">START OVER</button>
+          <button id="endGallery" class="ghost">ENDING GALLERY</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- gallery -->
+  <div id="gallery" class="overlay">
+    <h2>ENDING GALLERY</h2>
+    <p id="galCount" class="dim"></p>
+    <div id="galGrid"></div>
+    <button id="galClose">BACK</button>
+  </div>
+
+  <div id="loading">RAVENMOOR<br><span>the dead are waking...</span></div>
+
   <script src="js/lib/three.min.js"></script>
-  <script src="js/game.js?v=9"></script>
+  <script src="js/ravenmoor/core.js?v=2"></script>
+  <script src="js/ravenmoor/character.js?v=2"></script>
+  <script src="js/ravenmoor/worlds.js?v=2"></script>
+  <script src="js/ravenmoor/scenes.js?v=2"></script>
+  <script src="js/ravenmoor/endings.js?v=2"></script>
+  <script src="js/ravenmoor/story.js?v=2"></script>
+  <script>window.addEventListener('load', () => RM.boot());</script>
 </body>
 </html>
