@@ -1193,7 +1193,7 @@ function updateFlies(dt) {
 
 /* ------------------------------------------------------------------ items */
 let interactables = [];
-const INV = { emblems: 0, owl: false, wolf: false, serpent: false, rustyKey: false, medkits: 0, venin: false, remedy: false, oil: 0, ironkey: false };
+const INV = { emblems: 0, owl: false, wolf: false, serpent: false, rustyKey: false, medkits: 0, venin: false, remedy: false, oil: 0, ironkey: false, holy: 0 };
 let itemMeshes = [];
 
 function emblemMesh(color) {
@@ -1537,6 +1537,16 @@ let widowIntro = false;
 function killerUpdate(dt) {
   const K = killer;
   if (!K.active) { noiseEvents.length = 0; return; }
+  // holy-water stun: she reels, frozen and smoking, for a few seconds
+  if (K.stunT > 0) {
+    K.stunT -= dt;
+    K.lArm.rotation.x = -2.2 + Math.sin(perfT * 18) * 0.15;
+    K.rArm.rotation.x = -2.2 + Math.cos(perfT * 18) * 0.15;
+    if (K.headG) { K.headG.rotation.z = Math.sin(perfT * 22) * 0.25; }
+    K.grp.position.set(K.x, 0, K.z); K.grp.rotation.y = K.yaw;
+    noiseEvents.length = 0;
+    return;
+  }
   K.attackCd = Math.max(0, K.attackCd - dt);
   K.grace = Math.max(0, K.grace - dt);
   const d = dist2(K.x, K.z, player.x, player.z);
@@ -1945,10 +1955,10 @@ function respawn() {
     killer.grace = 6;
     caption('You wake in the foyer, dragged as far as the open door and no further. He wants you to try again.', 4.5);
   } else if (curWorld === WH5) {
-    player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0;
+    player.x = cw(12); player.z = cw(18); player.yaw = Math.PI;
     configureStalker(WH5);
     killer.grace = 6;
-    caption('You wake back in the cold cell, unbled — she likes to keep her guests a while. The relics still wait in the dark.', 4.5);
+    caption('You come to at the foot of the nave, unbled — she likes to keep her guests a while. The bell is still silent.', 4.5);
   } else {
     player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0;
     killer.x = cw(17); killer.z = cw(2); killer.state = 'patrol'; killer.path = null;
@@ -1999,8 +2009,6 @@ function scanInteract() {
   }
   if (chapter === 1 && frontDoor.locked)
     consider(frontDoor.cx, frontDoor.cz - 0.7, { type: 'front' }, 'E — the sealed front door (' + INV.emblems + '/3 emblems)', 3.2);
-  if (chapter === 5 && frontDoor.locked)
-    consider(frontDoor.cx, frontDoor.cz - 0.7, { type: 'front' }, 'E — the great doors, barred from outside', 3.2);
   for (const h of hideSpots) consider(h.frontX, h.frontZ, { type: 'hide', h }, 'E — hide in the ' + h.label, 1.9);
   setPrompt(best ? bestPrompt : '');
   return best;
@@ -2059,6 +2067,7 @@ function updateHud() {
   if ($('healthFill')) $('healthFill').style.width = clamp(player.health, 0, 100) + '%';
   if ($('medCount')) { $('medCount').textContent = '✚ ' + INV.medkits; $('medCount').style.opacity = INV.medkits ? 1 : 0.25; }
   if ($('relicCount')) { $('relicCount').style.display = chapter === 5 ? '' : 'none'; $('relicCount').textContent = INV.ironkey ? '🗝 iron key' : '🗝 —'; }
+  if ($('holyCount')) { $('holyCount').style.display = chapter === 5 ? '' : 'none'; $('holyCount').textContent = '✚ holy ' + (INV.holy || 0); }
   // Hollow-House-only inventory (a page may omit these)
   if ($('emWolf')) {
     $('emWolf').className = 'emblem' + (INV.wolf ? ' got' : '');
@@ -2542,7 +2551,7 @@ function configureStalker(w) {
   else { killer.active = false; killer.state = 'patrol'; killer.bust = null; killer.attackT = -1; return; }
   killer.x = killer.homeX; killer.z = killer.homeZ;
   killer.state = 'patrol'; killer.path = null; killer.detect = 0; killer.bust = null;
-  killer.attackT = -1; killer.struck = false; killer.grace = 4; killer.loseT = 0;
+  killer.attackT = -1; killer.struck = false; killer.grace = 4; killer.loseT = 0; killer.stunT = 0;
   killer.grp.position.set(killer.x, 0, killer.z);
 }
 function fadeSwap(fn) {
@@ -4975,17 +4984,37 @@ let countessRig = null;
 const ch5Seen = { hall: false, portrait: false, crypt: false };
 let candleT5 = 0.5;
 
+// Ravenmoor's own floor plan: a long cathedral NAVE down the middle with six
+// side chambers — nothing like the farmhouse's grid.
+function makeCastleMap() {
+  const W = 25, H = 21;
+  const g = [];
+  for (let z = 0; z < H; z++) g.push(new Array(W).fill('#'));
+  const room = (x0, z0, x1, z1) => { for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) g[z][x] = '.'; };
+  room(11, 1, 13, 19);   // the nave (spine of the castle)
+  room(1, 1, 9, 5);      // crypt        (top-left)
+  room(1, 7, 9, 11);     // chapel       (mid-left)
+  room(1, 13, 9, 19);    // dungeon      (bottom-left)
+  room(15, 1, 23, 5);    // belfry       (top-right) — the dawn bell
+  room(15, 7, 23, 11);   // library      (mid-right)
+  room(15, 13, 23, 19);  // great hall   (bottom-right)
+  const door = (x, z) => { g[z][x] = '+'; };
+  door(10, 3); door(14, 3);
+  door(10, 9); door(14, 9);
+  door(10, 16); door(14, 16);
+  return g.map((r) => r.join(''));
+}
+const MAP5C = makeCastleMap();
 const ROOMS5 = {
-  kitchen: { x0: 1, x1: 7,  z0: 1, z1: 4,  name: 'Scullery' },
-  dining:  { x0: 9, x1: 14, z0: 1, z1: 4,  name: 'Great Hall' },
-  living:  { x0: 16, x1: 25, z0: 1, z1: 4, name: 'Gallery' },
-  hall:    { x0: 1, x1: 25, z0: 6, z1: 7,  name: 'Long Gallery' },
-  bedroom: { x0: 1, x1: 5,  z0: 9, z1: 13, name: 'Cell' },
-  bath:    { x0: 7, x1: 11, z0: 9, z1: 13, name: 'Chapel' },
-  foyer:   { x0: 13, x1: 16, z0: 9, z1: 13, name: 'Entrance Hall' },
-  study:   { x0: 18, x1: 21, z0: 9, z1: 13, name: 'Library' },
-  garage:  { x0: 23, x1: 25, z0: 9, z1: 13, name: 'Dungeon' },
+  nave:    { x0: 11, x1: 13, z0: 1,  z1: 19, name: 'The Nave' },
+  crypt:   { x0: 1,  x1: 9,  z0: 1,  z1: 5,  name: 'Crypt' },
+  chapel:  { x0: 1,  x1: 9,  z0: 7,  z1: 11, name: 'Chapel' },
+  dungeon: { x0: 1,  x1: 9,  z0: 13, z1: 19, name: 'Dungeon' },
+  belfry:  { x0: 15, x1: 23, z0: 1,  z1: 5,  name: 'Belfry' },
+  library: { x0: 15, x1: 23, z0: 7,  z1: 11, name: 'Library' },
+  hall:    { x0: 15, x1: 23, z0: 13, z1: 19, name: 'Great Hall' },
 };
+const PATROL_KEYS5 = ['nave', 'crypt', 'chapel', 'dungeon', 'belfry', 'library', 'hall'];
 
 const COUNTESS_TAUNTS = [
   '“Guests. It has been so very long since I had guests.”',
@@ -5212,15 +5241,18 @@ function coffin(x, z, ry, label) {
 }
 function buildCastle() {
   buildTextures5();
-  beginWorld(WH5, MAP1, ROOMS5);
+  beginWorld(WH5, MAP5C, ROOMS5);
   WH5.stalker = 'countess';
-  WH5.patrolKeys = PATROL_KEYS;
+  WH5.patrolKeys = PATROL_KEYS5;
   WH5.envCfg = ENV5_CASTLE;
-  WH5.exitMark = { x: 28, z: 29.4, label: 'GREAT DOORS ⇩' };
   WH5.marks = [];
   const stoneMat = new THREE.MeshStandardMaterial({ map: TEX.stone, roughness: 0.9, bumpMap: TEX.stone, bumpScale: 0.035, envMapIntensity: 0.5 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xc9a54e, metalness: 0.9, roughness: 0.28, envMapIntensity: 1.1 });
-  // polished marble floor that catches the candlelight
+  const flameSprite = new THREE.MeshBasicMaterial({ color: 0xffcf70, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+  flameSprite.toneMapped = false;
+  WH5.halos = [];
+
+  // marble floor + vaulted gold-ribbed ceiling
   const floorMat = new THREE.MeshStandardMaterial({ map: TEX.marble, roughness: 0.24, metalness: 0.18, envMapIntensity: 1.1 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.position.set(GW * CELL / 2, 0, GH * CELL / 2);
@@ -5229,16 +5261,12 @@ function buildCastle() {
     new THREE.MeshStandardMaterial({ map: TEX.vault, roughness: 0.9, emissive: 0x0a0820, emissiveIntensity: 0.3 }));
   ceil.rotation.x = Math.PI / 2; ceil.position.set(GW * CELL / 2, WALLH, GH * CELL / 2); worldRoot.add(ceil);
 
-  // crimson carpet runners: down the long gallery and up the nave to the doors
-  const carpetMat = new THREE.MeshStandardMaterial({ map: TEX.carpet5, roughness: 0.95 });
-  const runner = (x, z, w, d) => {
-    const t = TEX.carpet5.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, Math.max(1, Math.round(d / 2)));
-    const r = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 }));
-    r.rotation.x = -Math.PI / 2; r.position.set(x, 0.02, z); r.receiveShadow = true; worldRoot.add(r);
-  };
-  runner(cw(13), cw(6.5), 2.2, 24);         // the long gallery, east–west
-  runner(14 * CELL, cw(11.5), 2.4, 9);      // the nave, down to the great doors
+  // a long crimson carpet the whole length of the nave
+  const runnerT = TEX.carpet5.clone(); runnerT.needsUpdate = true; runnerT.wrapS = runnerT.wrapT = THREE.RepeatWrapping; runnerT.repeat.set(1, 9);
+  const runner = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 37), new THREE.MeshStandardMaterial({ map: runnerT, roughness: 0.95 }));
+  runner.rotation.x = -Math.PI / 2; runner.position.set(cw(12), 0.02, cw(10)); runner.receiveShadow = true; worldRoot.add(runner);
 
+  // walls + doors from the new floor plan
   const wallGeo = new THREE.BoxGeometry(CELL, WALLH, CELL);
   for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++) {
     if (cellAt(x, z) !== '#') continue;
@@ -5252,194 +5280,174 @@ function buildCastle() {
   }
   for (let z = 0; z < GH; z++) for (let x = 0; x < GW; x++)
     if (cellAt(x, z) === '+') makeDoor(x, z, {});
-  makeFrontDoor();
-  frontDoor.locked = true; frontDoor.target = 0;
 
-  // grand gilded chandeliers, brighter and warmer, with glowing candle flames
-  const flameSprite = new THREE.MeshBasicMaterial({ color: 0xffcf70, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
-  flameSprite.toneMapped = false;
+  // the great doors at the foot of the nave — barred from the outside, decoration only
+  const gdoor = box(2.6, 2.8, 0.3, MAT.woodDark); put(gdoor, cw(12), 1.4, 20 * CELL - 0.2);
+  for (let i = 0; i < 3; i++) { const bar = box(3.0, 0.2, 0.14, MAT.metal); put(bar, cw(12), 0.8 + i * 0.7, 20 * CELL - 0.35, 0, false); }
+  interactables.push({ x: cw(12), z: 19 * CELL + 1.4, y: 1, spin: false, prompt: 'the great doors — barred from outside',
+    action() { AU.locked(); caption('Barred and chained from the far side. No way out here. The dawn bell is the only way to end this.', 4); } });
+
+  // chandeliers down the nave and over each chamber
   const chand = (x, z, inten) => {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 8, 20), gold);
-    ring.rotation.x = Math.PI / 2; ring.position.set(x, WALLH - 0.55, z); ring.castShadow = false; worldRoot.add(ring);
-    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.03, 8, 18), gold);
-    ring2.rotation.x = Math.PI / 2; ring2.position.set(x, WALLH - 0.42, z); worldRoot.add(ring2);
+    ring.rotation.x = Math.PI / 2; ring.position.set(x, WALLH - 0.55, z); worldRoot.add(ring);
     const chainM = box(0.02, 0.55, 0.02, gold); chainM.position.set(x, WALLH - 0.27, z); worldRoot.add(chainM);
     for (let i = 0; i < 6; i++) {
       const a = i / 6 * Math.PI * 2;
-      const cnd = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.16, 6), MAT.white);
-      cnd.position.set(x + Math.cos(a) * 0.48, WALLH - 0.5, z + Math.sin(a) * 0.48); worldRoot.add(cnd);
       const fl = new THREE.Mesh(new THREE.SphereGeometry(0.03, 7, 7), new THREE.MeshBasicMaterial({ color: 0xffd070 }));
       fl.material.toneMapped = false;
       fl.position.set(x + Math.cos(a) * 0.48, WALLH - 0.4, z + Math.sin(a) * 0.48); worldRoot.add(fl);
       const halo = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), flameSprite);
-      halo.position.copy(fl.position); worldRoot.add(halo);
-      if (!WH5.halos) WH5.halos = [];
-      WH5.halos.push(halo);
+      halo.position.copy(fl.position); worldRoot.add(halo); WH5.halos.push(halo);
     }
-    const li = new THREE.PointLight(0xffbf6a, inten, 15, 1.7);
-    li.position.set(x, WALLH - 0.5, z); li.castShadow = false; worldRoot.add(li);
+    const li = new THREE.PointLight(0xffbf6a, inten, 15, 1.7); li.position.set(x, WALLH - 0.5, z); worldRoot.add(li);
     flickerLights.push({ light: li, base: inten, flicker: 0.28, t: rand(10), bulb: null });
   };
-  chand(cw(4), cw(2.5), 1.0); chand(cw(11.5), cw(2.5), 1.2); chand(cw(20.5), cw(2.5), 1.0);
-  chand(cw(7), cw(6.5), 1.0); chand(cw(19), cw(6.5), 1.0);
-  chand(cw(14.5), cw(11), 1.3); chand(cw(19.5), cw(11), 0.9); chand(cw(3), cw(11), 0.85);
-  chand(cw(9), cw(11), 0.9); chand(cw(24), cw(11), 0.8);
+  chand(cw(12), cw(4), 1.2); chand(cw(12), cw(10), 1.2); chand(cw(12), cw(16), 1.2);   // the nave
+  chand(cw(5), cw(3), 0.9); chand(cw(5), cw(9), 0.9); chand(cw(5), cw(16), 0.8);       // left chambers
+  chand(cw(19), cw(3), 1.1); chand(cw(19), cw(9), 0.9); chand(cw(19), cw(16), 0.9);    // right chambers
 
-  // gilded stone columns lining the grand rooms and the nave
+  // gilded columns marching down both sides of the nave
   const column = (x, z) => {
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, WALLH - 0.5, 14), stoneMat);
-    shaft.position.set(x, (WALLH - 0.5) / 2 + 0.25, z); shaft.castShadow = true; shaft.receiveShadow = true; worldRoot.add(shaft);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.28, 0.28, 14), gold);
-    cap.position.set(x, WALLH - 0.35, z); worldRoot.add(cap);
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 0.25, 14), stoneMat);
-    base.position.set(x, 0.12, z); worldRoot.add(base);
-    addCollider(x, z, 0.6, 0.6);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, WALLH - 0.5, 14), stoneMat);
+    shaft.position.set(x, (WALLH - 0.5) / 2 + 0.25, z); shaft.castShadow = true; worldRoot.add(shaft);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.26, 0.26, 14), gold); cap.position.set(x, WALLH - 0.35, z); worldRoot.add(cap);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.24, 14), stoneMat); base.position.set(x, 0.12, z); worldRoot.add(base);
+    addCollider(x, z, 0.56, 0.56);
   };
-  column(cw(9.6), cw(1.4)); column(cw(13.4), cw(1.4)); column(cw(9.6), cw(3.6)); column(cw(13.4), cw(3.6)); // great hall
-  column(cw(17.4), cw(1.4)); column(cw(24), cw(1.4)); column(cw(17.4), cw(3.6)); column(cw(24), cw(3.6));   // gallery
+  for (const z of [5, 8, 11, 14, 17]) { column(cw(11) + 0.2, cw(z)); column(cw(13) - 0.2, cw(z)); }
 
-  // wall sconces down the long gallery — pools of warm light on the stone
+  // wall sconces down the nave
   const sconce = (x, z, ry) => {
-    const br = box(0.08, 0.2, 0.08, gold); br.position.set(x, 1.7, z); worldRoot.add(br);
     const fl = new THREE.Mesh(new THREE.SphereGeometry(0.05, 7, 7), new THREE.MeshBasicMaterial({ color: 0xffd070 }));
     fl.material.toneMapped = false; fl.position.set(x, 1.85, z); worldRoot.add(fl);
-    const halo = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.36), flameSprite);
-    halo.position.set(x, 1.9, z); halo.rotation.y = ry; worldRoot.add(halo);
-    if (!WH5.halos) WH5.halos = []; WH5.halos.push(halo);
+    const halo = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.36), flameSprite); halo.position.set(x, 1.9, z); halo.rotation.y = ry; worldRoot.add(halo); WH5.halos.push(halo);
     const li = new THREE.PointLight(0xffb060, 0.7, 8, 2); li.position.set(x, 1.85, z); worldRoot.add(li);
     flickerLights.push({ light: li, base: 0.7, flicker: 0.45, t: rand(10), bulb: null });
   };
-  sconce(cw(4), 6 * CELL + 0.15, 0); sconce(cw(11), 6 * CELL + 0.15, 0); sconce(cw(21), 6 * CELL + 0.15, 0);
-  sconce(cw(7), 8 * CELL - 0.15, Math.PI); sconce(cw(17), 8 * CELL - 0.15, Math.PI);
+  sconce(11 * CELL + 0.12, cw(7), Math.PI / 2); sconce(11 * CELL + 0.12, cw(13), Math.PI / 2);
+  sconce(14 * CELL - 0.12, cw(7), -Math.PI / 2); sconce(14 * CELL - 0.12, cw(13), -Math.PI / 2);
 
-  // tall stained-glass windows on the north wall, lit from behind by the moon
+  // tall moonlit stained glass on the north wall of the two top chambers + the apse
   const shaftMat = new THREE.MeshBasicMaterial({ color: 0x6a78b0, transparent: true, opacity: 0.06, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
   shaftMat.toneMapped = false;
-  for (const x of [3, 6, 11, 13, 17, 21, 24]) {
+  for (const x of [3, 6, 12, 18, 21]) {
     const m = new THREE.MeshStandardMaterial({ map: TEX.glass, emissive: 0xffffff, emissiveIntensity: 1.15, emissiveMap: TEX.glass, roughness: 0.35, metalness: 0.1 });
     m.toneMapped = false;
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.4), m);
-    win.position.set(cw(x), 2.05, CELL + 0.02); worldRoot.add(win);
-    windowMats.push(m);
-    // a gothic pointed arch of gilded stone
-    const arch = new THREE.Mesh(new THREE.ConeGeometry(0.9, 0.8, 3), gold);
-    arch.rotation.y = Math.PI / 4; arch.position.set(cw(x), 3.4, CELL + 0.05); worldRoot.add(arch);
-    // a cool shaft of light spilling into the room
-    const shaft = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 4.2), shaftMat);
-    shaft.position.set(cw(x), 1.6, CELL + 1.6); shaft.rotation.x = -0.5; worldRoot.add(shaft);
-    // a faint colored glow-light in front of the glass
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.6), m);
+    win.position.set(cw(x), 2.05, CELL + 0.02); worldRoot.add(win); windowMats.push(m);
+    const arch = new THREE.Mesh(new THREE.ConeGeometry(0.95, 0.85, 3), gold);
+    arch.rotation.y = Math.PI / 4; arch.position.set(cw(x), 3.5, CELL + 0.05); worldRoot.add(arch);
+    const shaft = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4.4), shaftMat);
+    shaft.position.set(cw(x), 1.6, CELL + 1.7); shaft.rotation.x = -0.5; worldRoot.add(shaft);
     const gl = new THREE.PointLight(0x8090c0, 0.35, 6, 2); gl.position.set(cw(x), 2.0, CELL + 0.6); worldRoot.add(gl);
     flickerLights.push({ light: gl, base: 0.35, flicker: 0.05, t: rand(10), bulb: null });
   }
 
-  // tapestries and grim portraits along the walls
-  const tapestry = (x, y, z, ry) => {
-    const t = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 2.2), new THREE.MeshStandardMaterial({ map: TEX.tapestry, roughness: 1 }));
-    t.position.set(x, y, z); t.rotation.y = ry; worldRoot.add(t);
-  };
-  tapestry(cw(6), 1.9, 5 * CELL + CELL + 0.03, 0);
-  tapestry(cw(23), 1.9, 5 * CELL + CELL + 0.03, 0);
-  tapestry(cw(9), 1.9, 8 * CELL - 0.03, Math.PI);
-  const portrait = (x, z, ry) => {
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 1.3), new THREE.MeshStandardMaterial({ map: TEX.painting, roughness: 0.85 }));
-    p.position.set(x, 2.0, z); p.rotation.y = ry; worldRoot.add(p);
-    const frame = box(1.05, 1.42, 0.05, new THREE.MeshStandardMaterial({ color: 0x6a5220, metalness: 0.6, roughness: 0.4 }));
-    frame.position.set(x, 2.0, z + (ry === 0 ? -0.02 : 0.02) * (ry === 0 ? 1 : -1)); frame.rotation.y = ry; worldRoot.add(frame);
-  };
-  portrait(cw(3), 5 * CELL + CELL + 0.02, 0);
-  portrait(cw(16), 5 * CELL + CELL + 0.02, 0);
-  portrait(cw(21), 8 * CELL - 0.02, Math.PI);
-
-  // blood down the stone, and warnings in it
   const bloodAt = (x, z, s) => {
     const b = new THREE.Mesh(new THREE.PlaneGeometry(s, s), MAT.blood);
-    b.rotation.x = -Math.PI / 2; b.rotation.z = rand(7);
-    b.position.set(x, 0.012 + rand(0.004), z); worldRoot.add(b);
+    b.rotation.x = -Math.PI / 2; b.rotation.z = rand(7); b.position.set(x, 0.012 + rand(0.004), z); worldRoot.add(b);
   };
-  bloodAt(cw(14.5), cw(11), 2.2); bloodAt(cw(11.5), cw(2.5), 1.6); bloodAt(cw(9), cw(11.5), 1.4);
-  bloodAt(cw(20.5), cw(2.5), 1.5); bloodAt(cw(24), cw(12), 1.8);
-  for (let i = 0; i < 8; i++) bloodAt(cw(13) + i * 0.8, cw(7) + Math.sin(i) * 0.2, 0.7);
+  bloodAt(cw(12), cw(10), 2.0); bloodAt(cw(4), cw(16), 1.6); bloodAt(cw(19), cw(3), 1.4); bloodAt(cw(5), cw(9), 1.2);
+  castleScrawl('NO DAWN HERE', cw(12), 2.2, CELL + 0.04, 0, 3.2);
 
-  // scrawled in dried blood
-  castleScrawl('DRINK OR BE DRUNK', cw(13.5), 2.1, 5 * CELL + CELL + 0.03, 0, 3.6);
-  castleScrawl('NO DAWN HERE', 4.6, 2.0, 8 * CELL + CELL + 0.03, 0, 2.4);
+  // --- CRYPT (top-left): sarcophagi to hide in ---
+  coffin(cw(3), cw(3), 0, 'sarcophagus');
+  coffin(cw(7), cw(3), 0, 'sarcophagus');
 
-  // hanging chains and worse in the dungeon
+  // --- CHAPEL (mid-left): altar, candles, and a vial of HOLY WATER ---
+  const altar = box(1.6, 0.9, 0.8, stoneMat); put(altar, cw(5), 0.45, cw(9)); addCollider(cw(5), cw(9), 1.6, 0.8); blockCell(5, 9);
+  for (const sx of [-0.6, 0.6]) {
+    const cnd = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.42, 8), MAT.white); cnd.position.set(cw(5) + sx, 1.12, cw(9)); worldRoot.add(cnd);
+    const fl2 = new THREE.PointLight(0xffe0a0, 0.45, 6, 2); fl2.position.set(cw(5) + sx, 1.4, cw(9)); worldRoot.add(fl2);
+    flickerLights.push({ light: fl2, base: 0.45, flicker: 0.5, t: rand(10), bulb: null });
+  }
+  addItem('holyA', holyMesh(), cw(5), 1.08, cw(9), 'take the vial of holy water', () => gotHoly());
+  WH5.marks.push({ t: '✚', x: cw(5), z: cw(9) });
+
+  // --- DUNGEON (bottom-left): chains, an iron maiden, and the IRON KEY ---
   for (let i = 0; i < 3; i++) {
     const ch = box(0.03, rand(0.9, 1.5), 0.03, MAT.metal);
-    put(ch, cw(23.6) + i * 0.7, WALLH - ch.geometry.parameters.height / 2, cw(10.5), 0, false);
+    put(ch, cw(2.6) + i * 0.7, WALLH - ch.geometry.parameters.height / 2, cw(14.5), 0, false);
     const carc = box(0.32, rand(0.7, 1.0), 0.24, new THREE.MeshStandardMaterial({ map: TEX.gore, roughness: 0.9 }));
-    put(carc, cw(23.6) + i * 0.7, 1.6, cw(10.5), rand(0.6));
+    put(carc, cw(2.6) + i * 0.7, 1.6, cw(14.5), rand(0.6));
   }
-  // an iron maiden in the dungeon
-  const maiden = box(0.7, 2.0, 0.5, MAT.metal); put(maiden, cw(24.4), 1.0, cw(13.2), 0.3); addCollider(cw(24.4), cw(13.2), 0.8, 0.6);
+  const maiden = box(0.7, 2.0, 0.5, MAT.metal); put(maiden, cw(8), 1.0, cw(18), 0.3); addCollider(cw(8), cw(18), 0.8, 0.6);
+  coffin(cw(3), cw(18), 0, 'coffin');
+  const keyStand = box(0.4, 0.8, 0.4, stoneMat); put(keyStand, cw(4), 0.4, cw(16)); addCollider(cw(4), cw(16), 0.4, 0.4);
+  addItem('ironkey', ironKeyMesh(), cw(4), 1.0, cw(16), 'take the iron key', gotKey);
+  WH5.marks.push({ t: '🗝', x: cw(4), z: cw(16) });
 
-  // the chapel: an altar of black stone
-  const altar = box(1.4, 0.9, 0.7, stoneMat); put(altar, cw(9), 0.45, cw(12.6)); addCollider(cw(9), cw(12.6), 1.4, 0.7); blockCell(9, 12);
-  for (const sx of [-0.5, 0.5]) {
-    const cnd = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.4, 8), MAT.white);
-    cnd.position.set(cw(9) + sx, 1.1, cw(12.6)); worldRoot.add(cnd);
-    const fl2 = new THREE.PointLight(0xffb050, 0.4, 5, 2); fl2.position.set(cw(9) + sx, 1.35, cw(12.6)); worldRoot.add(fl2);
-    flickerLights.push({ light: fl2, base: 0.4, flicker: 0.5, t: rand(10), bulb: null });
-  }
-
-  // long banquet table in the Great Hall, set for a feast of dust
-  const tbl = box(3.4, 0.1, 1.2, MAT.woodDark); put(tbl, cw(11.5), 0.86, cw(2.5)); addCollider(cw(11.5), cw(2.5), 3.4, 1.2);
-  blockCell(10, 2); blockCell(11, 2); blockCell(12, 2);
-  for (let i = 0; i < 5; i++) {
-    const gob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.14, 8), new THREE.MeshStandardMaterial({ color: 0xb89a4a, metalness: 0.7, roughness: 0.3 }));
-    gob.position.set(cw(10) + i * 0.75, 0.98, cw(2.5)); worldRoot.add(gob);
-  }
-  // library shelves
-  const shelfC = box(3, 2.2, 0.4, MAT.woodDark); put(shelfC, cw(19.5), 1.1, 9 * CELL + 0.25); addCollider(cw(19.5), 9 * CELL + 0.25, 3, 0.5); blockCell(19, 9); blockCell(20, 9);
-
-  // the DAWN BELL, hung high in the Gallery — ring it and the shutters burst, and the sun takes her
-  const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.72, 0.95, 18, 1, true),
+  // --- BELFRY (top-right): the DAWN BELL ---
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.5, 0.3, 16), stoneMat); dais.position.set(cw(19), 0.15, cw(3)); worldRoot.add(dais);
+  const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.8, 1.05, 20, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x7c5a2a, metalness: 0.85, roughness: 0.35, side: THREE.DoubleSide, envMapIntensity: 1.1 }));
-  bell.position.set(cw(20.5), WALLH - 0.72, cw(2.5)); bell.castShadow = true; worldRoot.add(bell);
-  const yoke = box(1.3, 0.16, 0.16, MAT.woodDark); yoke.position.set(cw(20.5), WALLH - 0.15, cw(2.5)); worldRoot.add(yoke);
-  const bellRope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, WALLH - 1.5, 6),
+  bell.position.set(cw(19), WALLH - 0.7, cw(3)); bell.castShadow = true; worldRoot.add(bell);
+  const yoke = box(1.4, 0.16, 0.16, MAT.woodDark); yoke.position.set(cw(19), WALLH - 0.12, cw(3)); worldRoot.add(yoke);
+  const bellRope = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, WALLH - 1.5, 6),
     new THREE.MeshStandardMaterial({ color: 0x7a5f34, roughness: 1 }));
-  bellRope.position.set(cw(20.5) + 0.25, (WALLH - 1.5) / 2 + 0.25, cw(2.5)); worldRoot.add(bellRope);
+  bellRope.position.set(cw(19) + 0.3, (WALLH - 1.5) / 2 + 0.3, cw(3)); worldRoot.add(bellRope);
   WH5.bell = bell;
   interactables.push({
-    x: cw(20.5) + 0.25, z: cw(2.5), y: 1, spin: false,
+    x: cw(19) + 0.3, z: cw(3), y: 1, spin: false,
     get prompt() { return INV.ironkey ? 'ring the DAWN BELL' : 'the dawn bell — its rope is chained (find the iron key)'; },
     action() { ringBell(); },
   });
-  WH5.marks.push({ t: '🔔', x: cw(20.5), z: cw(2.5) });
+  WH5.marks.push({ t: '🔔', x: cw(19), z: cw(3) });
 
-  // the IRON KEY, deep in the dungeon among the chains — the only thing she still fears you reaching
-  const keyHook = box(0.06, 0.3, 0.06, MAT.metal); put(keyHook, cw(24), 1.35, cw(11.2), 0, false);
-  addItem('ironkey', ironKeyMesh(), cw(24), 1.05, cw(11.2), 'take the iron key', gotKey);
-  WH5.marks.push({ t: '🗝', x: cw(24), z: cw(11.2) });
+  // --- LIBRARY (mid-right): shelves and another vial of HOLY WATER ---
+  for (const [sx, sz, ry] of [[cw(19), 7 * CELL + 0.3, 0], [cw(23) - 0.3, cw(9), -Math.PI / 2]]) {
+    const shelfC = box(3, 2.2, 0.4, MAT.woodDark); put(shelfC, sx, 1.1, sz, ry);
+    const cs = Math.abs(Math.sin(ry)) > 0.5 ? [0.5, 3] : [3, 0.5]; addCollider(sx, sz, cs[0], cs[1]);
+  }
+  blockCell(18, 7); blockCell(19, 7); blockCell(20, 7);
+  addItem('holyB', holyMesh(), cw(17), 1.0, cw(10.5), 'take the vial of holy water', () => gotHoly());
+  WH5.marks.push({ t: '✚', x: cw(17), z: cw(10.5) });
 
-  // hiding coffins
-  coffin(cw(1.5), cw(13), Math.PI / 2, 'coffin');
-  coffin(cw(21.4), cw(9.4), 0, 'sarcophagus');
-  coffin(cw(2), cw(9.4), 0, 'coffin');
+  // --- GREAT HALL (bottom-right): a banquet of dust ---
+  const tbl = box(4.2, 0.12, 1.3, MAT.woodDark); put(tbl, cw(19), 0.86, cw(16)); addCollider(cw(19), cw(16), 4.2, 1.3);
+  for (let i = 0; i < 6; i++) {
+    const gob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.14, 8), gold);
+    gob.position.set(cw(16.5) + i * 0.8, 0.99, cw(16)); worldRoot.add(gob);
+  }
+  coffin(cw(22), cw(18), 0, 'coffin');
 
-  // a little mercy
+  // a little mercy: first aid in the nave and the great hall
   const mk5 = (id, x, y, z) => addItem(id, medkitMesh(), x, y, z, 'take the first aid kit', () => {
     INV.medkits++; toast('First Aid Kit (' + INV.medkits + ') — press Q to heal'); updateHud();
   });
-  mk5('med5a', cw(16.3), 1.0, cw(12.8));
-  mk5('med5b', cw(4.2), 1.0, cw(11.5));
+  mk5('med5a', cw(12), 1.0, cw(13));
+  mk5('med5b', cw(20), 1.0, cw(19));
 
-  // drifting dust motes, catching the candlelight
+  // drifting dust motes
   const dustGeo = new THREE.BufferGeometry();
-  const dpos = [], N = 260;
+  const dpos = [], N = 300;
   for (let i = 0; i < N; i++) dpos.push(rand(2, GW * CELL - 2), rand(0.4, WALLH - 0.3), rand(2, GH * CELL - 2));
   dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(dpos, 3));
   const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xffe6b0, size: 0.03, sizeAttenuation: true, transparent: true, opacity: 0.5, depthWrite: false }));
-  dust.material.toneMapped = false;
-  worldRoot.add(dust);
-  WH5.dust = dust;
+  dust.material.toneMapped = false; worldRoot.add(dust); WH5.dust = dust;
 
   sealWorld(WH5);
-  // and her, drifting the halls
   worldRoot = WH5.group;
   buildCountess();
+  // she waits at the head of the nave
+  countessRig.homeX = cw(12); countessRig.homeZ = cw(3);
+}
+function holyMesh() {
+  const g = new THREE.Group();
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.18, 10),
+    new THREE.MeshStandardMaterial({ color: 0xbfe4ff, emissive: 0x8ac0ff, emissiveIntensity: 0.5, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.9 }));
+  glass.position.y = 0.09; g.add(glass);
+  const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8), new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.9 }));
+  cork.position.y = 0.2; g.add(cork);
+  const cross = box(0.02, 0.09, 0.02, new THREE.MeshStandardMaterial({ color: 0xd8c070, metalness: 0.8, roughness: 0.3 })); cross.position.y = 0.09; g.add(cross);
+  return g;
+}
+function gotHoly() {
+  INV.holy = (INV.holy || 0) + 1;
+  toast('Holy water (' + INV.holy + ') — SPACE / click to throw');
+  caption('A vial of holy water. Fling it in her face (SPACE or click) to drive her back and break her chase.', 5);
+  updateHud();
 }
 function castleScrawl(text, x, y, z, ry, sw) {
   // reuse the hand-smeared blood lettering look from the house
@@ -5484,6 +5492,22 @@ function gotKey() {
   setObjective('Ring the DAWN BELL in the Gallery (🔔)');
   caption('The iron key is cold as a grave in your fist. Above you, silk hisses down the stairs — fast. GET TO THE BELL.', 5.5);
 }
+function throwHoly() {
+  if (chapter !== 5 || state !== 'play' || !INV.holy || INV.holy <= 0) return;
+  INV.holy--; updateHud();
+  AU.noise(0.18, 1500, 0.2, 1.4);            // glass shatters
+  AU.tone(900, 0.15, 'sine', 0.08, 0, 400);
+  const d = dist2(player.x, player.z, killer.x, killer.z);
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+  const dot = ((killer.x - player.x) * fx + (killer.z - player.z) * fz) / (d || 0.001);
+  if (killer.active && d < 5.5 && dot > 0.2) {
+    killer.stunT = 3.2; killer.state = 'search'; killer.searchT = 4; killer.path = null; killer.bust = null; killer.detect = 0; killer.loseT = 99;
+    AU.screech();
+    caption('The holy water bursts across her face — she SHRIEKS, smoking, and reels away into the dark.', 4);
+  } else {
+    caption('The vial shatters on the stone. Wasted — she has to be in front of you, and close.', 3);
+  }
+}
 function ringBell() {
   if (chapter !== 5 || ch5rung) return;
   if (!INV.ironkey) { AU.locked(); caption('The bell-rope is bound with heavy chain. You need the iron key from the dungeon.', 4); return; }
@@ -5511,7 +5535,7 @@ function ringBell() {
 
 /* ---------------- chapter-five flow ---------------- */
 function startChapter5() {
-  chapter = 5; ch5phase = 1; ch5rung = false; INV.ironkey = false;
+  chapter = 5; ch5phase = 1; ch5rung = false; INV.ironkey = false; INV.holy = 2;
   COUNTESS_P.chase = 4.0; COUNTESS_P.patrol = 1.6; COUNTESS_P.attackCd = 2.4;
   killer.active = false;
   state = 'chapter';
@@ -5523,7 +5547,7 @@ function startChapter5() {
   setTimeout(() => {
     if (!WH5) { WH5 = { group: new THREE.Group() }; buildCastle(); }
     activateWorld(WH5);
-    player.x = cw(2.6); player.z = cw(11.8); player.yaw = 0; player.pitch = 0;
+    player.x = cw(12); player.z = cw(18); player.yaw = Math.PI; player.pitch = 0;
     player.vx = player.vz = 0;
     player.health = 100; player.stamina = 100;
     killer.grace = 8;
@@ -5534,8 +5558,8 @@ function startChapter5() {
     $('chapterCard').classList.remove('show');
     state = 'play'; lockPointer();
     playVideoCutscene('castle', () => playCutscene(CS10, () => {
-      setObjective('Find the iron key (🗝, in the dungeon)');
-      caption('Old vampire, old rules: sunlight ends her. Find the iron key in the dungeon, then ring the DAWN BELL in the Gallery to throw the shutters. Hide in the coffins when she is near.', 7);
+      setObjective('Find the iron key (🗝, in the Dungeon)');
+      caption('Old vampire, old rules — sunlight ends her. Get the iron key from the Dungeon, then ring the DAWN BELL in the Belfry. Hide in coffins, and throw HOLY WATER (SPACE) to drive her back.', 7.5);
     }));
   }, 3400);
 }
@@ -5567,27 +5591,28 @@ function ch5Update(dt) {
   if (WH5.halos) { const s = 0.9 + Math.sin(perfT * 7) * 0.12; for (const h of WH5.halos) { h.quaternion.copy(camera.quaternion); h.scale.setScalar(s); } }
   candleT5 -= dt;
   if (candleT5 <= 0) { candleT5 = rand(3, 8); if (dist2(player.x, player.z, killer.x, killer.z) < 22) AU.creak(rand(-1, 1)); }
-  if (!ch5Seen.hall && ch5phase === 1 && killer.state !== 'chase' && roomOf(player.x, player.z) === 'hall') {
+  // first time you step deep into the nave, she appears at its head, then is gone
+  if (!ch5Seen.hall && ch5phase === 1 && killer.state !== 'chase' && roomOf(player.x, player.z) === 'nave' && player.z < cw(12)) {
     ch5Seen.hall = true;
     for (const fl of flickerLights) fl.offT = 1.6;
     killer.grace = 4; killer.state = 'patrol'; killer.path = null; killer.detect = 0;
-    killer.x = player.x < GW * CELL / 2 ? cw(24) : cw(2); killer.z = cw(6.5);
+    killer.x = cw(12); killer.z = cw(2);
     killer.yaw = Math.atan2(player.x - killer.x, player.z - killer.z);
     killer.grp.position.set(killer.x, 0, killer.z);
     AU.growl(panTo(killer), 0.3);
     setTimeout(() => AU.thunder(), 400);
     setTimeout(() => {
-      if (killer.state !== 'chase') { killer.x = cw(20); killer.z = cw(2); killer.path = null; killer.grp.position.set(killer.x, 0, killer.z); }
-      if (state === 'play') caption('At the far end of the gallery a woman in red stands with her back to you. You blink — and the gallery is empty.', 5);
+      if (killer.state !== 'chase') { killer.x = cw(12); killer.z = cw(4); killer.path = null; killer.grp.position.set(killer.x, 0, killer.z); }
+      if (state === 'play') caption('At the head of the nave, beneath the great window, a woman in red stands watching you. You blink — and she is gone.', 5);
     }, 1700);
   }
-  if (!ch5Seen.portrait && dist2(player.x, player.z, cw(3), 5 * CELL + CELL) < 3.5) {
-    ch5Seen.portrait = true;
-    caption('The portrait is of a bride in red, centuries old. The little brass plate reads only: THE COUNTESS — AND HER GUESTS. You are in the painting too.', 6);
-  }
-  if (!ch5Seen.crypt && dist2(player.x, player.z, cw(24), cw(11)) < 3.5) {
+  if (!ch5Seen.crypt && roomOf(player.x, player.z) === 'crypt') {
     ch5Seen.crypt = true;
-    caption('The chains still swing a little, as if something just left. The dungeon floor is dark and sticky and very old.', 5);
+    caption('The crypt. Cold sarcophagi line the walls — their lids shifted, all of them, from the inside. You can climb into one to hide.', 5.5);
+  }
+  if (!ch5Seen.portrait && roomOf(player.x, player.z) === 'dungeon') {
+    ch5Seen.portrait = true;
+    caption('The dungeon. Chains, an iron maiden, and old dark stains — and there, on a stand, the iron key she never thought a guest would reach.', 6);
   }
 }
 
@@ -5598,7 +5623,8 @@ const CS10 = [
   { who: '', text: 'The moment the three of you are inside, the great doors swing shut on their own. The bolt falls with a sound like a coffin lid.' },
   { who: 'BREE', text: '“That was not the wind. Somebody shut us in.” She turns slowly, taking in the blood on the stone. “…somebody who has done this before.”' },
   { who: 'THE COUNTESS', text: 'A voice like cold silk, from everywhere at once: “Welcome, travellers. You are soaked to the bone, and I have such a warm appetite. Do make yourselves… comfortable.”' },
-  { who: '', text: 'Rook and Bree bar themselves in the entrance hall. It falls to you to find the way out — before she finds you.' },
+  { who: 'BREE', text: '“Old stories say her kind burns in the sun. There’s a bell-tower — the Belfry. Ring the dawn bell and the shutters open. But the rope’s chained; you’ll need a key.”' },
+  { who: '', text: 'Rook and Bree wedge the great doors shut and press salt along the sills. It falls to you to go deeper — find the iron key, and ring the bell — before she finds you.' },
 ];
 
 /* -------------------------------------------------------------- input/lock */
@@ -5627,6 +5653,7 @@ addEventListener('mousemove', (e) => {
 addEventListener('mousedown', () => {
   mouseDown = true;
   if (state === 'play' && chapter === 3 && ch3phase === 2) doGaffSwing();
+  else if (state === 'play' && chapter === 5) throwHoly();
 });
 addEventListener('mouseup', () => { mouseDown = false; });
 let volume = 0.85, muted = false;
@@ -5670,7 +5697,7 @@ addEventListener('keydown', (e) => {
     maraDistract();
   } else if (e.code === 'Space') {
     e.preventDefault();
-    doGaffSwing();
+    if (chapter === 5) throwHoly(); else doGaffSwing();
   } else if (e.code === 'KeyP') {
     state = 'pause'; showOverlay('pauseOv');
     refreshPauseSkip();

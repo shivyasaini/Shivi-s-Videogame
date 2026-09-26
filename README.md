@@ -156,17 +156,22 @@ gothic castle whose doors bolt shut behind you and your two friends. It
 belongs to the **Red Countess** — an ancient blood-drinker, pale and
 crimson-gowned, fast and silent on silk.
 
-- **The goal:** she's a vampire, so **sunlight** ends her. Find the one **iron
-  key** hidden deep in her **dungeon**, then ring the **dawn bell** high in the
-  Gallery — the shutters burst open, the sunrise floods every hall, and she
-  burns. No collect-a-thon: one key, one bell.
-- **Two phases:** the first half is quiet, tense exploration of a dark castle.
-  The moment you take the iron key, she wakes for good — faster, relentless,
-  every door slamming — and the second half is a flat-out chase to the bell.
+- **Its own floor plan:** a long **cathedral nave** running the length of the
+  castle, with six side chambers off it — Crypt, Chapel, Dungeon, Belfry,
+  Library, Great Hall. Nothing like the farmhouse's little grid of rooms.
+- **The goal:** she's a vampire, so **sunlight** ends her. Get the one **iron
+  key** from the **Dungeon**, then ring the **dawn bell** in the **Belfry** — the
+  shutters burst open, the sunrise floods in, and she burns. One key, one bell.
+- **Fight back with holy water:** you carry **vials of holy water** (more are in
+  the Chapel and Library). Press **Space / click** to fling one in her face and
+  drive her back, breaking her chase — a real counter, not just running like in
+  The Hollow House.
+- **Two phases:** quiet, tense exploration until you grab the iron key — then she
+  wakes for good, faster and relentless, every door slamming, for a flat-out
+  chase to the bell.
 - **Gothic and grand:** marble floors, a crimson-and-gold carpeted nave, gilded
   columns and chandeliers, moonlit stained glass, a vaulted gold-ribbed ceiling,
-  drifting dust, a blood chapel, and a dungeon of chains. Hide in the **coffins**
-  when she drifts near — and never let her mouth reach your throat.
+  and drifting dust. Hide in the **coffins** when she drifts near.
 
 It's its own story with its own characters — nothing to do with the Hollow
 House — just built on the same bones.
