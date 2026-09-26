@@ -3,6 +3,8 @@
 Ravenmoor currently lives on the `claude/keen-bohr-cpbr9r` branch (`ravenmoor.html` + `js/game.js`).
 This doc covers why it feels like a copy of **The Hollow House**, and what to change.
 
+> ✅ **Chosen:** Idea A (you are the vampire), turned into a choices game with 20+ endings. See [RAVENMOOR_DESIGN.md](RAVENMOOR_DESIGN.md).
+
 ---
 
 ## 1. Why it feels like the same game
