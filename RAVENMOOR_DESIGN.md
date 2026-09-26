@@ -3,7 +3,7 @@
 **You are the vampire. Every choice is yours, and you have to play through each one.**
 
 Chosen direction: Idea A from `RAVENMOOR_BRAINSTORM.md`, turned into a **choices game**
-with **31 endings**, **friends and rivals**, and **properly scary set pieces**. Every decision leads into a **playable scene** where you actually do
+with **41 endings** (including 14 ways to die), **friends and rivals**, and **properly scary set pieces**. Every decision leads into a **playable scene** where you actually do
 what you chose.
 
 ---
@@ -229,7 +229,7 @@ if you did certain things earlier:
 
 ---
 
-## 8. The endings (31 in total)
+## 8. The endings (41 in total)
 
 | # | Ending | How you get it (roughly) |
 |---|---|---|
@@ -272,13 +272,43 @@ These aren't small variations of the first 23. Each one is its own kind of story
 | 30 | **The Mirror** 😱 | Body swap | Your reflection gets out. It walks out of the mirror room wearing your face, and everyone thinks it's you. It's kinder than you were. From behind the glass, you watch it make all your friends happy |
 | 31 | **The Night Festival** 🎉 | Happy friendship ending | Everyone you met is your Friend: Pip, Imelda, Tobias, Mirela, Gideon, Rosalind, and Corvin. Instead of fighting the night, the whole town throws a lantern festival *for* you. You stay a vampire, and you're finally home |
 
+### 💀 Death endings: 10 different ways to die
+
+Being a vampire doesn't mean you can't die. Each death is its own short, scary final scene,
+and each one comes from a **choice you made** or a **mistake you made while playing**.
+Every one unlocks in the Ending Gallery, so dying is part of the fun.
+
+| # | Death | How it happens |
+|---|---|---|
+| 32 | **The Stake** 🪵 | Tobias finds your coffin while you're asleep. You wake up just in time to see the hammer come down. Happens if you spared Tobias with low Humanity, or slept in the same place two nights in a row |
+| 33 | **Drowned** 🌊 | You fall into running water in the Drowned Chapel. Vampires can't swim. Your body won't move, and you sink while the things under the water come closer |
+| 34 | **Holy Fire** ✝️ | You ring a church bell on purpose to stun the Choir, but you're standing too close. The sound sets you alight from the inside |
+| 35 | **The Hounds** 🐺 | You chose "crawl through the fields" instead of the rooftops on a high-Dread night. You hear howling in the fog. Then you hear it much closer |
+| 36 | **Buried Alive** ⚰️ | Gideon (if he's your Enemy) waits for you to sleep, nails the coffin shut and buries it six feet down. You wake in the dark and start scratching at the lid. The last thing you hear is dirt landing on it. (Callback to how the game starts!) |
+| 37 | **Garlic Supper** 🧄 | Pip's grandma invites you for dinner and you choose "eat to be polite." She knew exactly what you were the whole time |
+| 38 | **Silver Tongue** 🥈 | You drink from the thief you made your servant, and he's been lining his blood with silver for weeks. Revenge |
+| 39 | **Mirela's Kiss** 🦇 | You trusted Mirela, then refused her one time too many. She smiles, says *"I'm so sorry,"* and drains you dry |
+| 40 | **Swarm** 🐦‍⬛ | You stay in raven form too long and can't pull yourself back together. You scatter across the sky as a hundred birds, and none of them remember your name |
+| 41 | **Vane's Crypt** 👑 | You lose the boss fight against Vane. He doesn't kill you. He seals you back in the coffin you started in, and this time he adds *more chains* |
+
+These join the four early deaths already in the list (Sunburnt, Ash on the Altar, Starved, and The Crowd),
+so there are **14 ways to die** in total.
+
+**How death works in play:**
+- **Death endings** (the ones above) end the run with their own scene, and you unlock them in the gallery.
+- **Normal mistakes** in a level, like getting spotted during a hunt, just send you back to a checkpoint,
+  so you don't lose the whole game for one slip.
+- **Warnings first.** Before most deaths there's a clue: the howling gets closer, the water ripples,
+  Corvin says *"I really wouldn't."* Careful players can survive, while careless ones find a new ending.
+- **Every death screen shows a hint** for a different ending, so dying teaches you something.
+
 (More can be added easily. Each ending is just a rule plus a final scene.)
 
 ---
 
 ## 9. Replay features (so people want to find every ending)
 
-- **Ending Gallery.** All 31 slots, locked ones shown as dark silhouettes with a one-line hint.
+- **Ending Gallery.** All 41 slots, locked ones shown as dark silhouettes with a one-line hint.
 - **"Your choices" screen** at the end showing your path through the choice map.
 - **Night select** once you've reached a night, so you don't replay from the start every time.
 - **New dialogue on replays.** Corvin notices: *"We've done this before, haven't we?"*
