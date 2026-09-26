@@ -27,7 +27,7 @@ button.ghost:hover { background: rgba(30, 40, 80, 0.7); box-shadow: 0 0 20px rgb
 #fade { position: fixed; inset: 0; pointer-events: none; z-index: 45; background: #000; opacity: 0; }
 
 /* HUD */
-#hud { position: fixed; inset: 0; pointer-events: none; z-index: 8; }
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 47; }
 #objective { position: absolute; left: 22px; top: 20px; max-width: 420px; padding: 10px 14px 10px 16px; border-left: 2px solid var(--crimson);
   background: linear-gradient(90deg, rgba(8, 10, 24, 0.75), rgba(8, 10, 24, 0)); font-size: 17px; line-height: 1.35; opacity: 0; transition: opacity .4s; }
 #objective.show { opacity: 1; }
@@ -61,7 +61,7 @@ button.ghost:hover { background: rgba(30, 40, 80, 0.7); box-shadow: 0 0 20px rgb
 #clickHint.show { display: block; }
 
 /* dialogue */
-#dialog { position: fixed; left: 50%; bottom: 36px; transform: translate(-50%, 20px); width: min(860px, 92vw); z-index: 20; padding: 18px 26px 16px;
+#dialog { position: fixed; left: 50%; bottom: 36px; transform: translate(-50%, 20px); width: min(860px, 92vw); z-index: 57; padding: 18px 26px 16px;
   background: linear-gradient(180deg, rgba(10, 12, 28, 0.94), rgba(6, 6, 16, 0.96)); border: 1px solid rgba(159, 176, 216, 0.28); border-top: 2px solid var(--crimson);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7); opacity: 0; pointer-events: none; transition: all .25s; }
 #dialog.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; cursor: pointer; }
@@ -75,7 +75,7 @@ button.ghost:hover { background: rgba(30, 40, 80, 0.7); box-shadow: 0 0 20px rgb
 .overlay.show { display: flex; }
 
 /* choices */
-#choice { z-index: 35; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+#choice { z-index: 55; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
   background: radial-gradient(ellipse at center, rgba(60, 0, 14, 0.72), rgba(4, 0, 4, 0.94)); animation: fadeIn .3s; }
 @keyframes fadeIn { from { opacity: 0; } }
 #choiceQ { font-family: 'Cinzel'; font-size: clamp(22px, 3vw, 36px); letter-spacing: 3px; text-align: center; max-width: 90vw; color: #fff; text-shadow: 0 0 24px rgba(200, 20, 40, 0.7); padding: 0 16px; }
@@ -97,14 +97,14 @@ button.ghost:hover { background: rgba(30, 40, 80, 0.7); box-shadow: 0 0 20px rgb
 .choiceHint { font-size: 13px; color: var(--dim); letter-spacing: 2px; }
 
 /* memory */
-#memory { z-index: 36; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(255, 236, 200, 0.35), rgba(60, 40, 20, 0.85)); animation: fadeIn .8s; cursor: pointer; }
+#memory { z-index: 56; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(255, 236, 200, 0.35), rgba(60, 40, 20, 0.85)); animation: fadeIn .8s; cursor: pointer; }
 .memCard { width: min(640px, 90vw); padding: 30px 34px; background: rgba(40, 28, 16, 0.75); border: 1px solid rgba(255, 220, 160, 0.5); box-shadow: 0 0 60px rgba(255, 220, 160, 0.3); color: #fbeedd; }
 #memTitle { font-family: 'Cinzel'; letter-spacing: 4px; font-size: 15px; color: #ffd890; margin-bottom: 14px; }
 #memText p { font-size: 22px; line-height: 1.5; margin-bottom: 10px; font-style: italic; }
 #memText b { color: #fff4d8; }
 
 /* night card */
-#card { position: fixed; inset: 0; z-index: 46; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; opacity: 0; transition: opacity 1s; }
+#card { position: fixed; inset: 0; z-index: 48; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; opacity: 0; transition: opacity 1s; }
 #card.show { opacity: 1; }
 #cardTitle { font-family: 'Cinzel'; font-weight: 900; font-size: clamp(38px, 7vw, 86px); letter-spacing: 12px; color: var(--moon); text-shadow: 0 0 30px rgba(120, 140, 255, 0.4); }
 #cardSub { margin-top: 14px; font-family: 'Cinzel'; letter-spacing: 8px; font-size: clamp(14px, 1.6vw, 20px); color: var(--crimson); }
@@ -147,7 +147,7 @@ button.ghost:hover { background: rgba(30, 40, 80, 0.7); box-shadow: 0 0 20px rgb
 #nameInput:focus { border-color: var(--gold); }
 
 /* pause */
-#pause { z-index: 38; align-items: center; justify-content: center; background: rgba(3, 4, 10, 0.8); }
+#pause { z-index: 60; align-items: center; justify-content: center; background: rgba(3, 4, 10, 0.8); }
 .panel { width: min(420px, 90vw); padding: 28px; display: flex; flex-direction: column; gap: 14px; background: #0c0e1c; border: 1px solid rgba(214, 178, 94, 0.35); }
 .panel h2 { font-family: 'Cinzel'; letter-spacing: 8px; text-align: center; color: var(--moon); }
 .panel label { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 18px; }
@@ -156,7 +156,7 @@ button.ghost:hover { background: rgba(30, 40, 80, 0.7); box-shadow: 0 0 20px rgb
 .stats span { color: var(--dim); }
 
 /* ending */
-#endingOv { z-index: 42; align-items: center; justify-content: center; overflow-y: auto; background: radial-gradient(ellipse at 30% 40%, rgba(40, 10, 24, 0.9), rgba(3, 3, 8, 0.98)); padding: 20px; }
+#endingOv { z-index: 50; align-items: center; justify-content: center; overflow-y: auto; background: radial-gradient(ellipse at 30% 40%, rgba(40, 10, 24, 0.9), rgba(3, 3, 8, 0.98)); padding: 20px; }
 .endWrap { display: flex; gap: 34px; align-items: center; max-width: 1080px; width: 100%; margin: auto; flex-wrap: wrap; justify-content: center; }
 .endLeft { text-align: center; }
 #endPortrait { width: 300px; max-width: 80vw; aspect-ratio: 4/5; object-fit: cover; border: 2px solid rgba(214, 178, 94, 0.6); box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 60px rgba(179, 20, 44, 0.25); background: #07060c; }
@@ -174,7 +174,7 @@ summary { cursor: pointer; font-family: 'Cinzel'; letter-spacing: 3px; font-size
 #endHint { font-size: 18px; margin-top: 10px; color: #d8cce8; }
 
 /* gallery */
-#gallery { z-index: 44; flex-direction: column; align-items: center; overflow-y: auto; padding: 30px 20px; background: rgba(4, 4, 10, 0.97); gap: 10px; }
+#gallery { z-index: 58; flex-direction: column; align-items: center; overflow-y: auto; padding: 30px 20px; background: rgba(4, 4, 10, 0.97); gap: 10px; }
 #gallery h2 { font-family: 'Cinzel'; letter-spacing: 8px; color: var(--moon); }
 #galGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; width: min(1100px, 100%); margin: 14px 0; }
 .gcard { padding: 12px; min-height: 104px; border: 1px solid rgba(159, 176, 216, 0.2); background: #0b0c18; }

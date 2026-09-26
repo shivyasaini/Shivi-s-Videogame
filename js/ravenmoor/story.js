@@ -143,6 +143,7 @@ RM.togglePause = togglePause;
 let beastCd = 0, bs = 0;
 RM.onTick((dt) => {
   const s = RM.S; if (!s || !inGame) return;
+  if ($('endingOv').classList.contains('show')) { $('thirstWrap').classList.remove('show'); $('thirstVig').style.opacity = 0; return; }
   const vial = $('thirstFill');
   if (s.dreaming) { $('thirstWrap').classList.remove('show'); AU.setHeart(0, 0); $('thirstVig').style.opacity = 0; RM.bloodSight = 0; return; }
   $('thirstWrap').classList.add('show');
