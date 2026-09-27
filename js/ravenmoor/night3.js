@@ -53,7 +53,7 @@ N3.wake = () => RM.play(async (done) => {
 
 // The fields: the ford, and (if the town is scared enough) the hounds
 N3.fields = () => RM.play(async (done) => {
-  const w = RM.useWorld('moor'); RM.setEnv('moor'); AU.setWind(0.3);
+  const w = RM.useWorld('moor'); RM.setEnv('moor'); AU.setWind(0.3); RM.fade(0, 1);
   // the bridge is gone now
   w.data.bridgeUp = false; w.data.bridgeGap.off = false; for (const c of w.data.banks) c.off = false;
   for (const pl of w.data.planks) if (Math.abs(pl.position.z) < 3.2 || (pl.geometry.parameters.depth || 0) > 5) pl.visible = false;
@@ -93,7 +93,7 @@ N3.fields = () => RM.play(async (done) => {
 
 // The sewers: they join the bone tunnels, and one grate opens into Vane's cellar
 N3.sewers = () => RM.play(async (done) => {
-  const w = RM.useWorld('crypt'); RM.setEnv('crypt'); AU.setWind(0.02);
+  const w = RM.useWorld('crypt'); RM.setEnv('crypt'); AU.setWind(0.02); RM.fade(0, 1);
   w.data.holeHeap.visible = false; w.data.holeCol.off = true;
   const lad = w.data.ladder; RM.placePlayer(lad.x, lad.z + 0.8, Math.PI);
   RM.control = true; RM.lockPointer();
