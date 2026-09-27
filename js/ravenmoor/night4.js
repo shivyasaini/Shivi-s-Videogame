@@ -331,7 +331,7 @@ N4.portraits = () => RM.play(async (done) => {
 });
 // Rosalind Vane: the Magistrate's daughter
 N4.rosalind = () => RM.play(async (done) => {
-  const w = RM.useWorld('manor'); RM.setEnv('manor');
+  const w = RM.useWorld('manor'); RM.setEnv('manor'); RM.fade(0, 0.8);
   RM.placePlayer(41, -10, -Math.PI / 2);
   const ros = RM.npc(RM.LOOKS.rosalind, 47.5, -11.2, 0, { heartLabel: 'Rosalind' }); ros.face(P.x, P.z);
   RM.control = false; void w;
