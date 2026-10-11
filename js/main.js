@@ -23,7 +23,7 @@ canvas.style.cursor = 'crosshair';
 const mouse = { x: 0, y: 0, down: false };
 let mouseClicked = false;
 canvas.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
-canvas.addEventListener('mousedown', () => { mouse.down = true; mouseClicked = true; });
+canvas.addEventListener('mousedown', () => { audioInit(); mouse.down = true; mouseClicked = true; });
 addEventListener('mouseup', () => { mouse.down = false; });
 
 // --- input ------------------------------------------------------------------
@@ -34,6 +34,7 @@ addEventListener('keydown', (e) => {
   if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
     e.preventDefault();
   }
+  audioInit();
   const k = e.key.toLowerCase();
   if (!e.repeat) pressed[k] = true;
   keys[k] = true;
@@ -77,6 +78,7 @@ function newGame() {
   banner = { txt: '', ttl: 0, last: '' };
   mode = 'overworld';
   resetDungeons();
+  audioMood('explore');
   gateOpen = false; bossDefeated = false; victoryT = 0; endT = 0; shake = 0;
   addQuest('sword', 'Take Up the Sword', 'An old blade waits in a stone on the village’s eastern edge. Draw it.');
   msg('The village fire is warm. An old sword waits in the stone to the east.  [J] opens your journal.');
@@ -86,6 +88,7 @@ function newGame() {
 function addQuest(id, name, desc) {
   if (quests.find((q) => q.id === id)) return;
   quests.push({ id, name, desc, done: false, count: 0, goal: 0 });
+  sfx('quest');
   msg('New quest — ' + name);
 }
 
@@ -93,7 +96,7 @@ function getQuest(id) { return quests.find((q) => q.id === id); }
 
 function completeQuest(id) {
   const q = getQuest(id);
-  if (q && !q.done) { q.done = true; msg('Quest complete — ' + q.name); }
+  if (q && !q.done) { q.done = true; sfx('quest'); msg('Quest complete — ' + q.name); }
 }
 
 function msg(txt) {
@@ -176,6 +179,7 @@ function update(dt) {
     endT += dt;
     if ((pressed['enter'] || mouseClicked) && endT > 3) {
       state = 'play';
+      audioMood('explore');
       msg('Dawn holds. The land is quiet now — wander as you will.');
     }
     return;
@@ -211,6 +215,7 @@ function update(dt) {
     if (p.potions > 0 && p.hp < p.maxHp) {
       p.potions--;
       p.hp = Math.min(p.maxHp, p.hp + 60);
+      sfx('potion');
       floater(p.x, p.y - 20, '+60', '#7dd87d');
     } else if (p.potions <= 0) {
       msg('No potions left. Osric in the village sells them.');
@@ -220,6 +225,10 @@ function update(dt) {
   if (mode === 'overworld' && pressed['m']) {
     viewMode = viewMode === 'fp' ? 'top' : 'fp';
     msg(viewMode === 'fp' ? 'Back to your own eyes.' : 'The land from above — press M to return.');
+  }
+  if (pressed['n']) {
+    audioToggle();
+    msg(audio.muted ? 'Sound off.' : 'Sound on.');
   }
 
   if (mode === 'dungeon') {
@@ -242,6 +251,7 @@ function update(dt) {
   if (p.hp <= 0) {
     state = 'dead';
     mode = 'overworld';
+    sfx('death');
     burst(p.x, p.y, '#c04848', 24);
   }
 }
@@ -277,6 +287,7 @@ function overworldUpdate(dt, p) {
       p.atkCd = 0.42;
       p.swing = 0.16;
       p.swingDir = p.face;
+      sfx('swing');
       for (const e of enemies) {
         if (e.dead) continue;
         const d = dist(p.x, p.y, e.x, e.y);
@@ -292,6 +303,7 @@ function overworldUpdate(dt, p) {
     if (p.arrows > 0) {
       p.bowCd = 0.34;
       p.arrows--;
+      sfx('arrow');
       const a = angTo(p.x, p.y, mouse.x + cam.x, mouse.y + cam.y);
       p.face = a;
       projectiles.push({
@@ -378,6 +390,7 @@ function updateProjectiles(dt, p) {
           p.inv = 0.6;
           p.lastHurt = 0;
           shake = 5;
+          sfx('hurt');
           burst(p.x, p.y, '#a88ae8', 10);
           floater(p.x, p.y - 22, '-' + pr.dmg, '#e86060');
         }
@@ -418,6 +431,7 @@ function hitEnemy(e, dmg, ang) {
   e.ky += Math.sin(ang) * 180;
   e.aggroed = true;
   burst(e.x, e.y, e.type === 'wraith' ? '#8fd6e8' : '#d8d0c0', 6);
+  sfx('hit');
   floater(e.x, e.y - e.r - 6, String(dmg), '#f0e6c8');
   if (mode === 'overworld' && viewMode === 'fp') dgFloat(String(dmg), '#f0e6c8');
   if (e.hp <= 0) killEnemy(e);
@@ -426,6 +440,7 @@ function hitEnemy(e, dmg, ang) {
 function killEnemy(e) {
   e.dead = true;
   burst(e.x, e.y, '#5a5a6a', 14);
+  sfx(e.boss ? 'bossdie' : 'kill');
   gainXp(e.xp);
   floater(e.x, e.y - 16, '+' + e.xp + ' xp', '#b48ce8');
   if (mode === 'overworld' && viewMode === 'fp') dgFloat('+' + e.xp + ' xp', '#b48ce8');
@@ -440,6 +455,7 @@ function killEnemy(e) {
   if (e.boss) {
     bossDefeated = true;
     completeQuest('king');
+    audioMood('ending');
     victoryT = 2.2; // a breath before the ending scene begins
     msg('The Fallen King is no more.');
     shake = 12;
@@ -456,6 +472,7 @@ function gainXp(amount) {
     p.maxHp += 15;
     p.dmg += 3;
     p.hp = p.maxHp;
+    sfx('level');
     msg('Level ' + p.level + ' — your blade grows heavier, your resolve harder.');
     burst(p.x, p.y, '#b48ce8', 20);
   }
@@ -479,7 +496,7 @@ function updateEnemies(dt) {
 
     if (!e.aggroed && d < e.aggro) {
       e.aggroed = true;
-      if (e.boss) { msg('MALDRICH, THE FALLEN KING, RISES FROM HIS THRONE'); shake = 8; }
+      if (e.boss) { sfx('roar'); audioMood('boss'); msg('MALDRICH, THE FALLEN KING, RISES FROM HIS THRONE'); shake = 8; }
     }
     // lose interest if the player runs far away (except the king)
     if (e.aggroed && !e.boss && d > e.aggro * 2.2) e.aggroed = false;
@@ -559,6 +576,7 @@ function updateEnemies(dt) {
       p.inv = 0.6;
       p.lastHurt = 0;
       shake = 6;
+      sfx('hurt');
       burst(p.x, p.y, '#c04848', 10);
       floater(p.x, p.y - 22, '-' + e.dmg, '#e86060');
     }
@@ -566,6 +584,7 @@ function updateEnemies(dt) {
 }
 
 function fireBolt(x, y, a, speed, dmg) {
+  if (dist(x, y, player.x, player.y) < 600) sfx('bolt');
   projectiles.push({
     x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
     ttl: 2.2, dmg, hostile: true, kind: 'bolt', ang: a,
@@ -580,12 +599,15 @@ function updatePickups() {
       k.got = true;
       if (k.type === 'gold') {
         p.gold += k.val;
+        sfx('pickup');
         floater(k.x, k.y - 10, '+' + k.val + 'g', '#e8c860');
       } else if (k.type === 'potion') {
         p.potions++;
+        sfx('pickup');
         floater(k.x, k.y - 10, '+potion', '#e86060');
       } else if (k.type === 'arrows') {
         p.arrows += k.val;
+        sfx('pickup');
         floater(k.x, k.y - 10, '+' + k.val + ' arrows', '#d8cfa8');
       } else if (k.type === 'sigil') {
         p.sigils++;
@@ -633,6 +655,7 @@ function triggerInteract(t) {
     world.shrine.taken = true;
     player.hasSword = true;
     gateOpen = true;
+    sfx('sworddraw');
     completeQuest('sword');
     addQuest('journey', 'The North Road', 'Follow the lantern-lit road north, all the way to Castle Maldrich.');
     burst(world.shrine.x, world.shrine.y, '#c8ccd8', 24);
@@ -1579,7 +1602,7 @@ function drawTitle() {
   ctx.font = '16px Georgia, serif';
   const lines = [
     'W / S — walk        A / D — turn        Click — strike or shoot        Shift — dash',
-    'E — talk / take        Q — potion        J — journal        M — map view',
+    'E — talk / take        Q — potion        J — journal        M — map        N — sound',
     '',
     'Draw the sword.  Follow the lanterns north, under the moon.  Face the Fallen King.',
   ];

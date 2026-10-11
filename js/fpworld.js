@@ -60,6 +60,7 @@ function fpUpdate(dt) {
       p.atkCd = 0.45;
       fpSwing = 0.2;
       p.swingDir = p.face;
+      sfx('swing');
       hitEnemy(target, p.dmg, angTo(p.x, p.y, target.x, target.y));
     } else if (target && !p.hasSword) {
       p.atkCd = 0.4;
@@ -68,6 +69,7 @@ function fpUpdate(dt) {
       p.atkCd = 0.42;
       p.arrows--;
       fpSwing = 0.1;
+      sfx('arrow');
       projectiles.push({
         x: p.x + Math.cos(p.face) * 14, y: p.y + Math.sin(p.face) * 14,
         vx: Math.cos(p.face) * 440, vy: Math.sin(p.face) * 440,
@@ -77,6 +79,7 @@ function fpUpdate(dt) {
     } else {
       p.atkCd = 0.42;
       fpSwing = 0.2;
+      sfx('swing');
       if (mouseClicked) msg('Out of arrows — and nothing in reach of the blade.');
     }
   }
